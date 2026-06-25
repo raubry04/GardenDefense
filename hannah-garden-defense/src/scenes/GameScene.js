@@ -51,6 +51,7 @@ export class GameScene extends Phaser.Scene {
     this.hoverHighlight = null;
     this.hoverRangeCircle = null;
     this._livesWarningTimer = 0;
+    this._warningEdges = null;
 
     const mapData = this._buildMapData();
     this.waypoints = mapData.waypoints;
@@ -67,6 +68,7 @@ export class GameScene extends Phaser.Scene {
 
     this._drawTileMap();
     this._drawGardenGate();
+    this._createLivesWarningOverlay();
     applyCamera();
 
     this.waveManager = new WaveManager(this);
@@ -86,7 +88,6 @@ export class GameScene extends Phaser.Scene {
     this._setupAbilities();
     this._setupInput();
     this._setupPauseMenu();
-    this._createLivesWarningOverlay();
   }
 
   update(time, delta) {
@@ -1112,6 +1113,7 @@ export class GameScene extends Phaser.Scene {
         waveReached: this.waveManager.getCurrentWave(),
         zone: this.zone,
         battle: this.battle,
+        playerName: this.playerName,
       });
     }
   }
@@ -1214,26 +1216,27 @@ export class GameScene extends Phaser.Scene {
   }
 
   _layoutLivesWarningEdges() {
-    if (!this._warningEdges) return;
+    const edges = this._warningEdges;
+    if (!edges?.length || !edges[0]?.active) return;
     const view = this._view();
     const thickness = 12;
 
-    this._warningEdges[0]
+    edges[0]
       .setPosition(view.centerX, view.y + thickness / 2)
       .setSize(view.width, thickness);
-    this._warningEdges[1]
+    edges[1]
       .setPosition(view.centerX, view.bottom - thickness / 2)
       .setSize(view.width, thickness);
-    this._warningEdges[2]
+    edges[2]
       .setPosition(view.x + thickness / 2, view.centerY)
       .setSize(thickness, view.height);
-    this._warningEdges[3]
+    edges[3]
       .setPosition(view.right - thickness / 2, view.centerY)
       .setSize(thickness, view.height);
   }
 
   _updateLivesWarning(delta) {
-    if (this.lives > 5) return;
+    if (this.lives > 5 || !this._warningEdges?.[0]?.active) return;
 
     this._livesWarningTimer += delta;
     if (this._livesWarningTimer >= 3000) {
@@ -1332,5 +1335,6 @@ export class GameScene extends Phaser.Scene {
     this.enemies = [];
     this.towers = [];
     this.projectiles = [];
+    this._warningEdges = null;
   }
 }

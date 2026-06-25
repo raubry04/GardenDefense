@@ -162,6 +162,9 @@ export async function saveProgressWithSync(progress) {
 export async function loadProgress(playerName) {
   try {
     const res = await fetch(`/api/progress/${encodeURIComponent(playerName)}`);
+    if (res.status === 404) {
+      return loadLocalProgress(playerName);
+    }
     if (res.ok) {
       const row = await res.json();
       const merged = serverRowToProgress(row, playerName);

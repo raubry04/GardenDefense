@@ -17,6 +17,10 @@ export class ProgressManager {
   async load(playerName) {
     try {
       const res = await fetch(`/api/progress/${encodeURIComponent(playerName)}`);
+      if (res.status === 404) {
+        this.data = { ...DEFAULT_PROGRESS, playerName };
+        return this.data;
+      }
       if (res.ok) {
         const serverData = await res.json();
         this.data = { ...DEFAULT_PROGRESS, ...serverData };

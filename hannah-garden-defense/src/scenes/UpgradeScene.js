@@ -148,17 +148,43 @@ export class UpgradeScene extends Phaser.Scene {
     }
     if (nextUnlocks.length > 0) {
       this.add.text(width / 2, barY + barHeight + 28, `Lv.${this.hannahLevel + 1} unlocks: ${nextUnlocks.join(', ')}`, {
-        fontFamily: 'Kenney Future', fontSize: '13px', color: '#FFD700',
+        fontFamily: 'Kenney Future',
+        fontSize: '13px',
+        color: '#FFD700',
+        wordWrap: { width: width * 0.85 },
+        align: 'center',
       }).setOrigin(0.5, 0);
     }
+  }
+
+  _buildUpgradeStatLines(upgrade, currentStats) {
+    const lines = [];
+    if (upgrade.damage !== undefined) lines.push(`+${upgrade.damage - (currentStats.damage || 0)} dmg`);
+    if (upgrade.range !== undefined) lines.push(`+${upgrade.range - (currentStats.range || 0)} range`);
+    if (upgrade.slowPercent !== undefined) {
+      lines.push(`+${Math.round((upgrade.slowPercent - (currentStats.slowPercent || 0)) * 100)}% slow`);
+    }
+    if (upgrade.hp !== undefined) lines.push(`+${upgrade.hp - (currentStats.hp || 0)} hp`);
+    if (upgrade.stunMs !== undefined) lines.push(`+${upgrade.stunMs - (currentStats.stunMs || 0)}ms stun`);
+    if (upgrade.fireRate !== undefined && currentStats.fireRate) {
+      lines.push(`-${currentStats.fireRate - upgrade.fireRate}ms rate`);
+    }
+    if (upgrade.eggs !== undefined && upgrade.eggs !== currentStats.eggs) {
+      lines.push(`+${upgrade.eggs - (currentStats.eggs || 0)} eggs`);
+    }
+    return lines;
   }
 
   _createTowerUpgradeList(width, height) {
     const towerTypes = [...new Set(this.placedTowers.map(t => t.type))];
     const startY = 140;
-    const cardHeight = 74;
-    const spacing = 10;
-    const maxCards = Math.min(towerTypes.length, 5);
+    const cardHeight = 104;
+    const spacing = 8;
+    const listBottom = height - 100;
+    const maxCards = Math.min(
+      towerTypes.length,
+      Math.max(1, Math.floor((listBottom - startY + spacing) / (cardHeight + spacing))),
+    );
 
     if (towerTypes.length === 0) {
       this.add.text(width / 2, height / 2 - 20, 'No towers placed yet!', {
@@ -198,19 +224,24 @@ export class UpgradeScene extends Phaser.Scene {
         this.add.circle(width / 2 - cardW / 2 + 40, y + cardHeight / 2, 20, 0x888888);
       }
 
+      const textLeft = width / 2 - cardW / 2 + 76;
+      const btnAreaW = 118;
+      const textMaxW = cardW - 76 - btnAreaW;
+
       const displayName = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      this.add.text(width / 2 - cardW / 2 + 76, y + 14, displayName, {
+      this.add.text(textLeft, y + 10, displayName, {
         fontFamily: 'Kenney Future',
-        fontSize: '18px',
+        fontSize: '15px',
         color: '#3D5A1F',
-      });
+        wordWrap: { width: textMaxW },
+      }).setOrigin(0, 0);
 
       const tierStars = '★'.repeat(tier + 1) + '☆'.repeat(2 - tier);
-      this.add.text(width / 2 - cardW / 2 + 76, y + 38, `Tier ${tier + 1}/3  ${tierStars}`, {
+      this.add.text(textLeft, y + 28, `Tier ${tier + 1}/3  ${tierStars}`, {
         fontFamily: 'Kenney Future',
-        fontSize: '16px',
+        fontSize: '13px',
         color: '#888888',
-      });
+      }).setOrigin(0, 0);
 
       if (tier < 2 && config && config.upgrades && config.upgrades[tier]) {
         const upgrade = config.upgrades[tier];
@@ -218,30 +249,29 @@ export class UpgradeScene extends Phaser.Scene {
         const canAfford = this.sunshinePoints >= upgCost;
         const btnColor = canAfford ? COLORS.button : 0x888888;
 
-        const upgBtnX = width / 2 + cardW / 2 - 70;
+        const upgBtnX = width / 2 + cardW / 2 - btnAreaW / 2;
         const upgBtnY = y + cardHeight / 2;
 
-        const upgradeBtn = this.add.rectangle(upgBtnX, upgBtnY, 110, 40, btnColor)
+        const upgradeBtn = this.add.rectangle(upgBtnX, upgBtnY, 100, 44, btnColor)
           .setStrokeStyle(2, canAfford ? COLORS.outline : 0x666666)
           .setInteractive({ useHandCursor: canAfford });
 
-        const btnText = this.add.text(upgBtnX, upgBtnY - 6, `⬆ ${upgCost}☀`, {
+        const btnText = this.add.text(upgBtnX, upgBtnY, `⬆ ${upgCost}☀`, {
           fontFamily: 'Kenney Future',
-          fontSize: '16px',
+          fontSize: '15px',
           color: canAfford ? '#4A2C0A' : '#CCCCCC',
         }).setOrigin(0.5);
 
         const currentStats = tier === 0 ? config : config.upgrades[tier - 1];
-        const statParts = [];
-        if (upgrade.damage !== undefined) statParts.push(`+${upgrade.damage - (currentStats.damage || 0)} dmg`);
-        if (upgrade.range !== undefined) statParts.push(`+${upgrade.range - (currentStats.range || 0)}px`);
-        if (upgrade.slowPercent !== undefined) statParts.push(`+${Math.round((upgrade.slowPercent - (currentStats.slowPercent || 0)) * 100)}% slow`);
-        if (upgrade.hp !== undefined) statParts.push(`+${upgrade.hp - (currentStats.hp || 0)} hp`);
-        if (upgrade.stunMs !== undefined) statParts.push(`+${upgrade.stunMs - (currentStats.stunMs || 0)}ms stun`);
-        if (statParts.length > 0) {
-          this.add.text(upgBtnX, upgBtnY + 14, statParts.join(', '), {
-            fontFamily: 'Kenney Future', fontSize: '10px', color: '#4CAF50',
-          }).setOrigin(0.5);
+        const statLines = this._buildUpgradeStatLines(upgrade, currentStats);
+        if (statLines.length > 0) {
+          this.add.text(textLeft, y + 46, statLines.join('\n'), {
+            fontFamily: 'Kenney Future',
+            fontSize: '10px',
+            color: '#4CAF50',
+            wordWrap: { width: textMaxW },
+            lineSpacing: 2,
+          }).setOrigin(0, 0);
         }
 
         if (canAfford) {
