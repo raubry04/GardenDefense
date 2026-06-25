@@ -30,8 +30,6 @@ export class GameOverScene extends Phaser.Scene {
     setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
 
-    this.cameras.main.setBackgroundColor('#2D4A1B');
-
     this._drawBackground(width, height);
 
     const sunflower = this.add.text(width / 2, 50, '🌻', { fontSize: '48px' }).setOrigin(0.5);

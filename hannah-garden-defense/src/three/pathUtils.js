@@ -11,10 +11,35 @@ export const TILE_FILES = {
   grass: 'tile.glb',
 };
 
-/** Layout C — Kingdom Rush style (Zone 1 default). */
+/** Build a cardinal path between two tile coords (inclusive). */
+function lineCoords(x0, z0, x1, z1) {
+  const coords = [];
+  if (x0 === x1) {
+    const step = z0 < z1 ? 1 : -1;
+    for (let z = z0; z !== z1 + step; z += step) coords.push({ x: x0, z });
+  } else {
+    const step = x0 < x1 ? 1 : -1;
+    for (let x = x0; x !== x1 + step; x += step) coords.push({ x, z: z0 });
+  }
+  return coords;
+}
+
+/** Merge path segments without duplicating shared endpoints. */
+function joinPaths(...segments) {
+  const result = [];
+  for (const seg of segments) {
+    for (const c of seg) {
+      const last = result[result.length - 1];
+      if (!last || last.x !== c.x || last.z !== c.z) result.push(c);
+    }
+  }
+  return result;
+}
+
+/** Zone 1 — serpentine meadow path. */
 export const LAYOUT_C = {
   id: 'C',
-  name: 'Kingdom Rush Style',
+  name: 'Sunflower Meadow',
   gridW: 18,
   gridH: 12,
   margin: 3,
@@ -29,6 +54,92 @@ export const LAYOUT_C = {
     { x: 13, z: 7 }, { x: 14, z: 7 }, { x: 15, z: 7 }, { x: 16, z: 7 }, { x: 17, z: 7 },
   ],
 };
+
+/** Zone 2 — wide S-curve through vegetable rows. */
+export const LAYOUT_GARDEN = {
+  id: 'garden',
+  name: 'Vegetable Garden',
+  gridW: 20,
+  gridH: 12,
+  margin: 3,
+  pathCoords: joinPaths(
+    lineCoords(0, 3, 9, 3),
+    lineCoords(9, 3, 9, 8),
+    lineCoords(9, 8, 18, 8),
+    lineCoords(18, 8, 18, 10),
+  ),
+};
+
+/** Zone 3 — U-turn around the coop. */
+export const LAYOUT_COOP = {
+  id: 'coop',
+  name: 'Chicken Coop',
+  gridW: 20,
+  gridH: 12,
+  margin: 3,
+  pathCoords: joinPaths(
+    lineCoords(0, 2, 10, 2),
+    lineCoords(10, 2, 10, 9),
+    lineCoords(10, 9, 17, 9),
+    lineCoords(17, 9, 17, 2),
+    lineCoords(17, 2, 19, 2),
+  ),
+};
+
+/** Zone 4 — horizontal zigzag through berry rows. */
+export const LAYOUT_BERRY = {
+  id: 'berry',
+  name: 'Berry Patch',
+  gridW: 20,
+  gridH: 12,
+  margin: 3,
+  pathCoords: joinPaths(
+    lineCoords(0, 2, 18, 2),
+    lineCoords(18, 2, 18, 3),
+    lineCoords(18, 3, 0, 3),
+    lineCoords(0, 3, 0, 4),
+    lineCoords(0, 4, 18, 4),
+    lineCoords(18, 4, 18, 5),
+    lineCoords(18, 5, 0, 5),
+    lineCoords(0, 5, 0, 6),
+    lineCoords(0, 6, 18, 6),
+    lineCoords(18, 6, 18, 7),
+    lineCoords(18, 7, 0, 7),
+    lineCoords(0, 7, 0, 8),
+    lineCoords(0, 8, 18, 8),
+    lineCoords(18, 8, 18, 9),
+    lineCoords(18, 9, 19, 9),
+  ),
+};
+
+/** Zone 5 — orchard perimeter loop ending at the barn. */
+export const LAYOUT_ORCHARD = {
+  id: 'orchard',
+  name: 'Apple Orchard',
+  gridW: 20,
+  gridH: 12,
+  margin: 3,
+  pathCoords: joinPaths(
+    lineCoords(0, 1, 17, 1),
+    lineCoords(17, 1, 17, 9),
+    lineCoords(17, 9, 3, 9),
+    lineCoords(3, 9, 3, 4),
+    lineCoords(3, 4, 14, 4),
+    lineCoords(14, 4, 14, 7),
+    lineCoords(14, 7, 6, 7),
+    lineCoords(6, 7, 6, 6),
+    lineCoords(6, 6, 19, 6),
+  ),
+};
+
+/** One layout per campaign zone; endless reuses orchard. */
+export const ZONE_LAYOUTS = [
+  LAYOUT_C,
+  LAYOUT_GARDEN,
+  LAYOUT_COOP,
+  LAYOUT_BERRY,
+  LAYOUT_ORCHARD,
+];
 
 export function dirBetween(ax, az, bx, bz) {
   const dx = bx - ax;

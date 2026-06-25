@@ -1,9 +1,11 @@
 import { GameConfig } from '../config.js';
 import { TOWER_SPRITES, ENEMY_SPRITES } from '../utils/AssetRegistry.js';
 import { WaveManager } from '../systems/WaveManager.js';
-import { setupResponsiveCamera, DESIGN, fillGrassUnderlay } from '../utils/responsiveCamera.js';
+import { setupBattleCamera, refillSceneGrass } from '../utils/responsiveCamera.js';
+import { applyMobileLayout } from '../utils/mobileViewport.js';
 import { buildCanvasMapData } from '../utils/pathTile2D.js';
 import { craftpixGroundKey, CRAFTPIX_GRASS_TILES } from '../utils/craftpixTiles.js';
+import { loadLocalProgress, adjustedAbilityCooldown, applyTowerTierStats, hannahLevelFromXp } from '../utils/hannahProgress.js';
 
 const COLORS = GameConfig.colors;
 const TILE = GameConfig.tileSize;
@@ -22,10 +24,20 @@ export class GameScene extends Phaser.Scene {
     this.zone = data.zone ?? 0;
     this.battle = data.battle ?? 0;
     this.playerName = data.playerName || 'Player';
+
+    const progress = loadLocalProgress(this.playerName);
+    this.hannahLevel = progress.hannahLevel ?? hannahLevelFromXp(progress.hannahXp ?? 0);
+    this.hannahXp = 0;
+    this.battleXpStart = progress.hannahXp ?? 0;
+    this.towerUpgrades = { ...(progress.towerUpgrades || {}) };
+    this.abilityLastUsed = {};
+    for (const key of Object.keys(GameConfig.hannahAbilities)) {
+      this.abilityLastUsed[key] = -Infinity;
+    }
   }
 
   create() {
-    setupResponsiveCamera(this, (view) => this._fillScenery(view));
+    applyMobileLayout();
     this.cameras.main.setBackgroundColor('#5A9A38');
     this.cameras.main.fadeIn(300);
     this.lives = GameConfig.startingLives;
@@ -39,15 +51,23 @@ export class GameScene extends Phaser.Scene {
     this.hoverHighlight = null;
     this.hoverRangeCircle = null;
     this._livesWarningTimer = 0;
-    this.hannahXp = 0;
-    this.hannahLevel = 1;
 
     const mapData = this._buildMapData();
     this.waypoints = mapData.waypoints;
     this.tileGrid = mapData.grid;
     this.pathTileMap = mapData.pathTileMap;
+    this._mapCoreBounds = mapData.coreBounds;
+    this.worldWidth = mapData.cols * TILE;
+    this.worldHeight = mapData.rows * TILE;
+
+    const applyCamera = setupBattleCamera(this, (view) => {
+      this._fillScenery(view);
+      this._layoutLivesWarningEdges();
+    }, { immediate: false });
+
     this._drawTileMap();
     this._drawGardenGate();
+    applyCamera();
 
     this.waveManager = new WaveManager(this);
     this.waveManager.startBattle(this.zone, this.battle);
@@ -57,9 +77,13 @@ export class GameScene extends Phaser.Scene {
       sunshinePoints: this.sunshinePoints,
       totalWaves: this.waveManager.getTotalWaves(),
       zone: this.zone,
+      hannahLevel: this.hannahLevel,
+      worldWidth: this.worldWidth,
+      worldHeight: this.worldHeight,
     });
 
     this._setupEvents();
+    this._setupAbilities();
     this._setupInput();
     this._setupPauseMenu();
     this._createLivesWarningOverlay();
@@ -82,7 +106,14 @@ export class GameScene extends Phaser.Scene {
   _buildMapData() {
     const cols = Math.ceil(GameConfig.canvas.width / TILE);
     const rows = Math.ceil(GameConfig.canvas.height / TILE);
-    return buildCanvasMapData(this.zone, cols, rows);
+    return buildCanvasMapData(this.zone, cols, rows, TILE, {
+      centerLayout: true,
+      expandPlayable: false,
+    });
+  }
+
+  _view() {
+    return this.cameras.main.worldView;
   }
 
   /* ─── Tilemap drawing ─── */
@@ -112,27 +143,26 @@ export class GameScene extends Phaser.Scene {
         // Decorate buildable grass only (not 'blocked' filler around the map).
         if (type !== 'grass') continue;
 
-        if (rng.frac() < 0.08) {
+        const roll = rng.frac();
+        if (roll < 0.16) {
           this._drawTreeDecoration(cx, cy, rng);
-        } else if (rng.frac() < 0.1) {
+        } else if (roll < 0.34) {
           this._drawBushDecoration(cx, cy, rng);
-        } else if (rng.frac() < 0.06) {
+        } else if (roll < 0.46) {
           this._drawRockDecoration(cx, cy, rng);
         }
       }
     }
   }
 
-  /** Full-view grass underlay; board tiles draw on top at depth 0. */
   _fillScenery(view) {
-    if (this._sceneryObjs) this._sceneryObjs.forEach((o) => o.destroy());
-    this._sceneryObjs = fillGrassUnderlay(this, view, -10);
+    refillSceneGrass(this, view, -10);
   }
 
   _drawTreeDecoration(cx, cy, rng) {
     const key = TREE_KEYS[rng.between(0, TREE_KEYS.length - 1)];
     const size = rng.between(48, 72);
-    this.add.image(cx + rng.between(-4, 4), cy + rng.between(-8, 4), key)
+    return this.add.image(cx + rng.between(-4, 4), cy + rng.between(-8, 4), key)
       .setDisplaySize(size, size)
       .setDepth(2);
   }
@@ -140,7 +170,7 @@ export class GameScene extends Phaser.Scene {
   _drawBushDecoration(cx, cy, rng) {
     const key = BUSH_KEYS[rng.between(0, BUSH_KEYS.length - 1)];
     const size = rng.between(28, 44);
-    this.add.image(cx + rng.between(-6, 6), cy + rng.between(-4, 6), key)
+    return this.add.image(cx + rng.between(-6, 6), cy + rng.between(-4, 6), key)
       .setDisplaySize(size, size)
       .setDepth(2);
   }
@@ -148,7 +178,7 @@ export class GameScene extends Phaser.Scene {
   _drawRockDecoration(cx, cy, rng) {
     const key = ROCK_KEYS[rng.between(0, ROCK_KEYS.length - 1)];
     const size = rng.between(20, 32);
-    this.add.image(cx + rng.between(-8, 8), cy + rng.between(-4, 8), key)
+    return this.add.image(cx + rng.between(-8, 8), cy + rng.between(-4, 8), key)
       .setDisplaySize(size, size)
       .setDepth(2);
   }
@@ -214,8 +244,8 @@ export class GameScene extends Phaser.Scene {
           pointsEarned: this.sunshinePoints,
           playerName: this.playerName,
           towers: towerData,
-          hannahXp: this.hannahXp || 0,
-          hannahLevel: this.hannahLevel || 1,
+          hannahXp: this.battleXpStart + (this.hannahXp || 0),
+          hannahLevel: this.hannahLevel,
         });
       });
     });
@@ -223,6 +253,15 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on('tower-selected', (towerType) => {
       this.selectedTower = towerType;
       this._createGhostPreview(towerType);
+    });
+
+    this.game.events.on('tower-deselected', () => {
+      this.selectedTower = null;
+      if (this.ghostPreview) {
+        this.ghostPreview.destroy();
+        this.ghostPreview = null;
+      }
+      this._clearHoverHighlight();
     });
 
     this.game.events.on('send-next-wave', () => {
@@ -236,20 +275,106 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  _setupAbilities() {
+    this.game.events.on('ability-used', (data) => {
+      const key = typeof data === 'string' ? data : data?.key;
+      if (key) this._useAbility(key);
+    });
+  }
+
+  _abilityCooldownMs(key) {
+    const base = GameConfig.hannahAbilities[key]?.cooldown ?? 30000;
+    return adjustedAbilityCooldown(base, this.hannahLevel);
+  }
+
+  _canUseAbility(key) {
+    const ability = GameConfig.hannahAbilities[key];
+    if (!ability) return false;
+    if (ability.unlockLevel && this.hannahLevel < ability.unlockLevel) return false;
+    return this.time.now - this.abilityLastUsed[key] >= this._abilityCooldownMs(key);
+  }
+
+  _useAbility(key) {
+    if (!this._canUseAbility(key)) return false;
+
+    const ability = GameConfig.hannahAbilities[key];
+    this.abilityLastUsed[key] = this.time.now;
+
+    switch (key) {
+      case 'SUNSHINE_BURST': {
+        for (const enemy of this.enemies) {
+          if (!enemy.alive) continue;
+          if (enemy.flies) continue;
+          this._damageEnemy(enemy, ability.damage);
+        }
+        this._showAbilityPulse(this.waypoints[Math.floor(this.waypoints.length / 2)], 0xFFD700);
+        break;
+      }
+      case 'GARDEN_RAIN': {
+        for (const tower of this.towers) {
+          if (tower.hp <= 0) continue;
+          tower.hp = tower.maxHp;
+        }
+        break;
+      }
+      case 'RAINBOW_SHIELD': {
+        for (const tower of this.towers) {
+          if (tower.hp <= 0) continue;
+          tower.shielded = true;
+          this.time.delayedCall(ability.duration, () => {
+            if (tower.hp > 0) tower.shielded = false;
+          });
+        }
+        break;
+      }
+      case 'FLOWER_BOMB': {
+        const center = this.waypoints[Math.floor(this.waypoints.length / 2)];
+        const rangePx = ability.range * (GameConfig.tileSize / 64);
+        for (const enemy of this.enemies) {
+          if (!enemy.alive) continue;
+          if (Phaser.Math.Distance.Between(center.x, center.y, enemy.x, enemy.y) <= rangePx) {
+            this._damageEnemy(enemy, ability.damage);
+          }
+        }
+        this._showAbilityPulse(center, 0xFF69B4, rangePx);
+        break;
+      }
+    }
+
+    this.sound.play('abilityUsed', { volume: GameConfig.audio.sfxVolume });
+    this.game.events.emit('ability-fired', {
+      key,
+      cooldown: this._abilityCooldownMs(key),
+    });
+    return true;
+  }
+
+  _showAbilityPulse(center, color, radius = GameConfig.tileSize * 2) {
+    const pulse = this.add.circle(center.x, center.y, radius, color, 0.35)
+      .setStrokeStyle(2, color, 0.6).setDepth(35);
+    this.tweens.add({
+      targets: pulse, scaleX: 1.4, scaleY: 1.4, alpha: 0,
+      duration: 450, onComplete: () => pulse.destroy(),
+    });
+  }
+
   /* ─── Input ─── */
+
+  _updateGhostAt(col, row) {
+    if (!this.ghostPreview || !this.selectedTower) return;
+    this.ghostPreview.setPosition(col * TILE + TILE / 2, row * TILE + TILE / 2);
+    const valid = this._isValidPlacement(row, col);
+    this.ghostPreview.setAlpha(valid ? 0.7 : 0.3);
+    this.ghostPreview.setTint(valid ? 0xFFD700 : 0xE63946);
+    this._updateHoverTile(col, row, valid);
+  }
 
   _setupInput() {
     this.input.on('pointermove', (pointer) => {
       if (!this.ghostPreview || !this.selectedTower) return;
       const col = Math.floor(pointer.worldX / TILE);
       const row = Math.floor(pointer.worldY / TILE);
-      this.ghostPreview.setPosition(col * TILE + TILE / 2, row * TILE + TILE / 2);
-
-      const valid = this._isValidPlacement(row, col);
-      this.ghostPreview.setAlpha(valid ? 0.7 : 0.3);
-      this.ghostPreview.setTint(valid ? 0xFFD700 : 0xE63946);
-
-      this._updateHoverTile(col, row, valid);
+      this._updateGhostAt(col, row);
     });
 
     this.input.on('pointerdown', (pointer) => {
@@ -262,6 +387,8 @@ export class GameScene extends Phaser.Scene {
         return;
       }
       if (!this.selectedTower) return;
+
+      this._updateGhostAt(col, row);
 
       if (!this._isValidPlacement(row, col)) {
         this.sound.play('invalidAction', { volume: GameConfig.audio.sfxVolume });
@@ -280,13 +407,6 @@ export class GameScene extends Phaser.Scene {
 
       this._placeTower(this.selectedTower, row, col);
       this.sound.play('towerPlaced', { volume: GameConfig.audio.sfxVolume });
-
-      if (this.ghostPreview) {
-        this.ghostPreview.destroy();
-        this.ghostPreview = null;
-      }
-      this._clearHoverHighlight();
-      this.selectedTower = null;
     });
 
     this.input.mouse.disableContextMenu();
@@ -377,13 +497,20 @@ export class GameScene extends Phaser.Scene {
     const spriteKey = TOWER_SPRITES[type];
     const x = col * TILE + TILE / 2;
     const y = row * TILE + TILE / 2;
-    const config = GameConfig.towers[type];
+    const baseConfig = GameConfig.towers[type];
+    const tier = this.towerUpgrades[type] ?? 0;
+    const config = applyTowerTierStats(type, tier);
     const isPigWall = type === 'PIG_WALL';
-    const towerHp = config.hp || GameConfig.towerDefaultHp || 200;
+    const towerHp = config.hp || baseConfig.hp || GameConfig.towerDefaultHp || 200;
 
     const sprite = this.add.image(x, y, spriteKey)
       .setDisplaySize(TILE - 8, TILE - 8)
       .setDepth(10);
+
+    if (tier > 0) {
+      const tierTints = [0xFFFFFF, 0xC0E0FF, 0xFFD700];
+      sprite.setTint(tierTints[Math.min(tier, tierTints.length - 1)]);
+    }
 
     const tower = {
       type,
@@ -391,17 +518,18 @@ export class GameScene extends Phaser.Scene {
       gridRow: row,
       gridCol: col,
       x, y,
-      range: config.range,
+      range: config.range ?? baseConfig.range,
       damage: config.damage || 0,
-      fireRate: config.fireRate || (config.cooldown || 1000),
+      fireRate: config.fireRate || (config.cooldown || baseConfig.fireRate || baseConfig.cooldown || 1000),
       slowPercent: config.slowPercent || 0,
       stunMs: config.stunMs || 0,
       freezeMs: config.freezeMs || 0,
       lastFired: 0,
-      tier: 0,
+      tier,
       hp: towerHp,
       maxHp: towerHp,
-      cost: config.cost,
+      shielded: false,
+      cost: baseConfig.cost,
       onPath: this.tileGrid[row][col] === 'path',
     };
 
@@ -418,7 +546,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this._spawnPlacementParticles(x, y);
-    this._showRangeCircle(x, y, config.range);
+    this._showRangeCircle(x, y, tower.range);
   }
 
   _spawnPlacementParticles(x, y) {
@@ -478,6 +606,7 @@ export class GameScene extends Phaser.Scene {
       stunTimer: 0,
       alive: true,
       attackTimer: 0,
+      flies: config.flies ?? false,
     };
 
     const hpBarBg = this.add.rectangle(start.x, start.y - TILE / 2 + 4, TILE - 16, 6, 0x222222).setDepth(21);
@@ -743,6 +872,9 @@ export class GameScene extends Phaser.Scene {
 
     this.sunshinePoints += enemy.reward;
     this.hannahXp += Math.ceil(enemy.reward * 0.5);
+    if (enemy.type === 'ELEPHANT') {
+      this.hannahXp += GameConfig.hannahXpRewards.bossKill ?? 0;
+    }
     this.game.events.emit('points-changed', { points: this.sunshinePoints });
     this.game.events.emit('enemy-defeated');
 
@@ -869,6 +1001,7 @@ export class GameScene extends Phaser.Scene {
       stunTimer: 0,
       alive: true,
       attackTimer: 0,
+      flies: config.flies ?? false,
     };
 
     const hpBarBg = this.add.rectangle(sx, sy - TILE / 2 + 4, TILE - 16, 6, 0x222222).setDepth(21);
@@ -882,6 +1015,7 @@ export class GameScene extends Phaser.Scene {
   /* ─── Tower damage & destruction ─── */
 
   _damageTower(tower, damage) {
+    if (tower.shielded) return;
     tower.hp -= damage;
     this._showFloatingDamage(tower.x, tower.y - 20, damage);
 
@@ -997,8 +1131,8 @@ export class GameScene extends Phaser.Scene {
   /* ─── Wave banner & countdown ─── */
 
   _showWaveBanner(wave, total) {
-    const { width } = DESIGN;
-    const banner = this.add.text(-400, 50, `Wave ${wave} of ${total}!`, {
+    const view = this._view();
+    const banner = this.add.text(view.x - 400, view.y + 64, `Wave ${wave} of ${total}!`, {
       fontFamily: 'Kenney Pixel',
       fontSize: '40px',
       color: '#FFFFFF',
@@ -1018,14 +1152,14 @@ export class GameScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: banner,
-      x: width / 2,
+      x: view.centerX,
       duration: 400,
       ease: 'Back.easeOut',
       hold: 1200,
       yoyo: true,
       onYoyo: () => {
         this.tweens.add({
-          targets: banner, x: width + 400, duration: 350, ease: 'Power2',
+          targets: banner, x: view.right + 400, duration: 350, ease: 'Power2',
           onComplete: () => banner.destroy(),
         });
       },
@@ -1033,12 +1167,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   _showCooldownTimer() {
-    const { width, height } = DESIGN;
+    const view = this._view();
     let seconds = GameConfig.waveCooldownSeconds;
 
     if (this._cooldownText) this._cooldownText.destroy();
 
-    this._cooldownText = this.add.text(width / 2, height / 2, `Next wave in ${seconds}s`, {
+    this._cooldownText = this.add.text(view.centerX, view.centerY, `Next wave in ${seconds}s`, {
       fontFamily: 'Kenney Pixel',
       fontSize: '28px',
       color: '#FFFFFF',
@@ -1066,17 +1200,36 @@ export class GameScene extends Phaser.Scene {
   /* ─── Lives warning ─── */
 
   _createLivesWarningOverlay() {
-    const { width, height } = DESIGN;
     const thickness = 12;
 
     this._warningEdges = [
-      this.add.rectangle(width / 2, thickness / 2, width, thickness, 0xE63946).setDepth(180),
-      this.add.rectangle(width / 2, height - thickness / 2, width, thickness, 0xE63946).setDepth(180),
-      this.add.rectangle(thickness / 2, height / 2, thickness, height, 0xE63946).setDepth(180),
-      this.add.rectangle(width - thickness / 2, height / 2, thickness, height, 0xE63946).setDepth(180),
+      this.add.rectangle(0, 0, 1, 1, 0xE63946).setDepth(180),
+      this.add.rectangle(0, 0, 1, 1, 0xE63946).setDepth(180),
+      this.add.rectangle(0, 0, 1, 1, 0xE63946).setDepth(180),
+      this.add.rectangle(0, 0, 1, 1, 0xE63946).setDepth(180),
     ];
     this._warningEdges.forEach(e => e.setAlpha(0));
+    this._layoutLivesWarningEdges();
     this._livesWarningTimer = 0;
+  }
+
+  _layoutLivesWarningEdges() {
+    if (!this._warningEdges) return;
+    const view = this._view();
+    const thickness = 12;
+
+    this._warningEdges[0]
+      .setPosition(view.centerX, view.y + thickness / 2)
+      .setSize(view.width, thickness);
+    this._warningEdges[1]
+      .setPosition(view.centerX, view.bottom - thickness / 2)
+      .setSize(view.width, thickness);
+    this._warningEdges[2]
+      .setPosition(view.x + thickness / 2, view.centerY)
+      .setSize(thickness, view.height);
+    this._warningEdges[3]
+      .setPosition(view.right - thickness / 2, view.centerY)
+      .setSize(thickness, view.height);
   }
 
   _updateLivesWarning(delta) {
@@ -1101,13 +1254,17 @@ export class GameScene extends Phaser.Scene {
   /* ─── Pause ─── */
 
   _setupPauseMenu() {
-    this.input.keyboard.on('keydown-ESC', () => {
+    this.game.events.on('toggle-pause', () => {
       this._togglePause();
     });
   }
 
   _togglePause() {
-    const { width, height } = DESIGN;
+    const view = this._view();
+    const width = view.width;
+    const height = view.height;
+    const centerX = view.centerX;
+    const centerY = view.centerY;
 
     if (this.paused) {
       this.paused = false;
@@ -1121,15 +1278,15 @@ export class GameScene extends Phaser.Scene {
     this.paused = true;
     const objects = [];
 
-    const overlay = this.add.rectangle(width / 2, height / 2, width * 2, height * 2, 0x000000, 0.7)
+    const overlay = this.add.rectangle(centerX, centerY, width * 2, height * 2, 0x000000, 0.7)
       .setDepth(200).setInteractive();
     objects.push(overlay);
 
-    const panel = this.add.rectangle(width / 2, height / 2, 320, 340, COLORS.uiPanel)
+    const panel = this.add.rectangle(centerX, centerY, 320, 340, COLORS.uiPanel)
       .setStrokeStyle(3, COLORS.outline).setDepth(201);
     objects.push(panel);
 
-    const title = this.add.text(width / 2, height / 2 - 130, 'PAUSED', {
+    const title = this.add.text(centerX, centerY - 130, 'PAUSED', {
       fontFamily: 'Kenney Pixel',
       fontSize: '36px',
       color: '#3D5A1F',
@@ -1143,10 +1300,10 @@ export class GameScene extends Phaser.Scene {
     ];
 
     buttons.forEach((btn, idx) => {
-      const by = height / 2 - 50 + idx * 70;
-      const bg = this.add.rectangle(width / 2, by, 220, 50, COLORS.button)
+      const by = centerY - 50 + idx * 70;
+      const bg = this.add.rectangle(centerX, by, 220, 50, COLORS.button)
         .setInteractive({ useHandCursor: true }).setStrokeStyle(2, COLORS.outline).setDepth(202);
-      const text = this.add.text(width / 2, by, btn.label, {
+      const text = this.add.text(centerX, by, btn.label, {
         fontFamily: 'Kenney Future', fontSize: '22px', color: '#4A2C0A',
       }).setOrigin(0.5).setDepth(203);
 
@@ -1166,8 +1323,11 @@ export class GameScene extends Phaser.Scene {
 
   shutdown() {
     this.game.events.off('tower-selected');
+    this.game.events.off('tower-deselected');
     this.game.events.off('send-next-wave');
     this.game.events.off('send-wave-early');
+    this.game.events.off('ability-used');
+    this.game.events.off('toggle-pause');
     this.selectedTower = null;
     this.enemies = [];
     this.towers = [];

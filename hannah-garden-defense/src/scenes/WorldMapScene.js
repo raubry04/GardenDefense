@@ -1,9 +1,9 @@
 import { GameConfig } from '../config.js';
-import { setupResponsiveCamera, DESIGN, getSafeTop, fillGrassUnderlay } from '../utils/responsiveCamera.js';
+import { setupResponsiveCamera, DESIGN, getSafeTop } from '../utils/responsiveCamera.js';
+import { loadLocalProgress, loadProgress } from '../utils/hannahProgress.js';
 
 const COLORS = GameConfig.colors;
 const ZONES = GameConfig.zones;
-const STORAGE_KEY = 'hannahGarden_progress';
 
 export class WorldMapScene extends Phaser.Scene {
   constructor() {
@@ -11,17 +11,21 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.playerName = data.playerName || localStorage.getItem('hannahGarden_playerName') || 'Player';
+    this.playerName = data.playerName || localStorage.getItem('hannahGarden_playerName') || '';
+    this.progress = loadLocalProgress(this.playerName);
   }
 
   create() {
     const { width, height } = DESIGN;
-    const progress = this._loadProgress();
+    const progress = this.progress;
 
-    setupResponsiveCamera(this, (view) => {
-      if (this._grassObjs) this._grassObjs.forEach((o) => o.destroy());
-      this._grassObjs = fillGrassUnderlay(this, view, -10);
-    });
+    loadProgress(this.playerName).then((synced) => {
+      if (!this.scene.isActive('WorldMapScene')) return;
+      this.progress = synced;
+      this._refreshHeaderSunshine(synced.sunshinePoints);
+    }).catch(() => { /* local fallback already loaded */ });
+
+    setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
     this.cameras.main.setBackgroundColor('#5A9A38');
 
@@ -82,7 +86,12 @@ export class WorldMapScene extends Phaser.Scene {
       fontFamily: 'Kenney Future',
       fontSize: '22px',
       color: '#FFD700',
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0, 0.5).setName('sunshineText');
+  }
+
+  _refreshHeaderSunshine(points) {
+    const text = this.children.getByName('sunshineText');
+    if (text) text.setText(`${points}`);
   }
 
   _drawZones(width, height, progress) {
@@ -156,7 +165,7 @@ export class WorldMapScene extends Phaser.Scene {
           this.tweens.add({
             targets: zoneBg, scaleX: 0.96, scaleY: 0.96, duration: 60, yoyo: true,
             onComplete: () => {
-              this._showBattlePanel(i, progress, width, height);
+              this._showBattlePanel(i, this.progress, width, height);
             }
           });
         });
@@ -373,20 +382,5 @@ export class WorldMapScene extends Phaser.Scene {
         onComplete: callback,
       });
     });
-  }
-
-  _loadProgress() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch { /* ignore */ }
-    return {
-      hannahLevel: 1,
-      gardenLevel: 1,
-      sunshinePoints: GameConfig.startingSunshinePoints.zone1,
-      unlockedZone: 0,
-      zoneStars: {},
-      zoneBattles: {},
-    };
   }
 }

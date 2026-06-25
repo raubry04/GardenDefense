@@ -1,8 +1,14 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
+import {
+  hannahLevelFromXp,
+  sumZoneStars,
+  loadLocalProgress,
+  saveProgressWithSync,
+  normalizeProgress,
+} from '../utils/hannahProgress.js';
 
 const COLORS = GameConfig.colors;
-const STORAGE_KEY = 'hannahGarden_progress';
 
 export class VictoryScene extends Phaser.Scene {
   constructor() {
@@ -18,14 +24,13 @@ export class VictoryScene extends Phaser.Scene {
     this.towersData = data.towers || [];
     this.hannahXp = data.hannahXp ?? 0;
     this.hannahLevel = data.hannahLevel ?? 1;
+    this.prevHannahLevel = this.hannahLevel;
   }
 
   create() {
     const { width, height } = DESIGN;
     setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
-
-    this.cameras.main.setBackgroundColor('#2E5A1F');
 
     this._drawBackground(width, height);
     this._createConfetti(width, height);
@@ -191,37 +196,42 @@ export class VictoryScene extends Phaser.Scene {
 
   _saveProgress(stars) {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const progress = raw ? JSON.parse(raw) : {
-        hannahLevel: 1, gardenLevel: 1,
-        sunshinePoints: 0, unlockedZone: 0,
-        zoneStars: {}, zoneBattles: {},
-      };
+      const progress = normalizeProgress(loadLocalProgress(this.playerName));
+      progress.playerName = this.playerName;
 
-      progress.sunshinePoints = (progress.sunshinePoints || 0) + this.pointsEarned;
+      let bonusPoints = 0;
+      if (stars >= 2) bonusPoints += GameConfig.twoStarBonus;
+      if (stars >= 3) bonusPoints += GameConfig.threeStarBonus;
 
-      const existingStars = progress.zoneStars[this.zone] || 0;
-      progress.zoneStars[this.zone] = Math.max(existingStars, existingStars + stars);
+      progress.sunshinePoints = (progress.sunshinePoints || 0) + this.pointsEarned + bonusPoints;
 
-      if (!progress.battleStars) progress.battleStars = {};
       if (!progress.battleStars[this.zone]) progress.battleStars[this.zone] = {};
       progress.battleStars[this.zone][this.battle] = Math.max(
         progress.battleStars[this.zone][this.battle] || 0, stars
       );
 
-      const completedBattle = (progress.zoneBattles[this.zone] || 0);
+      progress.zoneStars[this.zone] = sumZoneStars(progress.battleStars[this.zone]);
+
+      const completedBattle = progress.zoneBattles[this.zone] || 0;
       if (this.battle >= completedBattle) {
         progress.zoneBattles[this.zone] = this.battle + 1;
       }
 
       if (this.zone < GameConfig.zones.length) {
         const zoneBattles = GameConfig.zones[this.zone].battles;
-        if (progress.zoneBattles[this.zone] >= zoneBattles && this.zone >= progress.unlockedZone) {
+        if (progress.zoneBattles[this.zone] >= zoneBattles && this.zone >= (progress.unlockedZone ?? 0)) {
           progress.unlockedZone = Math.min(this.zone + 1, GameConfig.zones.length);
         }
       }
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+      let totalXp = this.hannahXp + GameConfig.hannahXpRewards.battleComplete;
+      if (stars >= 3) totalXp += GameConfig.hannahXpRewards.threeStarBonus;
+      progress.hannahXp = totalXp;
+      progress.hannahLevel = hannahLevelFromXp(totalXp);
+      progress.gardenLevel = Math.max(1, (progress.unlockedZone ?? 0) + 1);
+
+      this.savedProgress = progress;
+      saveProgressWithSync(progress);
     } catch (e) {
       console.warn('Failed to save progress:', e);
     }
@@ -252,14 +262,14 @@ export class VictoryScene extends Phaser.Scene {
 
     this._createButton(width / 2 - 150, btnY, '⬆️ UPGRADES', () => {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+      const saved = this.savedProgress || loadLocalProgress(this.playerName);
       this.scene.start('UpgradeScene', {
         towers: this.towersData,
-        sunshinePoints: this.pointsEarned,
-        hannahXp: this.hannahXp,
-        hannahLevel: this.hannahLevel,
         playerName: this.playerName,
         zone: this.zone,
         battle: this.battle,
+        prevHannahLevel: this.prevHannahLevel,
+        hannahLevel: saved.hannahLevel,
       });
     });
 

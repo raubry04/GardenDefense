@@ -1,19 +1,26 @@
-import { GameConfig } from '../config.js';
-import { TOWER_SPRITES } from '../utils/AssetRegistry.js';
-import { setupResponsiveCamera, DESIGN, getSafeTop } from '../utils/responsiveCamera.js';
+import { GameConfig } from "../config.js";
+import { TOWER_SPRITES } from "../utils/AssetRegistry.js";
+import { syncToBattleCamera } from "../utils/responsiveCamera.js";
 
 const COLORS = GameConfig.colors;
 
 const ABILITY_COLORS = {
-  SUNSHINE_BURST: 0xFFD700,
-  GARDEN_RAIN: 0x4DA6FF,
-  RAINBOW_SHIELD: 0x4CAF50,
-  FLOWER_BOMB: 0xFF69B4,
+  SUNSHINE_BURST: 0xffd700,
+  GARDEN_RAIN: 0x4da6ff,
+  RAINBOW_SHIELD: 0x4caf50,
+  FLOWER_BOMB: 0xff69b4,
+};
+
+const ABILITY_ICONS = {
+  SUNSHINE_BURST: "☀",
+  GARDEN_RAIN: "🌧",
+  RAINBOW_SHIELD: "🛡",
+  FLOWER_BOMB: "💣",
 };
 
 export class UIScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'UIScene' });
+    super({ key: "UIScene" });
   }
 
   init(data) {
@@ -22,31 +29,38 @@ export class UIScene extends Phaser.Scene {
     this.totalWaves = data.totalWaves ?? 10;
     this.currentWave = 0;
     this.zone = data.zone ?? 0;
+    this.hannahLevel = data.hannahLevel ?? 1;
     this.waveActive = false;
     this.betweenWaves = true;
     this.selectedTowerType = null;
     this.enemiesInWave = 0;
     this.enemiesDefeated = 0;
+    this.worldWidth = data.worldWidth ?? GameConfig.canvas.width;
+    this.worldHeight = data.worldHeight ?? GameConfig.canvas.height;
   }
 
   create() {
-    const { width, height } = DESIGN;
-    setupResponsiveCamera(this);
-
+    const { width, height } = GameConfig.canvas;
     this._createHUD(width);
     this._createTowerTray(width, height);
     this._createAbilityButtons(width, height);
     this._createSendWaveButton(width, height);
     this._setupEventListeners();
+    syncToBattleCamera(this);
+  }
+
+  update() {
+    this._syncBattleCam?.();
   }
 
   /* ─── HEARTS & POINTS HUD ─── */
 
   _createHUD(width) {
     const hudDepth = 200;
-    const safeTop = getSafeTop();
-    const row1Y = safeTop + 14;
-    const row2Y = safeTop + 46;
+    this._hudRow1Y = 42;
+    this._hudRow2Y = 74;
+    const row1Y = this._hudRow1Y;
+    const row2Y = this._hudRow2Y;
 
     this.heartIcons = [];
     const maxIcons = Math.min(this.lives, 8);
@@ -54,55 +68,85 @@ export class UIScene extends Phaser.Scene {
     const startX = 20;
 
     for (let i = 0; i < maxIcons; i++) {
-      const heart = this.add.image(startX + i * heartSpacing, row1Y, 'heartIcon')
+      const heart = this.add
+        .image(startX + i * heartSpacing, row1Y, "heartIcon")
         .setDisplaySize(22, 22)
         .setDepth(hudDepth);
       this.heartIcons.push(heart);
     }
 
     const livesX = startX + maxIcons * heartSpacing + (maxIcons > 0 ? 8 : 0);
-    this.livesText = this.add.text(livesX, row1Y - 10, this._livesLabel(), {
-      fontFamily: 'Kenney Future',
-      fontSize: '20px',
-      color: '#FFF9E6',
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
-    }).setDepth(hudDepth);
+    this.livesText = this.add
+      .text(livesX, row1Y - 10, this._livesLabel(), {
+        fontFamily: "Kenney Future",
+        fontSize: "20px",
+        color: "#FFF9E6",
+        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+      })
+      .setDepth(hudDepth);
 
     this._startLowHealthPulse();
 
     const wavePanelX = width / 2;
-    this.wavePanel = this.add.rectangle(wavePanelX, row2Y, 240, 44, 0x000000, 0.45)
+    this.wavePanel = this.add
+      .rectangle(wavePanelX, row2Y, 240, 44, 0x000000, 0.45)
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(hudDepth);
     this.wavePanel.setOrigin(0.5);
 
-    this.waveText = this.add.text(wavePanelX, row2Y - 16, `Wave: 0 / ${this.totalWaves}`, {
-      fontFamily: 'Kenney Future',
-      fontSize: '22px',
-      color: '#FFD700',
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 3, fill: true },
-    }).setOrigin(0.5, 0).setDepth(hudDepth);
+    this.waveText = this.add
+      .text(wavePanelX, row2Y - 16, `Wave: 0 / ${this.totalWaves}`, {
+        fontFamily: "Kenney Future",
+        fontSize: "22px",
+        color: "#FFD700",
+        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 3, fill: true },
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(hudDepth);
 
     const barWidth = 180;
     const barY = row2Y + 12;
-    this.waveBarBg = this.add.rectangle(wavePanelX, barY, barWidth, 8, 0x333333, 0.7)
+    this.waveBarBg = this.add
+      .rectangle(wavePanelX, barY, barWidth, 8, 0x333333, 0.7)
       .setOrigin(0.5)
       .setDepth(hudDepth);
-    this.waveBarFill = this.add.rectangle(wavePanelX - barWidth / 2, barY, 0, 8, 0x4CAF50, 1)
+    this.waveBarFill = this.add
+      .rectangle(wavePanelX - barWidth / 2, barY, 0, 8, 0x4caf50, 1)
       .setOrigin(0, 0.5)
       .setDepth(hudDepth);
     this.waveBarWidth = barWidth;
 
-    this.add.image(width - 116, row1Y, 'ui_uiStar')
+    this._hudStarIcon = this.add
+      .image(width - 116, row1Y, "ui_uiStar")
       .setDisplaySize(24, 24)
-      .setTint(0xFFD700)
+      .setTint(0xffd700)
       .setDepth(hudDepth);
-    this.pointsText = this.add.text(width - 98, row1Y - 10, `${this.sunshinePoints}`, {
-      fontFamily: 'Kenney Future',
-      fontSize: '22px',
-      color: '#FFD700',
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
-    }).setDepth(hudDepth);
+    this.pointsText = this.add
+      .text(width - 98, row1Y - 10, `${this.sunshinePoints}`, {
+        fontFamily: "Kenney Future",
+        fontSize: "22px",
+        color: "#FFD700",
+        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+      })
+      .setDepth(hudDepth);
+
+    const pauseX = width - 28;
+    this.pauseBtn = this.add
+      .circle(pauseX, row1Y, 18, COLORS.button)
+      .setStrokeStyle(2, COLORS.outline)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(hudDepth);
+    this.pauseLabel = this.add
+      .text(pauseX, row1Y, "⏸", {
+        fontFamily: "Kenney Future",
+        fontSize: "16px",
+        color: "#4A2C0A",
+      })
+      .setOrigin(0.5)
+      .setDepth(hudDepth);
+    this.pauseBtn.on("pointerdown", () => {
+      this.game.events.emit("toggle-pause");
+    });
   }
 
   _startLowHealthPulse() {
@@ -119,7 +163,8 @@ export class UIScene extends Phaser.Scene {
             if (i < this.lives && h.visible) {
               this.tweens.add({
                 targets: h,
-                scaleX: 1.3, scaleY: 1.3,
+                scaleX: 1.3,
+                scaleY: 1.3,
                 duration: 200,
                 yoyo: true,
               });
@@ -136,15 +181,18 @@ export class UIScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: heart,
-      scaleX: 1.5, scaleY: 1.5,
+      scaleX: 1.5,
+      scaleY: 1.5,
       duration: 150,
       yoyo: true,
       onComplete: () => {
         this.tweens.add({
           targets: heart,
-          scaleX: 0, scaleY: 0, alpha: 0,
+          scaleX: 0,
+          scaleY: 0,
+          alpha: 0,
           duration: 300,
-          ease: 'Back.easeIn',
+          ease: "Back.easeIn",
           onComplete: () => heart.setVisible(false),
         });
       },
@@ -154,33 +202,42 @@ export class UIScene extends Phaser.Scene {
   _animatePointsChange(delta) {
     this.tweens.add({
       targets: this.pointsText,
-      scaleX: 1.2, scaleY: 1.2,
+      scaleX: 1.2,
+      scaleY: 1.2,
       duration: 100,
       yoyo: true,
-      ease: 'Quad.easeOut',
-      onStart: () => this.pointsText.setColor('#FFFFAA'),
-      onComplete: () => this.pointsText.setColor('#FFD700'),
+      ease: "Quad.easeOut",
+      onStart: () => this.pointsText.setColor("#FFFFAA"),
+      onComplete: () => this.pointsText.setColor("#FFD700"),
     });
 
     if (delta > 0) {
-      const floater = this.add.text(
-        this.pointsText.x + this.pointsText.width / 2,
-        this.pointsText.y - 4,
-        `+${delta}`,
-        {
-          fontFamily: 'Kenney Future',
-          fontSize: '16px',
-          color: '#FFFF00',
-          shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
-        }
-      ).setOrigin(0.5, 1);
+      const floater = this.add
+        .text(
+          this.pointsText.x + this.pointsText.width / 2,
+          this.pointsText.y - 4,
+          `+${delta}`,
+          {
+            fontFamily: "Kenney Future",
+            fontSize: "16px",
+            color: "#FFFF00",
+            shadow: {
+              offsetX: 1,
+              offsetY: 1,
+              color: "#000",
+              blur: 2,
+              fill: true,
+            },
+          },
+        )
+        .setOrigin(0.5, 1);
 
       this.tweens.add({
         targets: floater,
         y: floater.y - 30,
         alpha: 0,
         duration: 800,
-        ease: 'Quad.easeOut',
+        ease: "Quad.easeOut",
         onComplete: () => floater.destroy(),
       });
     }
@@ -189,7 +246,13 @@ export class UIScene extends Phaser.Scene {
   /* ─── TOWER TRAY ─── */
 
   _resetTowerCard(card) {
-    const parts = [card.cardBg, card.nameText, card.costText, card.greyOverlay, card.selectionGlow];
+    const parts = [
+      card.cardBg,
+      card.nameText,
+      card.costText,
+      card.greyOverlay,
+      card.selectionGlow,
+    ];
     this.tweens.killTweensOf([...parts, card.sprite, card.coinIcon]);
     parts.forEach((obj) => obj.setScale(1));
     card.sprite.setDisplaySize(44, 44);
@@ -202,15 +265,56 @@ export class UIScene extends Phaser.Scene {
     this.towerCards?.forEach((card) => this._resetTowerCard(card));
   }
 
+  _isTowerUnlocked(config) {
+    const unlock = config.unlock;
+    if (!unlock) return true;
+    if (unlock.type === 'level') return this.hannahLevel >= unlock.value;
+    if (unlock.type === 'zone') return this.zone + 1 >= unlock.value;
+    return true;
+  }
+
+  _isAbilityUnlocked(config) {
+    if (!config.unlockLevel) return true;
+    return this.hannahLevel >= config.unlockLevel;
+  }
+
   _createTowerTray(width, height) {
     const trayY = height - 80;
     const trayHeight = 94;
+    const trayCenterY = trayY + trayHeight / 2;
+    this._trayObjects = [];
 
-    this.add.rectangle(width / 2, trayY + trayHeight / 2, width - 40, trayHeight, 0x1a1a2e, 0.75)
-      .setStrokeStyle(3, 0x4a4e69);
+    const trackY = (obj, y) => {
+      obj.setData("layoutY", y);
+      this._trayObjects.push(obj);
+      return obj;
+    };
 
-    const innerBorder = this.add.rectangle(width / 2, trayY + trayHeight / 2, width - 48, trayHeight - 8, 0x000000, 0);
-    innerBorder.setStrokeStyle(1, 0x6c6f85);
+    this.trayBgOuter = trackY(
+      this.add
+        .rectangle(
+          width / 2,
+          trayCenterY,
+          width - 40,
+          trayHeight,
+          0x1a1a2e,
+          0.75,
+        )
+        .setStrokeStyle(3, 0x4a4e69),
+      trayCenterY,
+    );
+
+    this.trayBgInner = trackY(
+      this.add.rectangle(
+        width / 2,
+        trayCenterY,
+        width - 48,
+        trayHeight - 8,
+        0x000000,
+        0,
+      ).setStrokeStyle(1, 0x6c6f85),
+      trayCenterY,
+    );
 
     const towers = Object.entries(GameConfig.towers);
     const cardWidth = 84;
@@ -225,58 +329,116 @@ export class UIScene extends Phaser.Scene {
       const y = trayY + trayHeight / 2;
       const spriteKey = TOWER_SPRITES[type];
 
-      const affordable = this.sunshinePoints >= config.cost;
+      const unlocked = this._isTowerUnlocked(config);
+      const affordable = unlocked && this.sunshinePoints >= config.cost;
 
-      const cardBg = this.add.rectangle(x, y, cardWidth, 84, 0x2d2d44, 0.9)
-        .setStrokeStyle(2, affordable ? 0x6c6f85 : 0x444444);
+      const cardBg = trackY(
+        this.add
+          .rectangle(x, y, cardWidth, 84, 0x2d2d44, 0.9)
+          .setStrokeStyle(2, affordable ? 0x6c6f85 : 0x444444),
+        y,
+      );
 
-      const sprite = this.add.image(x, y - 16, spriteKey)
-        .setDisplaySize(44, 44);
+      const sprite = trackY(
+        this.add
+          .image(x, y - 16, spriteKey)
+          .setDisplaySize(44, 44),
+        y - 16,
+      );
 
-      const towerName = type.replace('_', ' ');
-      const displayName = towerName.length > 7 ? towerName.substring(0, 6) + '…' : towerName;
-      const nameText = this.add.text(x, y + 14, displayName, {
-        fontFamily: 'Kenney Future',
-        fontSize: '10px',
-        color: affordable ? '#CCCCCC' : '#666666',
-      }).setOrigin(0.5);
+      const towerName = type.replace("_", " ");
+      const displayName =
+        towerName.length > 7 ? towerName.substring(0, 6) + "…" : towerName;
+      const nameText = trackY(
+        this.add
+          .text(x, y + 14, displayName, {
+            fontFamily: "Kenney Future",
+            fontSize: "10px",
+            color: affordable ? "#CCCCCC" : "#666666",
+          })
+          .setOrigin(0.5),
+        y + 14,
+      );
 
-      const coinIcon = this.add.image(x - 14, y + 30, 'ui_uiStar')
-        .setDisplaySize(12, 12).setTint(COLORS.stars);
-      const costText = this.add.text(x - 6, y + 24, `${config.cost}`, {
-        fontFamily: 'Kenney Future',
-        fontSize: '14px',
-        color: affordable ? '#FFD700' : '#666666',
-      }).setOrigin(0, 0.5);
+      const coinIcon = trackY(
+        this.add
+          .image(x - 14, y + 30, "ui_uiStar")
+          .setDisplaySize(12, 12)
+          .setTint(COLORS.stars),
+        y + 30,
+      );
+      const costText = trackY(
+        this.add
+          .text(x - 6, y + 24, `${config.cost}`, {
+            fontFamily: "Kenney Future",
+            fontSize: "14px",
+            color: affordable ? "#FFD700" : "#666666",
+          })
+          .setOrigin(0, 0.5),
+        y + 24,
+      );
 
-      const greyOverlay = this.add.rectangle(x, y, cardWidth, 84, 0x000000, affordable ? 0 : 0.4);
+      const greyOverlay = trackY(
+        this.add.rectangle(
+          x,
+          y,
+          cardWidth,
+          84,
+          0x000000,
+          unlocked && affordable ? 0 : 0.4,
+        ),
+        y,
+      );
 
-      const selectionGlow = this.add.rectangle(x, y, cardWidth + 6, 84 + 6, 0xFFD700, 0)
-        .setStrokeStyle(3, 0xFFD700);
+      const lockText = unlocked
+        ? null
+        : trackY(
+            this.add
+              .text(x, y, '🔒', { fontSize: '18px' })
+              .setOrigin(0.5),
+            y,
+          );
+
+      const selectionGlow = trackY(
+        this.add
+          .rectangle(x, y, cardWidth + 6, 84 + 6, 0xffd700, 0)
+          .setStrokeStyle(3, 0xffd700),
+        y,
+      );
       selectionGlow.setVisible(false);
 
-      cardBg.setInteractive({ useHandCursor: true });
+      cardBg.setInteractive({ useHandCursor: unlocked });
 
       const hoverTargets = [cardBg, nameText, costText, greyOverlay];
 
-      cardBg.on('pointerover', () => {
-        if (this.sunshinePoints >= config.cost) {
-          this.tweens.add({ targets: hoverTargets, scaleX: 1.08, scaleY: 1.08, duration: 60 });
+      cardBg.on("pointerover", () => {
+        if (unlocked && this.sunshinePoints >= config.cost) {
+          this.tweens.add({
+            targets: hoverTargets,
+            scaleX: 1.08,
+            scaleY: 1.08,
+            duration: 60,
+          });
           sprite.setDisplaySize(48, 48);
         }
       });
-      cardBg.on('pointerout', () => {
-        this.tweens.add({ targets: hoverTargets, scaleX: 1, scaleY: 1, duration: 60 });
+      cardBg.on("pointerout", () => {
+        this.tweens.add({
+          targets: hoverTargets,
+          scaleX: 1,
+          scaleY: 1,
+          duration: 60,
+        });
         if (this.selectedTowerType !== type) {
           sprite.setDisplaySize(44, 44);
         }
       });
-      cardBg.on('pointerdown', () => {
-        if (this.sunshinePoints < config.cost) return;
-        this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+      cardBg.on("pointerdown", () => {
+        if (!unlocked || this.sunshinePoints < config.cost) return;
+        this.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
 
         if (this.selectedTowerType === type) {
-          this.game.events.emit('tower-deselected');
+          this.game.events.emit("tower-deselected");
           return;
         }
 
@@ -291,15 +453,27 @@ export class UIScene extends Phaser.Scene {
         this.selectedTowerType = type;
         sprite.setDisplaySize(48, 48);
         this._updateTowerSelection();
-        this.game.events.emit('tower-selected', type);
+        this.game.events.emit("tower-selected", type);
       });
 
-      this.towerCards.push({ type, config, cardBg, sprite, nameText, costText, coinIcon, greyOverlay, selectionGlow });
+      this.towerCards.push({
+        type,
+        config,
+        cardBg,
+        sprite,
+        nameText,
+        costText,
+        coinIcon,
+        greyOverlay,
+        selectionGlow,
+        lockText,
+        unlocked,
+      });
     });
   }
 
   _updateTowerSelection() {
-    this.towerCards.forEach(card => {
+    this.towerCards.forEach((card) => {
       const isSelected = card.type === this.selectedTowerType;
       card.selectionGlow.setVisible(isSelected);
       if (isSelected) {
@@ -321,12 +495,69 @@ export class UIScene extends Phaser.Scene {
   }
 
   _updateTowerAffordability() {
-    this.towerCards.forEach(card => {
-      const affordable = this.sunshinePoints >= card.config.cost;
+    this.towerCards.forEach((card) => {
+      const unlocked = card.unlocked ?? this._isTowerUnlocked(card.config);
+      const affordable = unlocked && this.sunshinePoints >= card.config.cost;
       card.cardBg.setStrokeStyle(2, affordable ? 0x6c6f85 : 0x444444);
-      card.nameText.setColor(affordable ? '#CCCCCC' : '#666666');
-      card.costText.setColor(affordable ? '#FFD700' : '#666666');
-      card.greyOverlay.setFillStyle(0x000000, affordable ? 0 : 0.4);
+      card.nameText.setColor(unlocked && affordable ? "#CCCCCC" : "#666666");
+      card.costText.setColor(unlocked && affordable ? "#FFD700" : "#666666");
+      card.greyOverlay.setFillStyle(0x000000, unlocked && affordable ? 0 : 0.4);
+    });
+  }
+
+  _startAbilityCooldown(btn, duration) {
+    if (btn.cooldownTween) btn.cooldownTween.stop();
+
+    btn.onCooldown = true;
+    btn.cooldownGfx.setVisible(true);
+
+    btn.cooldownTween = this.tweens.add({
+      targets: { val: 1 },
+      val: 0,
+      duration,
+      onUpdate: (tween) => {
+        const cooldownProgress = tween.getValue();
+        btn.cooldownGfx.clear();
+        btn.cooldownGfx.fillStyle(0x000000, 0.55);
+        btn.cooldownGfx.beginPath();
+        btn.cooldownGfx.moveTo(btn.circle.x, btn.circle.y);
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + cooldownProgress * Math.PI * 2;
+        btn.cooldownGfx.arc(
+          btn.circle.x,
+          btn.circle.y,
+          btn.circle.radius,
+          startAngle,
+          endAngle,
+          false,
+        );
+        btn.cooldownGfx.closePath();
+        btn.cooldownGfx.fillPath();
+      },
+      onComplete: () => {
+        btn.onCooldown = false;
+        btn.cooldownGfx.clear();
+        btn.cooldownGfx.setVisible(false);
+        btn.cooldownTween = null;
+      },
+    });
+  }
+
+  _requestAbility(key, config, btn) {
+    if (!this._isAbilityUnlocked(config) || btn.onCooldown) return;
+
+    this.tweens.add({
+      targets: [btn.circle, btn.label],
+      scaleX: 0.9,
+      scaleY: 0.9,
+      duration: 50,
+      yoyo: true,
+    });
+
+    this.game.events.emit("ability-used", { key, config });
+    btn.pending = true;
+    this.time.delayedCall(50, () => {
+      if (btn.pending) btn.pending = false;
     });
   }
 
@@ -338,80 +569,108 @@ export class UIScene extends Phaser.Scene {
     const spacing = 80;
     const startY = height / 2 - ((abilities.length - 1) * spacing) / 2;
     const x = width - 50;
+    this._abilityObjects = [];
+
+    const trackY = (obj, layoutY) => {
+      obj.setData("layoutY", layoutY);
+      this._abilityObjects.push(obj);
+      return obj;
+    };
 
     this.abilityButtons = [];
 
     abilities.forEach(([key, config], idx) => {
       const y = startY + idx * spacing;
-      const abilityColor = ABILITY_COLORS[key] || COLORS.accent;
+      const unlocked = this._isAbilityUnlocked(config);
+      const abilityColor = unlocked ? (ABILITY_COLORS[key] || COLORS.accent) : 0x555555;
 
-      const circle = this.add.circle(x, y, btnRadius, abilityColor)
-        .setStrokeStyle(3, COLORS.outline)
-        .setInteractive({ useHandCursor: true });
+      const circle = trackY(
+        this.add
+          .circle(x, y, btnRadius, abilityColor)
+          .setStrokeStyle(3, COLORS.outline)
+          .setInteractive({ useHandCursor: unlocked }),
+        y,
+      );
 
-      const label = this.add.text(x, y, config.label.charAt(0), {
-        fontFamily: 'Kenney Future',
-        fontSize: '24px',
-        color: '#FFFFFF',
-        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
-      }).setOrigin(0.5);
+      const icon = ABILITY_ICONS[key] || config.label.charAt(0);
+      const label = trackY(
+        this.add
+          .text(x, y, icon, {
+            fontFamily: "Kenney Future",
+            fontSize: "24px",
+            color: unlocked ? "#FFFFFF" : "#AAAAAA",
+            shadow: {
+              offsetX: 1,
+              offsetY: 1,
+              color: "#000",
+              blur: 2,
+              fill: true,
+            },
+          })
+          .setOrigin(0.5),
+        y,
+      );
 
-      const tooltip = this.add.text(x, y + btnRadius + 8, config.label, {
-        fontFamily: 'Kenney Future',
-        fontSize: '9px',
-        color: '#FFFFFF',
-        backgroundColor: '#000000aa',
-        padding: { x: 4, y: 2 },
-      }).setOrigin(0.5, 0).setVisible(false);
+      const tooltipText = unlocked
+        ? config.label
+        : `${config.label} (Lv.${config.unlockLevel})`;
+      const tooltip = trackY(
+        this.add
+          .text(x, y + btnRadius + 8, tooltipText, {
+            fontFamily: "Kenney Future",
+            fontSize: "9px",
+            color: "#FFFFFF",
+            backgroundColor: "#000000aa",
+            padding: { x: 4, y: 2 },
+          })
+          .setOrigin(0.5, 0)
+          .setVisible(false),
+        y + btnRadius + 8,
+      );
 
       const cooldownGfx = this.add.graphics();
       cooldownGfx.setVisible(false);
+      this._abilityObjects.push(cooldownGfx);
 
-      let onCooldown = false;
+      const btn = {
+        circle,
+        label,
+        cooldownGfx,
+        tooltip,
+        key,
+        config,
+        onCooldown: false,
+        pending: false,
+        cooldownTween: null,
+        unlocked,
+      };
 
-      circle.on('pointerover', () => {
+      circle.on("pointerover", () => {
         tooltip.setVisible(true);
-        if (!onCooldown) this.tweens.add({ targets: [circle, label], scaleX: 1.1, scaleY: 1.1, duration: 60 });
+        if (unlocked && !btn.onCooldown) {
+          this.tweens.add({
+            targets: [circle, label],
+            scaleX: 1.1,
+            scaleY: 1.1,
+            duration: 60,
+          });
+        }
       });
-      circle.on('pointerout', () => {
+      circle.on("pointerout", () => {
         tooltip.setVisible(false);
-        this.tweens.add({ targets: [circle, label], scaleX: 1, scaleY: 1, duration: 60 });
-      });
-      circle.on('pointerdown', () => {
-        if (onCooldown) return;
-        this.sound.play('abilityUsed', { volume: GameConfig.audio.sfxVolume });
-        this.tweens.add({ targets: [circle, label], scaleX: 0.9, scaleY: 0.9, duration: 50, yoyo: true });
-
-        this.game.events.emit('ability-used', { key, config });
-
-        onCooldown = true;
-        cooldownGfx.setVisible(true);
-
         this.tweens.add({
-          targets: { val: 1 },
-          val: 0,
-          duration: config.cooldown,
-          onUpdate: (tween) => {
-            const cooldownProgress = tween.getValue();
-            cooldownGfx.clear();
-            cooldownGfx.fillStyle(0x000000, 0.55);
-            cooldownGfx.beginPath();
-            cooldownGfx.moveTo(circle.x, circle.y);
-            const startAngle = -Math.PI / 2;
-            const endAngle = startAngle + (cooldownProgress * Math.PI * 2);
-            cooldownGfx.arc(circle.x, circle.y, btnRadius, startAngle, endAngle, false);
-            cooldownGfx.closePath();
-            cooldownGfx.fillPath();
-          },
-          onComplete: () => {
-            onCooldown = false;
-            cooldownGfx.clear();
-            cooldownGfx.setVisible(false);
-          },
+          targets: [circle, label],
+          scaleX: 1,
+          scaleY: 1,
+          duration: 60,
         });
       });
+      circle.on("pointerdown", () => {
+        if (!unlocked) return;
+        this._requestAbility(key, config, btn);
+      });
 
-      this.abilityButtons.push({ circle, label, cooldownGfx, tooltip, key });
+      this.abilityButtons.push(btn);
     });
   }
 
@@ -420,52 +679,91 @@ export class UIScene extends Phaser.Scene {
   _createSendWaveButton(width, height) {
     const x = width / 2;
     const y = height - 140;
+    this._sendWaveObjects = [];
 
-    this.sendWaveGlow = this.add.circle(x, y, 110, 0xFFD700, 0)
-      .setStrokeStyle(4, 0xFFD700)
-      .setAlpha(0)
-      .setDepth(9);
+    const trackY = (obj, layoutY) => {
+      obj.setData("layoutY", layoutY);
+      this._sendWaveObjects.push(obj);
+      return obj;
+    };
 
-    this.sendWaveBg = this.add.image(x, y, 'ui_buttonRect')
-      .setDisplaySize(200, 50)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(10);
+    this.sendWaveGlow = trackY(
+      this.add
+        .circle(x, y, 110, 0xffd700, 0)
+        .setStrokeStyle(4, 0xffd700)
+        .setAlpha(0)
+        .setDepth(9),
+      y,
+    );
 
-    this.sendWaveText = this.add.text(x, y - 4, 'SEND WAVE', {
-      fontFamily: 'Kenney Future',
-      fontSize: '22px',
-      color: '#4A2C0A',
-    }).setOrigin(0.5).setDepth(10);
+    this.sendWaveBg = trackY(
+      this.add
+        .image(x, y, "ui_buttonRect")
+        .setDisplaySize(200, 50)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(10),
+      y,
+    );
 
-    this.sendWaveBonusText = this.add.text(x, y + 20, '+10 BONUS', {
-      fontFamily: 'Kenney Future',
-      fontSize: '12px',
-      color: '#FFD700',
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
-    }).setOrigin(0.5, 0).setDepth(10);
+    this.sendWaveText = trackY(
+      this.add
+        .text(x, y - 4, "SEND WAVE", {
+          fontFamily: "Kenney Future",
+          fontSize: "22px",
+          color: "#4A2C0A",
+        })
+        .setOrigin(0.5)
+        .setDepth(10),
+      y - 4,
+    );
+
+    this.sendWaveBonusText = trackY(
+      this.add
+        .text(x, y + 20, "+10 BONUS", {
+          fontFamily: "Kenney Future",
+          fontSize: "12px",
+          color: "#FFD700",
+          shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(10),
+      y + 20,
+    );
 
     this._sendWaveGlowTween = this.tweens.add({
       targets: this.sendWaveGlow,
       alpha: { from: 0.6, to: 0 },
-      scaleX: { from: 1, to: 1.15 },
-      scaleY: { from: 1, to: 1.15 },
       duration: 1200,
       repeat: -1,
-      ease: 'Sine.easeInOut',
+      ease: "Sine.easeInOut",
     });
 
-    this.sendWaveBg.on('pointerover', () => {
-      this.tweens.add({ targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText], scaleX: 1.08, scaleY: 1.08, duration: 60 });
-    });
-    this.sendWaveBg.on('pointerout', () => {
-      this.tweens.add({ targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText], scaleX: 1, scaleY: 1, duration: 60 });
-    });
-    this.sendWaveBg.on('pointerdown', () => {
-      this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+    this.sendWaveBg.on("pointerover", () => {
       this.tweens.add({
-        targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText], scaleX: 0.94, scaleY: 0.94, duration: 50, yoyo: true,
+        targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText],
+        scaleX: 1.08,
+        scaleY: 1.08,
+        duration: 60,
       });
-      this.game.events.emit('send-wave-early');
+    });
+    this.sendWaveBg.on("pointerout", () => {
+      this.tweens.add({
+        targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText],
+        scaleX: 1,
+        scaleY: 1,
+        duration: 60,
+      });
+    });
+    this.sendWaveBg.on("pointerdown", () => {
+      this.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
+      this.tweens.add({
+        targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText],
+        scaleX: 0.94,
+        scaleY: 0.94,
+        duration: 50,
+        yoyo: true,
+      });
+      this.game.events.emit("send-wave-early");
     });
   }
 
@@ -484,11 +782,15 @@ export class UIScene extends Phaser.Scene {
   /* ─── EVENT LISTENERS ─── */
 
   _setupEventListeners() {
-    this.game.events.on('lives-changed', (data) => {
+    this.game.events.on("lives-changed", (data) => {
       const prevLives = this.lives;
       this.lives = data.lives;
       if (data.lives < prevLives) {
-        for (let i = data.lives; i < prevLives && i < this.heartIcons.length; i++) {
+        for (
+          let i = data.lives;
+          i < prevLives && i < this.heartIcons.length;
+          i++
+        ) {
           this._animateHeartLoss(i);
         }
       } else {
@@ -498,7 +800,7 @@ export class UIScene extends Phaser.Scene {
       this._startLowHealthPulse();
     });
 
-    this.game.events.on('points-changed', (data) => {
+    this.game.events.on("points-changed", (data) => {
       const delta = data.points - this.sunshinePoints;
       this.sunshinePoints = data.points;
       this.pointsText.setText(`${this.sunshinePoints}`);
@@ -506,7 +808,7 @@ export class UIScene extends Phaser.Scene {
       this._updateTowerAffordability();
     });
 
-    this.game.events.on('wave-started', (data) => {
+    this.game.events.on("wave-started", (data) => {
       this.currentWave = data.wave;
       this.waveActive = true;
       this.betweenWaves = false;
@@ -517,37 +819,45 @@ export class UIScene extends Phaser.Scene {
       this._updateWaveProgress();
     });
 
-    this.game.events.on('wave-ended', (data) => {
+    this.game.events.on("wave-ended", (data) => {
       this.waveActive = false;
       this.betweenWaves = true;
       this.waveBarFill.setSize(this.waveBarWidth, 8);
       if (data.wave < data.total) {
         this._setSendWaveVisible(true);
-        this.sendWaveText.setText('NEXT WAVE');
+        this.sendWaveText.setText("NEXT WAVE");
       }
     });
 
-    this.game.events.on('enemy-defeated', () => {
+    this.game.events.on("enemy-defeated", () => {
       this.enemiesDefeated++;
       this._updateWaveProgress();
     });
 
-    this.game.events.on('battle-complete', () => {
+    this.game.events.on("battle-complete", () => {
       this._setSendWaveVisible(false);
     });
 
-    this.game.events.on('tower-deselected', () => {
+    this.game.events.on("tower-deselected", () => {
       this._clearTowerSelection();
     });
 
-    this.events.on('shutdown', () => {
-      this.game.events.off('lives-changed');
-      this.game.events.off('points-changed');
-      this.game.events.off('wave-started');
-      this.game.events.off('wave-ended');
-      this.game.events.off('enemy-defeated');
-      this.game.events.off('battle-complete');
-      this.game.events.off('tower-deselected');
+    this.game.events.on("ability-fired", (data) => {
+      const btn = this.abilityButtons.find((b) => b.key === data.key);
+      if (!btn) return;
+      btn.pending = false;
+      this._startAbilityCooldown(btn, data.cooldown);
+    });
+
+    this.events.on("shutdown", () => {
+      this.game.events.off("lives-changed");
+      this.game.events.off("points-changed");
+      this.game.events.off("wave-started");
+      this.game.events.off("wave-ended");
+      this.game.events.off("enemy-defeated");
+      this.game.events.off("battle-complete");
+      this.game.events.off("tower-deselected");
+      this.game.events.off("ability-fired");
       if (this._lowHealthTimer) {
         this._lowHealthTimer.remove(false);
       }

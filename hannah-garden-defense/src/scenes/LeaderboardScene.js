@@ -17,8 +17,6 @@ export class LeaderboardScene extends Phaser.Scene {
     setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
 
-    this.cameras.main.setBackgroundColor('#1A1A2E');
-
     this._drawBackground(width, height);
 
     this.add.text(width / 2, 36, '🏆 LEADERBOARD', {

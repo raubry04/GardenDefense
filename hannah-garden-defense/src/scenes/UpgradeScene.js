@@ -1,6 +1,12 @@
 import { GameConfig } from '../config.js';
 import { TOWER_SPRITES } from '../utils/AssetRegistry.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
+import {
+  loadLocalProgress,
+  saveProgressWithSync,
+  hannahLevelFromXp,
+} from '../utils/hannahProgress.js';
+import { LevelUpBanner } from '../ui/LevelUpBanner.js';
 
 const COLORS = GameConfig.colors;
 
@@ -11,12 +17,21 @@ export class UpgradeScene extends Phaser.Scene {
 
   init(data) {
     this.placedTowers = data.towers || [];
-    this.sunshinePoints = data.sunshinePoints ?? 0;
-    this.hannahXp = data.hannahXp ?? 0;
-    this.hannahLevel = data.hannahLevel ?? 1;
     this.playerName = data.playerName || 'Player';
     this.zone = data.zone ?? 0;
     this.battle = data.battle ?? 0;
+    this.prevHannahLevel = data.prevHannahLevel ?? data.hannahLevel ?? 1;
+
+    const progress = loadLocalProgress(this.playerName);
+    this.sunshinePoints = progress.sunshinePoints ?? 0;
+    this.hannahXp = progress.hannahXp ?? 0;
+    this.hannahLevel = progress.hannahLevel ?? hannahLevelFromXp(this.hannahXp);
+    this.towerUpgrades = { ...(progress.towerUpgrades || {}) };
+
+    for (const tower of this.placedTowers) {
+      const savedTier = this.towerUpgrades[tower.type] ?? tower.tier ?? 0;
+      tower.tier = savedTier;
+    }
   }
 
   create() {
@@ -24,13 +39,26 @@ export class UpgradeScene extends Phaser.Scene {
     setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
 
-    this.cameras.main.setBackgroundColor('#3D5A1F');
-
     this._drawBackground(width, height);
     this._drawHeader(width);
     this._createHannahXPBar(width);
     this._createTowerUpgradeList(width, height);
     this._createButtons(width, height);
+
+    if (this.hannahLevel > this.prevHannahLevel) {
+      this.levelUpBanner = new LevelUpBanner(this);
+      this.levelUpBanner.show(`HANNAH LEVEL ${this.hannahLevel}!`);
+    }
+  }
+
+  _persistProgress() {
+    const progress = loadLocalProgress(this.playerName);
+    progress.playerName = this.playerName;
+    progress.sunshinePoints = this.sunshinePoints;
+    progress.hannahXp = this.hannahXp;
+    progress.hannahLevel = this.hannahLevel;
+    progress.towerUpgrades = { ...this.towerUpgrades };
+    saveProgressWithSync(progress);
   }
 
   _drawBackground(width, height) {
@@ -153,7 +181,7 @@ export class UpgradeScene extends Phaser.Scene {
       const y = startY + idx * (cardHeight + spacing);
       const config = GameConfig.towers[type];
       const tower = this.placedTowers.find(t => t.type === type);
-      const tier = tower.tier || 0;
+      const tier = this.towerUpgrades[type] ?? tower?.tier ?? 0;
       const spriteKey = TOWER_SPRITES[type];
       const cardW = width * 0.8;
 
@@ -227,6 +255,8 @@ export class UpgradeScene extends Phaser.Scene {
             this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
             this.sunshinePoints -= upgCost;
             tower.tier = tier + 1;
+            this.towerUpgrades[type] = tower.tier;
+            this._persistProgress();
             this.pointsDisplay.setText(`☀️ ${this.sunshinePoints}`);
             this.sound.play('levelUp', { volume: GameConfig.audio.sfxVolume });
 
@@ -240,12 +270,11 @@ export class UpgradeScene extends Phaser.Scene {
             this.time.delayedCall(400, () => {
               this.scene.restart({
                 towers: this.placedTowers,
-                sunshinePoints: this.sunshinePoints,
-                hannahXp: this.hannahXp,
-                hannahLevel: this.hannahLevel,
                 playerName: this.playerName,
                 zone: this.zone,
                 battle: this.battle,
+                prevHannahLevel: this.hannahLevel,
+                hannahLevel: this.hannahLevel,
               });
             });
           });
@@ -266,6 +295,7 @@ export class UpgradeScene extends Phaser.Scene {
 
     this._createButton(width / 2 - 150, btnY, '⚔️ NEXT BATTLE', () => {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+      this._persistProgress();
       this.scene.start('GameScene', {
         zone: this.zone,
         battle: this.battle + 1,
@@ -275,6 +305,7 @@ export class UpgradeScene extends Phaser.Scene {
 
     this._createButton(width / 2 + 150, btnY, '🗺️ BACK TO MAP', () => {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+      this._persistProgress();
       this.scene.start('WorldMapScene', { playerName: this.playerName });
     });
   }

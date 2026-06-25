@@ -1,9 +1,7 @@
 import { GameConfig } from '../config.js';
-import { craftpixGroundKey, CRAFTPIX_GRASS_TILES } from '../utils/craftpixTiles.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
 
 const COLORS = GameConfig.colors;
-const GRASS_KEYS = CRAFTPIX_GRASS_TILES.map((n) => craftpixGroundKey(n));
 
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -15,7 +13,7 @@ export class MainMenuScene extends Phaser.Scene {
     const { width, height } = DESIGN;
     this.cameras.main.fadeIn(300);
     this.cameras.main.setBackgroundColor('#5A9A38');
-    setupResponsiveCamera(this, (view) => this._fillGrass(view));
+    setupResponsiveCamera(this);
 
     this._createForegroundDecor(width, height);
     this._createDecorativeAnimals(width, height);
@@ -28,19 +26,29 @@ export class MainMenuScene extends Phaser.Scene {
     this._createButton(width / 2, buttonY, 'PLAY', () => {
       this._ensureMusic();
       this._playSFX();
-      if (!this.playerName) {
+      if (!this.playerName?.trim()) {
         this._promptName(() => {
-          if (this.playerName) this.scene.start('WorldMapScene', { playerName: this.playerName });
-        });
-      } else {
-        this.scene.start('WorldMapScene', { playerName: this.playerName });
+          if (this.playerName?.trim()) {
+            this.scene.start('WorldMapScene', { playerName: this.playerName.trim() });
+          }
+        }, { required: true });
+        return;
       }
+      this.scene.start('WorldMapScene', { playerName: this.playerName.trim() });
     });
 
     this._createButton(width / 2, buttonY + buttonSpacing, 'LEADERBOARD', () => {
       this._ensureMusic();
       this._playSFX();
-      this.scene.start('LeaderboardScene', { playerName: this.playerName });
+      if (!this.playerName?.trim()) {
+        this._promptName(() => {
+          if (this.playerName?.trim()) {
+            this.scene.start('LeaderboardScene', { playerName: this.playerName.trim() });
+          }
+        }, { required: true });
+        return;
+      }
+      this.scene.start('LeaderboardScene', { playerName: this.playerName.trim() });
     });
 
     this._createButton(width / 2, buttonY + buttonSpacing * 2, 'HOW TO PLAY', () => {
@@ -48,37 +56,6 @@ export class MainMenuScene extends Phaser.Scene {
       this._playSFX();
       this._showInstructions();
     });
-  }
-
-  /* ── Static background (no per-frame parallax) ───────── */
-
-  /** Tile grass across the entire visible area; rebuilt on resize so it always fills the screen. */
-  _fillGrass(view) {
-    if (this._grassObjs) this._grassObjs.forEach((o) => o.destroy());
-    this._grassObjs = [];
-
-    const tileSize = 64;
-    const len = GRASS_KEYS.length;
-
-    const base = this.add.rectangle(
-      view.centerX, view.centerY, view.width + tileSize * 2, view.height + tileSize * 2, 0x5A9A38,
-    ).setDepth(-10);
-    this._grassObjs.push(base);
-
-    const startCol = Math.floor(view.x / tileSize) - 1;
-    const endCol = Math.ceil(view.right / tileSize) + 1;
-    const startRow = Math.floor(view.y / tileSize) - 1;
-    const endRow = Math.ceil(view.bottom / tileSize) + 1;
-
-    for (let r = startRow; r <= endRow; r++) {
-      for (let c = startCol; c <= endCol; c++) {
-        const key = GRASS_KEYS[(((r + c) % len) + len) % len];
-        const img = this.add.image(c * tileSize + tileSize / 2, r * tileSize + tileSize / 2, key)
-          .setDisplaySize(tileSize, tileSize)
-          .setDepth(-9);
-        this._grassObjs.push(img);
-      }
-    }
   }
 
   _createForegroundDecor(width, height) {
@@ -361,15 +338,161 @@ export class MainMenuScene extends Phaser.Scene {
 
   /* ── Name prompt ─────────────────────────────────────── */
 
-  _promptName(onComplete) {
-    const name = prompt('Enter your name (max 12 characters):', this.playerName || '');
-    if (name !== null) {
-      this.playerName = name.substring(0, 12).trim();
+  _promptName(onComplete, options = {}) {
+    if (this._namePromptOpen) return;
+    this._namePromptOpen = true;
+
+    const { width, height } = DESIGN;
+    const required = options.required ?? false;
+    const objects = [];
+    const depth = 200;
+
+    const overlay = this.add.rectangle(width / 2, height / 2, width * 2, height * 2, 0x000000, 0.75)
+      .setInteractive()
+      .setDepth(depth);
+    objects.push(overlay);
+
+    const panel = this.add.rectangle(width / 2, height / 2, 520, 300, COLORS.uiPanel)
+      .setStrokeStyle(3, COLORS.outline)
+      .setDepth(depth + 1);
+    objects.push(panel);
+
+    const title = this.add.text(width / 2, height / 2 - 100, 'Enter Your Name', {
+      fontFamily: 'Kenney Pixel',
+      fontSize: '32px',
+      color: '#3D5A1F',
+    }).setOrigin(0.5).setDepth(depth + 2);
+    objects.push(title);
+
+    const hint = this.add.text(width / 2, height / 2 - 62, 'Max 12 characters', {
+      fontFamily: 'Kenney Future',
+      fontSize: '16px',
+      color: '#888888',
+    }).setOrigin(0.5).setDepth(depth + 2);
+    objects.push(hint);
+
+    const inputBg = this.add.rectangle(width / 2, height / 2 - 10, 380, 52, 0xFFFFFF)
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(depth + 2);
+    objects.push(inputBg);
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.maxLength = 12;
+    nameInput.value = this.playerName || '';
+    nameInput.placeholder = 'Your name';
+    nameInput.style.cssText = [
+      'position:absolute',
+      'left:50%',
+      'top:50%',
+      'transform:translate(-50%, -50%)',
+      'width:360px',
+      'height:40px',
+      'border:none',
+      'outline:none',
+      'background:transparent',
+      'font-family:Kenney Future, sans-serif',
+      'font-size:22px',
+      'color:#4A2C0A',
+      'text-align:center',
+      'z-index:1000',
+    ].join(';');
+
+    const container = document.getElementById('game-container') || document.body;
+    container.appendChild(nameInput);
+
+    const syncInputPosition = () => {
+      const canvas = this.game.canvas;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / width;
+      const scaleY = rect.height / height;
+      nameInput.style.left = `${rect.left + (width / 2) * scaleX}px`;
+      nameInput.style.top = `${rect.top + (height / 2 - 10) * scaleY}px`;
+      nameInput.style.transform = 'translate(-50%, -50%)';
+      nameInput.style.width = `${380 * scaleX}px`;
+      nameInput.style.height = `${40 * scaleY}px`;
+      nameInput.style.fontSize = `${Math.max(16, 22 * scaleY)}px`;
+    };
+    syncInputPosition();
+    const onResize = () => syncInputPosition();
+    window.addEventListener('resize', onResize);
+
+    nameInput.focus();
+    nameInput.select();
+
+    const errorText = this.add.text(width / 2, height / 2 + 36, '', {
+      fontFamily: 'Kenney Future',
+      fontSize: '16px',
+      color: '#E63946',
+    }).setOrigin(0.5).setDepth(depth + 2);
+    objects.push(errorText);
+
+    const closePrompt = (saved) => {
+      window.removeEventListener('resize', onResize);
+      if (nameInput.parentNode) nameInput.parentNode.removeChild(nameInput);
+      objects.forEach((obj) => obj.destroy());
+      this._namePromptOpen = false;
+      if (onComplete) onComplete(saved);
+    };
+
+    const saveName = () => {
+      const trimmed = (nameInput.value || '').substring(0, 12).trim();
+      if (!trimmed) {
+        errorText.setText(required ? 'Please enter a name to continue.' : 'Name cannot be empty.');
+        this.tweens.add({
+          targets: inputBg,
+          x: width / 2 - 6,
+          duration: 40,
+          yoyo: true,
+          repeat: 3,
+          onComplete: () => inputBg.setX(width / 2),
+        });
+        return;
+      }
+      this.playerName = trimmed;
       localStorage.setItem('hannahGarden_playerName', this.playerName);
-      this.nameDisplay.setText(this.playerName || 'Tap to enter name');
-      this.nameDisplay.setColor(this.playerName ? '#4A2C0A' : '#888888');
-    }
-    if (onComplete) onComplete();
+      if (this.nameDisplay) {
+        this.nameDisplay.setText(this.playerName);
+        this.nameDisplay.setColor('#4A2C0A');
+      }
+      closePrompt(true);
+    };
+
+    const cancelBtn = this.add.rectangle(width / 2 - 90, height / 2 + 90, 140, 48, 0x888888)
+      .setInteractive({ useHandCursor: true })
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(depth + 2);
+    const cancelText = this.add.text(width / 2 - 90, height / 2 + 90, 'CANCEL', {
+      fontFamily: 'Kenney Future',
+      fontSize: '20px',
+      color: '#FFFFFF',
+    }).setOrigin(0.5).setDepth(depth + 3);
+    objects.push(cancelBtn, cancelText);
+
+    const okBtn = this.add.rectangle(width / 2 + 90, height / 2 + 90, 140, 48, COLORS.button)
+      .setInteractive({ useHandCursor: true })
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(depth + 2);
+    const okText = this.add.text(width / 2 + 90, height / 2 + 90, 'OK', {
+      fontFamily: 'Kenney Future',
+      fontSize: '20px',
+      color: '#4A2C0A',
+    }).setOrigin(0.5).setDepth(depth + 3);
+    objects.push(okBtn, okText);
+
+    cancelBtn.on('pointerdown', () => {
+      this._playSFX();
+      closePrompt(false);
+    });
+    okBtn.on('pointerdown', () => {
+      this._playSFX();
+      saveName();
+    });
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') saveName();
+      if (e.key === 'Escape') closePrompt(false);
+    });
   }
 
   _ensureMusic() {

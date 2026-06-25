@@ -4,14 +4,16 @@
  */
 
 import {
-  LAYOUT_C,
+  ZONE_LAYOUTS,
+  LAYOUT_ORCHARD,
   buildPathFromCoords,
   pathSetFromSegments,
 } from '../three/pathUtils.js';
 import { pickCraftpixPathTileForSegment } from './craftpixTiles.js';
 
 export function getZoneLayout(zone) {
-  return zone === 0 ? LAYOUT_C : LAYOUT_C;
+  if (zone >= 0 && zone < ZONE_LAYOUTS.length) return ZONE_LAYOUTS[zone];
+  return LAYOUT_ORCHARD;
 }
 
 export function pathCoordsToWaypoints(coords, tileSize) {
@@ -21,12 +23,23 @@ export function pathCoordsToWaypoints(coords, tileSize) {
   }));
 }
 
+function translateCoords(coords, colOffset, rowOffset) {
+  return coords.map((c) => ({ x: c.x + colOffset, z: c.z + rowOffset }));
+}
+
 /**
  * Build grass/path grid and per-cell Craftpix ground tile numbers for a zone layout.
  */
-export function buildCanvasMapData(zone, cols, rows, tileSize = 64) {
+export function buildCanvasMapData(zone, cols, rows, tileSize = 64, opts = {}) {
   const layout = getZoneLayout(zone);
-  const pathSegs = buildPathFromCoords(layout.pathCoords);
+  const {
+    centerLayout = false,
+    expandPlayable = false,
+    colOffset = centerLayout ? Math.floor((cols - layout.gridW) / 2) : 0,
+    rowOffset = centerLayout ? Math.floor((rows - layout.gridH) / 2) : 0,
+  } = opts;
+  const shiftedPathCoords = translateCoords(layout.pathCoords, colOffset, rowOffset);
+  const pathSegs = buildPathFromCoords(shiftedPathCoords);
   const pathSet = pathSetFromSegments(pathSegs);
 
   const grid = [];
@@ -37,8 +50,21 @@ export function buildCanvasMapData(zone, cols, rows, tileSize = 64) {
       if (pathSet.has(key)) {
         grid[r][c] = 'path';
       } else {
+        const localCol = c - colOffset;
+        const localRow = r - rowOffset;
+        const insideBaseLayout =
+          localCol >= 0 &&
+          localCol < layout.gridW &&
+          localRow >= 0 &&
+          localRow < layout.gridH;
+
+        if (!insideBaseLayout && expandPlayable) {
+          grid[r][c] = 'grass';
+          continue;
+        }
+
         let nearPath = false;
-        for (const coord of layout.pathCoords) {
+        for (const coord of shiftedPathCoords) {
           const dist = Math.abs(coord.x - c) + Math.abs(coord.z - r);
           if (dist >= 1 && dist <= 2) {
             nearPath = true;
@@ -58,10 +84,20 @@ export function buildCanvasMapData(zone, cols, rows, tileSize = 64) {
 
   return {
     layout,
+    cols,
+    rows,
+    colOffset,
+    rowOffset,
+    coreBounds: {
+      left: colOffset * tileSize,
+      top: rowOffset * tileSize,
+      right: (colOffset + layout.gridW) * tileSize,
+      bottom: (rowOffset + layout.gridH) * tileSize,
+    },
     pathSegs,
     pathSet,
     grid,
     pathTileMap,
-    waypoints: pathCoordsToWaypoints(layout.pathCoords, tileSize),
+    waypoints: pathCoordsToWaypoints(shiftedPathCoords, tileSize),
   };
 }

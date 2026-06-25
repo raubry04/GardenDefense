@@ -71,11 +71,9 @@ export class AudioManager {
       }
       this.contextResumed = true;
       document.removeEventListener('pointerdown', resume);
-      document.removeEventListener('keydown', resume);
     };
 
     document.addEventListener('pointerdown', resume, { once: true });
-    document.addEventListener('keydown', resume, { once: true });
   }
 
   playMusic(key) {
