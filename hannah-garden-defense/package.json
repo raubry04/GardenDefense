@@ -1,0 +1,27 @@
+{
+  "name": "hannah-garden-defense",
+  "version": "1.0.0",
+  "description": "Mobile-first tower defense game built with Phaser 3",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "assets": "node scripts/collect-assets.mjs",
+    "setup": "npm install && npm run assets && npm run build",
+    "full-start": "npm run build && npm run start"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "phaser": "^3.80.1",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

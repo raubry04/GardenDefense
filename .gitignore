@@ -1,0 +1,41 @@
+# --- Source asset packs at repo root (large; run npm run assets to copy used files) ---
+/Assets/
+/Animal Pack Remastered/
+
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Build output ---
+hannah-garden-defense/dist/
+
+# --- Runtime / local data ---
+hannah-garden-defense/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# --- Environment secrets ---
+.env
+.env.*
+!.env.example
+
+# --- OS & editor noise ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Optional local tooling ---
+.cache/
+.vite/

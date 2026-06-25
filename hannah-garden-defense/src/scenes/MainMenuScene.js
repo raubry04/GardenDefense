@@ -1,0 +1,443 @@
+import { GameConfig } from '../config.js';
+import { craftpixGroundKey, CRAFTPIX_GRASS_TILES } from '../utils/craftpixTiles.js';
+import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
+
+const COLORS = GameConfig.colors;
+const GRASS_KEYS = CRAFTPIX_GRASS_TILES.map((n) => craftpixGroundKey(n));
+
+export class MainMenuScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'MainMenuScene' });
+    this.musicStarted = false;
+  }
+
+  create() {
+    const { width, height } = DESIGN;
+    this.cameras.main.fadeIn(300);
+    this.cameras.main.setBackgroundColor('#5A9A38');
+    setupResponsiveCamera(this, (view) => this._fillGrass(view));
+
+    this._createForegroundDecor(width, height);
+    this._createDecorativeAnimals(width, height);
+    this._createTitle(width);
+    this._createNameEntry(width);
+
+    const buttonY = 350;
+    const buttonSpacing = 95;
+
+    this._createButton(width / 2, buttonY, 'PLAY', () => {
+      this._ensureMusic();
+      this._playSFX();
+      if (!this.playerName) {
+        this._promptName(() => {
+          if (this.playerName) this.scene.start('WorldMapScene', { playerName: this.playerName });
+        });
+      } else {
+        this.scene.start('WorldMapScene', { playerName: this.playerName });
+      }
+    });
+
+    this._createButton(width / 2, buttonY + buttonSpacing, 'LEADERBOARD', () => {
+      this._ensureMusic();
+      this._playSFX();
+      this.scene.start('LeaderboardScene', { playerName: this.playerName });
+    });
+
+    this._createButton(width / 2, buttonY + buttonSpacing * 2, 'HOW TO PLAY', () => {
+      this._ensureMusic();
+      this._playSFX();
+      this._showInstructions();
+    });
+  }
+
+  /* ── Static background (no per-frame parallax) ───────── */
+
+  /** Tile grass across the entire visible area; rebuilt on resize so it always fills the screen. */
+  _fillGrass(view) {
+    if (this._grassObjs) this._grassObjs.forEach((o) => o.destroy());
+    this._grassObjs = [];
+
+    const tileSize = 64;
+    const len = GRASS_KEYS.length;
+
+    const base = this.add.rectangle(
+      view.centerX, view.centerY, view.width + tileSize * 2, view.height + tileSize * 2, 0x5A9A38,
+    ).setDepth(-10);
+    this._grassObjs.push(base);
+
+    const startCol = Math.floor(view.x / tileSize) - 1;
+    const endCol = Math.ceil(view.right / tileSize) + 1;
+    const startRow = Math.floor(view.y / tileSize) - 1;
+    const endRow = Math.ceil(view.bottom / tileSize) + 1;
+
+    for (let r = startRow; r <= endRow; r++) {
+      for (let c = startCol; c <= endCol; c++) {
+        const key = GRASS_KEYS[(((r + c) % len) + len) % len];
+        const img = this.add.image(c * tileSize + tileSize / 2, r * tileSize + tileSize / 2, key)
+          .setDisplaySize(tileSize, tileSize)
+          .setDepth(-9);
+        this._grassObjs.push(img);
+      }
+    }
+  }
+
+  _createForegroundDecor(width, height) {
+    const props = [
+      { key: 'cp_treeSmall', x: 80, y: height - 40, size: 72 },
+      { key: 'cp_treeMedium', x: width - 90, y: height - 35, size: 88 },
+      { key: 'cp_bushMedium', x: width * 0.25, y: height - 28, size: 48 },
+      { key: 'cp_bushSmall', x: width * 0.72, y: height - 32, size: 40 },
+      { key: 'cp_rock1', x: 140, y: height - 18, size: 28 },
+      { key: 'cp_rock2', x: width - 160, y: height - 16, size: 24 },
+      { key: 'cp_rock3', x: width * 0.5, y: height - 14, size: 22 },
+    ];
+
+    props.forEach((p) => {
+      this.add.image(p.x, p.y, p.key)
+        .setDisplaySize(p.size, p.size)
+        .setOrigin(0.5, 1)
+        .setDepth(2)
+        .setAlpha(0.92);
+    });
+  }
+
+  /* ── Title ───────────────────────────────────────────── */
+
+  _createTitle(width) {
+    const titleY = 90;
+
+    const burstGfx = this.add.graphics().setDepth(4);
+    burstGfx.setPosition(width / 2, titleY);
+    const rays = 12;
+    for (let i = 0; i < rays; i++) {
+      const angle = (i / rays) * Math.PI * 2;
+      const outerR = 80;
+      const halfSpread = Math.PI / rays * 0.55;
+      burstGfx.fillStyle(0xFFD700, 0.18);
+      burstGfx.beginPath();
+      burstGfx.moveTo(0, 0);
+      burstGfx.lineTo(
+        Math.cos(angle - halfSpread) * outerR,
+        Math.sin(angle - halfSpread) * outerR
+      );
+      burstGfx.lineTo(
+        Math.cos(angle) * (outerR + 15),
+        Math.sin(angle) * (outerR + 15)
+      );
+      burstGfx.lineTo(
+        Math.cos(angle + halfSpread) * outerR,
+        Math.sin(angle + halfSpread) * outerR
+      );
+      burstGfx.closePath();
+      burstGfx.fillPath();
+    }
+
+    this.tweens.add({
+      targets: burstGfx,
+      angle: 360,
+      duration: 60000,
+      repeat: -1,
+      ease: 'Linear',
+    });
+
+    this.add.circle(width / 2, titleY, 34, 0xFFD700, 0.3).setDepth(5);
+
+    this.add.text(width / 2, titleY, "Hannah's Garden Defense", {
+      fontFamily: 'Kenney Pixel',
+      fontSize: '48px',
+      color: '#FFD700',
+      stroke: '#3D5A1F',
+      strokeThickness: 6,
+    }).setOrigin(0.5).setDepth(5);
+  }
+
+  /* ── Name entry ──────────────────────────────────────── */
+
+  _createNameEntry(width) {
+    const savedName = localStorage.getItem('hannahGarden_playerName') || '';
+    this.playerName = savedName;
+
+    const panelY = 210;
+    const panelW = 340;
+    const panelH = 80;
+    const uiDepth = 20;
+
+    this.add.rectangle(width / 2 + 3, panelY + 3, panelW, panelH, 0x2A4010, 0.3)
+      .setOrigin(0.5).setDepth(uiDepth);
+
+    const panelBg = this.add.rectangle(width / 2, panelY, panelW, panelH, 0xFFF9E6)
+      .setStrokeStyle(3, COLORS.outline)
+      .setOrigin(0.5).setDepth(uiDepth);
+
+    this.add.text(width / 2, panelY - 22, 'Your Name:', {
+      fontFamily: 'Kenney Future',
+      fontSize: '22px',
+      color: '#3D5A1F',
+    }).setOrigin(0.5).setDepth(uiDepth + 1);
+
+    this.nameDisplay = this.add.text(width / 2 + 10, panelY + 10, savedName || 'Tap to enter name', {
+      fontFamily: 'Kenney Future',
+      fontSize: '24px',
+      color: savedName ? '#4A2C0A' : '#888888',
+    }).setOrigin(0.5).setDepth(uiDepth + 1).setInteractive({ useHandCursor: true });
+
+    const pencilGfx = this.add.graphics();
+    const pencilX = this.nameDisplay.x + this.nameDisplay.width / 2 + 18;
+    const pencilY = panelY + 10;
+    pencilGfx.fillStyle(0xFF9F1C);
+    pencilGfx.fillRect(pencilX - 3, pencilY - 10, 6, 16);
+    pencilGfx.fillStyle(0xFFD700);
+    pencilGfx.fillTriangle(pencilX - 3, pencilY + 6, pencilX + 3, pencilY + 6, pencilX, pencilY + 12);
+    pencilGfx.fillStyle(0x4A2C0A);
+    pencilGfx.fillRect(pencilX - 4, pencilY - 12, 8, 4);
+
+    const openNamePrompt = () => {
+      this._resumeAudio();
+      this._promptName();
+    };
+    this.nameDisplay.on('pointerdown', openNamePrompt);
+    panelBg.setInteractive({ useHandCursor: true });
+    panelBg.on('pointerdown', openNamePrompt);
+  }
+
+  /* ── Decorative animals ──────────────────────────────── */
+
+  _createDecorativeAnimals(width, height) {
+    if (this.textures.exists('chick')) {
+      const chick = this.add.image(-40, height - 55, 'chick')
+        .setScale(0.4)
+        .setAlpha(0.9)
+        .setDepth(3);
+      this._animateChickHop(chick, width, height);
+    }
+
+    if (this.textures.exists('rabbit')) {
+      const rabbit = this.add.image(width + 30, height - 70, 'rabbit')
+        .setScale(0.45)
+        .setAlpha(0)
+        .setDepth(3);
+      this._animateRabbitPeek(rabbit, width, height);
+    }
+  }
+
+  _animateChickHop(chick, width, height) {
+    const hopDuration = 500;
+    const restDuration = 800;
+    const hopDistance = 55;
+    const totalHops = Math.ceil((width + 80) / hopDistance);
+    let hopIndex = 0;
+
+    const doHop = () => {
+      if (!chick.active) return;
+
+      this.tweens.add({
+        targets: chick,
+        x: chick.x + hopDistance,
+        duration: hopDuration,
+        ease: 'Sine.easeInOut',
+      });
+
+      this.tweens.add({
+        targets: chick,
+        y: height - 55 - 18,
+        duration: hopDuration / 2,
+        yoyo: true,
+        ease: 'Sine.easeOut',
+      });
+
+      hopIndex++;
+      if (hopIndex < totalHops) {
+        this.time.delayedCall(hopDuration + restDuration, doHop);
+      } else {
+        this.time.delayedCall(4000, () => {
+          if (!chick.active) return;
+          chick.setPosition(-40, height - 55);
+          hopIndex = 0;
+          doHop();
+        });
+      }
+    };
+
+    this.time.delayedCall(1500, doHop);
+  }
+
+  _animateRabbitPeek(rabbit, width, height) {
+    const peekX = width - 45;
+    const hideX = width + 30;
+
+    const doPeek = () => {
+      if (!rabbit.active) return;
+
+      this.tweens.add({
+        targets: rabbit,
+        x: peekX,
+        alpha: 0.9,
+        duration: 600,
+        ease: 'Sine.easeOut',
+        hold: Phaser.Math.Between(2000, 4000),
+        onComplete: () => {
+          if (!rabbit.active) return;
+          this.tweens.add({
+            targets: rabbit,
+            x: hideX,
+            alpha: 0,
+            duration: 400,
+            ease: 'Sine.easeIn',
+            onComplete: () => {
+              this.time.delayedCall(Phaser.Math.Between(3000, 6000), doPeek);
+            },
+          });
+        },
+      });
+    };
+
+    this.time.delayedCall(3000, doPeek);
+  }
+
+  /* ── Buttons (steady — hover feedback only) ─────────── */
+
+  _createButton(x, y, label, callback) {
+    const bw = 300;
+    const bh = 70;
+    const depth = 20;
+    const isTouch = this.sys.game.device.input.touch;
+
+    const shadow = this.add.rectangle(x + 4, y + 4, bw, bh, 0xC47F00, 0.5)
+      .setOrigin(0.5)
+      .setDepth(depth);
+
+    const bg = this.add.rectangle(x, y, bw, bh, COLORS.button)
+      .setOrigin(0.5)
+      .setDepth(depth)
+      .setStrokeStyle(3, COLORS.outline)
+      .setInteractive({ useHandCursor: true });
+
+    const text = this.add.text(x, y, label, {
+      fontFamily: 'Kenney Future',
+      fontSize: '28px',
+      color: '#4A2C0A',
+    }).setOrigin(0.5).setDepth(depth + 1);
+
+    const parts = [bg, text, shadow];
+
+    if (!isTouch) {
+      bg.on('pointerover', () => {
+        this.tweens.killTweensOf(parts);
+        this.tweens.add({ targets: parts, scaleX: 1.04, scaleY: 1.04, duration: 60 });
+      });
+      bg.on('pointerout', () => {
+        this.tweens.killTweensOf(parts);
+        this.tweens.add({ targets: parts, scaleX: 1, scaleY: 1, duration: 60 });
+      });
+    }
+
+    bg.on('pointerdown', () => {
+      if (bg.getData('busy')) return;
+      bg.setData('busy', true);
+      this._resumeAudio();
+      this.tweens.killTweensOf(parts);
+      this.tweens.add({
+        targets: parts,
+        scaleX: 0.95,
+        scaleY: 0.95,
+        duration: 80,
+        yoyo: true,
+        onComplete: () => {
+          bg.setData('busy', false);
+          callback();
+        },
+      });
+    });
+
+    return { bg, shadow, text };
+  }
+
+  _resumeAudio() {
+    const ctx = this.sound.context;
+    if (ctx?.state === 'suspended') {
+      ctx.resume();
+    }
+  }
+
+  /* ── Name prompt ─────────────────────────────────────── */
+
+  _promptName(onComplete) {
+    const name = prompt('Enter your name (max 12 characters):', this.playerName || '');
+    if (name !== null) {
+      this.playerName = name.substring(0, 12).trim();
+      localStorage.setItem('hannahGarden_playerName', this.playerName);
+      this.nameDisplay.setText(this.playerName || 'Tap to enter name');
+      this.nameDisplay.setColor(this.playerName ? '#4A2C0A' : '#888888');
+    }
+    if (onComplete) onComplete();
+  }
+
+  _ensureMusic() {
+    if (this.musicStarted) return;
+    this.musicStarted = true;
+    this._resumeAudio();
+    if (this.sound.get('menu')) {
+      this.sound.get('menu').play({ loop: true, volume: GameConfig.audio.musicVolume });
+    } else {
+      this.sound.play('menu', { loop: true, volume: GameConfig.audio.musicVolume });
+    }
+  }
+
+  _playSFX() {
+    this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+  }
+
+  _showInstructions() {
+    const { width, height } = DESIGN;
+
+    const overlay = this.add.rectangle(width / 2, height / 2, width * 2, height * 2, 0x000000, 0.8)
+      .setInteractive()
+      .setDepth(100);
+
+    const panel = this.add.rectangle(width / 2, height / 2, 600, 420, COLORS.uiPanel)
+      .setStrokeStyle(3, COLORS.outline)
+      .setDepth(101);
+
+    const instructions = [
+      'HOW TO PLAY',
+      '',
+      '1. Place animal towers on grass tiles to defend your garden!',
+      '2. Enemies walk along the path — stop them before they reach the gate.',
+      '3. Earn Sunshine Points by defeating critters.',
+      '4. Upgrade your towers and unlock new abilities!',
+      '5. Complete zones to progress through the world map.',
+      '',
+      'Tap towers from the tray, then tap a valid tile to place them.',
+      "Use Hannah's special abilities when things get tough!",
+    ];
+
+    const instrText = this.add.text(width / 2, height / 2 - 60, instructions.join('\n'), {
+      fontFamily: 'Kenney Future',
+      fontSize: '18px',
+      color: '#3D5A1F',
+      align: 'center',
+      wordWrap: { width: 540 },
+      lineSpacing: 4,
+    }).setOrigin(0.5).setDepth(102);
+
+    const closeBtn = this.add.rectangle(width / 2, height / 2 + 170, 160, 50, COLORS.button)
+      .setInteractive({ useHandCursor: true })
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(102);
+
+    const closeText = this.add.text(width / 2, height / 2 + 170, 'CLOSE', {
+      fontFamily: 'Kenney Future',
+      fontSize: '22px',
+      color: '#4A2C0A',
+    }).setOrigin(0.5).setDepth(102);
+
+    closeBtn.on('pointerdown', () => {
+      this._playSFX();
+      overlay.destroy();
+      panel.destroy();
+      instrText.destroy();
+      closeBtn.destroy();
+      closeText.destroy();
+    });
+  }
+}

@@ -1,0 +1,115 @@
+export const GameConfig = {
+  canvas: { width: 1280, height: 720 },
+  tileSize: 64,
+
+  startingLives: 20,
+  startingSunshinePoints: { zone1: 200, zone2: 175, zone3: 200, zone4: 225, zone5: 250, endless: 250 },
+  waveCooldownSeconds: 15,
+  prepPhaseSeconds: 30,
+  earlyWaveBonusPoints: 10,
+  waveCompletionBonus: 25,
+  twoStarBonus: 25,
+  threeStarBonus: 75,
+
+  starThresholds: { three: 15, two: 8 },
+
+  hannahXpThresholds: [0, 200, 500, 900, 1400, 2000, 3000, 4500, 6500, 9000],
+  hannahXpRewards: { battleComplete: 50, threeStarBonus: 25, bossKill: 30 },
+
+  towers: {
+    RABBIT: {
+      cost: 50, slowPercent: 0.5, range: 128, aoe: true, unlock: { type: 'level', value: 1 },
+      upgrades: [
+        { slowPercent: 0.6, range: 160, cost: 75 },
+        { slowPercent: 0.75, range: 192, cost: 150 }
+      ]
+    },
+    CHICKEN: {
+      cost: 75, damage: 10, range: 250, fireRate: 800, unlock: { type: 'level', value: 1 },
+      upgrades: [
+        { damage: 20, range: 300, fireRate: 700, eggs: 2, cost: 100 },
+        { damage: 30, range: 340, fireRate: 600, eggs: 3, pierce: 1, cost: 200 }
+      ]
+    },
+    DOG: {
+      cost: 100, stunMs: 600, slowPercent: 0.35, range: 192, aoe: true, unlock: { type: 'level', value: 2 },
+      upgrades: [
+        { stunMs: 900, slowPercent: 0.45, range: 230, cost: 125 },
+        { stunMs: 1200, slowPercent: 0.55, range: 270, cost: 200 }
+      ]
+    },
+    OWL: {
+      cost: 125, damage: 40, range: 450, fireRate: 2000, unlock: { type: 'zone', value: 2 },
+      upgrades: [
+        { damage: 70, range: 525, fireRate: 1800, cost: 150 },
+        { damage: 110, range: 600, fireRate: 1500, cost: 250 }
+      ]
+    },
+    DUCK: {
+      cost: 150, slowPercent: 0.5, range: 220, aoe: true, unlock: { type: 'zone', value: 2 },
+      upgrades: [
+        { slowPercent: 0.6, range: 275, cost: 125 },
+        { slowPercent: 0.75, range: 330, cost: 200 }
+      ]
+    },
+    PENGUIN: {
+      cost: 175, freezeMs: 1500, range: 200, cooldown: 8000, aoe: true, unlock: { type: 'zone', value: 3 },
+      upgrades: [
+        { freezeMs: 2000, range: 240, cooldown: 7000, cost: 175 },
+        { freezeMs: 2500, range: 280, cooldown: 5500, cost: 275 }
+      ]
+    },
+    PIG_WALL: {
+      cost: 200, hp: 300, unlock: { type: 'zone', value: 3 },
+      upgrades: [
+        { hp: 500, cost: 150 },
+        { hp: 800, thorns: 5, cost: 250 }
+      ]
+    }
+  },
+
+  enemies: {
+    SNAKE: { hp: 40, speed: 60, reward: 10, damage: 1 },
+    FROG: { hp: 60, speed: 40, reward: 15, damage: 1, splitsInto: 2 },
+    GORILLA: { hp: 80, speed: 130, reward: 20, damage: 1, immuneToSlow: true },
+    PARROT: { hp: 80, speed: 100, reward: 25, damage: 2, flies: true },
+    MONKEY: { hp: 120, speed: 80, reward: 35, damage: 3, stealChance: 0.2, stealAmount: 5 },
+    BEAR: { hp: 160, speed: 70, reward: 50, damage: 4, targetsTowers: true, towerDmg: 15 },
+    ELEPHANT: { hp: 500, speed: 30, reward: 150, damage: 10, armored: true, stompRange: 100, stompSlowMs: 3000 }
+  },
+
+  zones: [
+    { name: 'Sunflower Meadow', battles: 5, enemies: ['SNAKE', 'FROG'] },
+    { name: 'Vegetable Garden', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT'] },
+    { name: 'Chicken Coop', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY'] },
+    { name: 'Berry Patch', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR'] },
+    { name: 'Apple Orchard', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR', 'ELEPHANT'] }
+  ],
+
+  hannahAbilities: {
+    SUNSHINE_BURST: { cooldown: 30000, damage: 25, label: 'Sunshine Burst' },
+    GARDEN_RAIN: { cooldown: 45000, label: 'Garden Rain' },
+    RAINBOW_SHIELD: { cooldown: 60000, duration: 8000, label: 'Rainbow Shield' },
+    FLOWER_BOMB: { cooldown: 90000, damage: 50, range: 120, label: 'Flower Bomb', unlockLevel: 6 }
+  },
+
+  sellRefundPercent: 0.5,
+  endlessDifficultyScale: 0.08,
+  bossWaveBonus: 3,
+  towerDefaultHp: 200,
+
+  audio: { musicVolume: 0.6, sfxVolume: 0.8 },
+
+  colors: {
+    primary: 0xFFD700,
+    grass: 0x7EC850,
+    path: 0xC8A96E,
+    uiPanel: 0xFFF9E6,
+    button: 0xFF9F1C,
+    buttonText: 0x4A2C0A,
+    enemyThreat: 0xE63946,
+    stars: 0xFFE135,
+    accent: 0xA8DADC,
+    outline: 0x3D5A1F
+  }
+};
