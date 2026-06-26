@@ -81,15 +81,18 @@ export const GameConfig = {
     PARROT: { hp: 80, speed: 100, reward: 25, damage: 2, flies: true },
     MONKEY: { hp: 120, speed: 80, reward: 35, damage: 3, stealChance: 0.2, stealAmount: 5 },
     BEAR: { hp: 160, speed: 70, reward: 50, damage: 4, targetsTowers: true, towerDmg: 15 },
-    ELEPHANT: { hp: 500, speed: 30, reward: 150, damage: 10, armored: true, stompRange: 100, stompSlowMs: 3000 }
+    ELEPHANT: { hp: 500, speed: 30, reward: 150, damage: 10, armored: true, stompRange: 100, stompSlowMs: 3000 },
+    COW: { hp: 120, speed: 35, reward: 12, damage: 1 },
+    HORSE: { hp: 45, speed: 150, reward: 18, damage: 1, speedBonus: 1.2 },
+    BUFFALO: { hp: 220, speed: 55, reward: 45, damage: 3, immuneToStun: true, wallDamageMult: 2.5 },
   },
 
   zones: [
     { name: 'Sunflower Meadow', battles: 5, enemies: ['SNAKE', 'FROG'] },
-    { name: 'Vegetable Garden', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT'] },
-    { name: 'Chicken Coop', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY'] },
-    { name: 'Berry Patch', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR'] },
-    { name: 'Apple Orchard', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR', 'ELEPHANT'] }
+    { name: 'Vegetable Garden', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'COW'] },
+    { name: 'Chicken Coop', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'HORSE'] },
+    { name: 'Berry Patch', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR', 'BUFFALO'] },
+    { name: 'Apple Orchard', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR', 'ELEPHANT', 'BUFFALO'] }
   ],
 
   hannahAbilities: {
@@ -103,6 +106,26 @@ export const GameConfig = {
   endlessDifficultyScale: 0.08,
   bossWaveBonus: 3,
   towerDefaultHp: 200,
+
+  waves: {
+    minWaves: 5,
+    maxWaves: 15,
+    baseCount: 3,
+    countPerWave: 1.2,
+    countPerBattle: 2,
+    bossWaveExtra: 0.5,
+    spawnDelayMs: 800,
+    endlessPreGenerate: 50,
+    zoneIntro: {
+      0: { gentleWaves: 2, maxEnemyIndex: 0, primaryWeight: 0.85 },
+    },
+  },
+
+  enemyIntros: {
+    COW: 'Cows are slow but tough!',
+    HORSE: 'Watch out — Horses are fast!',
+    BUFFALO: 'Buffalo charge through Pig Walls!',
+  },
 
   audio: { musicVolume: 0.6, sfxVolume: 0.8 },
 

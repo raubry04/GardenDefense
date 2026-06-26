@@ -92,10 +92,29 @@ export class TowerPlacement {
     });
 
     s.input.on('pointerdown', (pointer) => {
-      if (!pointer.rightButtonDown()) return;
       const { col, row } = this.placementTileFromPointer(pointer);
-      const tower = s.towers.find(t => t.gridRow === row && t.gridCol === col);
-      if (tower && tower.hp > 0) this.showSellUI(tower);
+
+      if (pointer.rightButtonDown()) {
+        const tower = s.towers.find(t => t.gridRow === row && t.gridCol === col);
+        if (tower && tower.hp > 0) this.showSellUI(tower);
+        return;
+      }
+
+      if (s.selectedTower) return;
+
+      const tower = s.towerInspect?.towerAt(col, row);
+      if (tower) {
+        if (s.towerInspect.isOpen() && s.towerInspect.tower === tower) {
+          s.towerInspect.close();
+        } else {
+          s.towerInspect.open(tower);
+        }
+        return;
+      }
+
+      if (s.towerInspect?.isOpen()) {
+        s.towerInspect.close();
+      }
     });
 
     s.input.mouse.disableContextMenu();

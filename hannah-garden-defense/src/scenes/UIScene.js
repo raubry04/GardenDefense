@@ -5,6 +5,7 @@ import { TutorialManager } from "../systems/TutorialManager.js";
 import { BattleHud } from "../ui/BattleHud.js";
 import { TowerTray } from "../ui/TowerTray.js";
 import { AbilityBar } from "../ui/AbilityBar.js";
+import { WavePreview } from "../ui/WavePreview.js";
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -37,6 +38,8 @@ export class UIScene extends Phaser.Scene {
     this.hud.create(width);
     this.abilityBar.create(width, height);
     this.tray.create(width, height);
+    this.wavePreview = new WavePreview(this, this.hud);
+    this.wavePreview.create();
 
     this._setupEventListeners();
     this._setupUILayoutRelayout();
@@ -121,6 +124,7 @@ export class UIScene extends Phaser.Scene {
       this.hud.waveText.setText(`Wave: ${data.wave} / ${data.total}`);
       this.abilityBar.setSendWaveVisible(false);
       this.hud.updateWaveProgress();
+      this.wavePreview.setVisible(false);
     });
 
     this.game.events.on("wave-ended", (data) => {
@@ -130,6 +134,27 @@ export class UIScene extends Phaser.Scene {
       if (data.wave < data.total) {
         this.abilityBar.setSendWaveVisible(true);
         this.abilityBar.sendWaveText.setText("NEXT WAVE");
+      }
+    });
+
+    this.game.events.on("wave-preview-changed", (preview) => {
+      this._lastWavePreview = preview;
+      if (this._inspectOpen || this.waveActive) {
+        this.wavePreview.setVisible(false);
+        return;
+      }
+      this.wavePreview.update(preview);
+    });
+
+    this.game.events.on("tower-inspect-open", () => {
+      this._inspectOpen = true;
+      this.wavePreview.setVisible(false);
+    });
+
+    this.game.events.on("tower-inspect-close", () => {
+      this._inspectOpen = false;
+      if (!this.waveActive && this._lastWavePreview) {
+        this.wavePreview.update(this._lastWavePreview);
       }
     });
 
@@ -165,6 +190,10 @@ export class UIScene extends Phaser.Scene {
       this.game.events.off("tower-deselected");
       this.game.events.off("placement-rejected");
       this.game.events.off("ability-fired");
+      this.game.events.off("wave-preview-changed");
+      this.game.events.off("tower-inspect-open");
+      this.game.events.off("tower-inspect-close");
+      this.wavePreview?.destroy();
       this.tray.destroy();
       this.hud.destroy();
     });

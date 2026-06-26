@@ -12,7 +12,7 @@ Garden/
 └── docs/                    # Shared notes (optional)
 ```
 
-The game lives in [`hannah-garden-defense/`](hannah-garden-defense/). See that folder's [README](hannah-garden-defense/README.md) for how to play and [DEVELOPMENT.md](hannah-garden-defense/docs/DEVELOPMENT.md) for developer setup.
+The game lives in [`hannah-garden-defense/`](hannah-garden-defense/). See that folder's [README](hannah-garden-defense/README.md) for how to play and the full [documentation index](hannah-garden-defense/README.md#documentation) (player guide, gameplay, API, assets, testing, balance, development, architecture, changelog, contributing).
 
 ## Quick start
 

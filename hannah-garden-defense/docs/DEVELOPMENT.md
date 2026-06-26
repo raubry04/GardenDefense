@@ -33,9 +33,12 @@ npm run dev:all  # Vite HMR + API on one command
 npm run dev      # hot reload on :5173 (run server separately for API)
 npm run build    # refresh dist/ after code changes
 npm run start    # serve dist/ on :5050
-npm test         # unit tests
-npm run validate # tests + asset check
+npm test         # unit tests (Vitest)
+npm run lint     # ESLint on scenes + utils
+npm run validate # tests + asset manifest check (required before merge)
 ```
+
+See [TESTING.md](TESTING.md) for test suites and manual smoke checklist.
 
 ### Dev vs production
 
@@ -82,11 +85,22 @@ git commit -m "Add Hannah's Garden Defense with docs and git setup"
 - `main` — playable builds
 - Feature branches — `feature/wave-balance`, `fix/mobile-hud`, etc.
 
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [TESTING.md](TESTING.md) | Vitest, `validate`, smoke checklist |
+| [GAMEPLAY.md](GAMEPLAY.md) | Towers, enemies, zones |
+| [API.md](API.md) | REST routes and progress fields |
+| [ASSETS.md](ASSETS.md) | `npm run assets` pipeline |
+| [BALANCE.md](BALANCE.md) | `config.js` tuning |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Scene and module map |
+
 ## VS Code / Cursor
 
 Recommended extensions (optional):
 
-- ESLint (if added later)
+- ESLint
 - EditorConfig (`.editorconfig` in repo root)
 
 Workspace spell-check word list: `.vscode/settings.json` at repo root.

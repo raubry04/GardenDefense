@@ -105,7 +105,8 @@ export class EnemyBehavior {
         enemy.attackTimer = (enemy.attackTimer || 0) + delta;
         if (enemy.attackTimer >= 800) {
           enemy.attackTimer = 0;
-          this.damageTower(pigWall, enemy.damage * 2);
+          const wallMult = GameConfig.enemies[enemy.type]?.wallDamageMult ?? 1;
+          this.damageTower(pigWall, enemy.damage * 2 * wallMult);
           if (pigWall.thorns > 0 && enemy.alive) {
             s.towerCombat.damageEnemy(enemy, pigWall.thorns);
           }

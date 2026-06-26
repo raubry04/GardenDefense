@@ -102,6 +102,21 @@ export const ENEMY_GUIDE = [
     text: 'Boss! Armored vs eggs, stomps to slow towers. Owls and abilities help most.',
     target: null,
   },
+  {
+    title: 'Cow',
+    text: 'Slow tank with lots of health. Chip away with steady damage.',
+    target: null,
+  },
+  {
+    title: 'Horse',
+    text: 'Very fast runner — use slows, stuns, or Owls before it reaches the gate.',
+    target: null,
+  },
+  {
+    title: 'Buffalo',
+    text: 'Mini-boss that shrugs off stuns and smashes Pig Walls extra hard.',
+    target: null,
+  },
 ];
 
 export const ABILITY_GUIDE = [
@@ -138,7 +153,7 @@ export function getFirstBattleSteps() {
     },
     {
       title: 'Threats',
-      text: 'Frog splits • Gorilla ignores slow • Parrot flies • Monkey steals • Bear smashes towers • Elephant stomps.',
+      text: 'Frog splits • Gorilla ignores slow • Parrot flies • Monkey steals • Bear smashes towers • Elephant stomps • Cow tanks • Horse sprints • Buffalo charges walls.',
       target: null,
     },
     {

@@ -10,6 +10,7 @@ import { TowerCombat } from '../battle/TowerCombat.js';
 import { EnemyBehavior } from '../battle/EnemyBehavior.js';
 import { TowerPlacement } from '../battle/TowerPlacement.js';
 import { AbilityController } from '../battle/AbilityController.js';
+import { TowerInspect } from '../battle/TowerInspect.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -75,6 +76,8 @@ export class GameScene extends Phaser.Scene {
     this.enemyBehavior = new EnemyBehavior(this);
     this.towerPlacement = new TowerPlacement(this);
     this.abilityController = new AbilityController(this);
+    this.towerInspect = new TowerInspect(this);
+    this._seenEnemyTypes = new Set();
 
     this.scene.launch('UIScene', {
       lives: this.lives,
@@ -286,6 +289,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.game.events.on('tower-place-request', (pointer) => {
+      if (this.towerInspect?.isOpen()) return;
       if (!this.selectedTower || !pointer) return;
       const placed = this.towerPlacement.handleTowerPlacement(pointer);
       if (placed) this.towerPlacement.clearTowerSelection();
@@ -507,6 +511,7 @@ export class GameScene extends Phaser.Scene {
   /* ─── Cleanup ─── */
 
   shutdown() {
+    this.towerInspect?.close();
     if (this.selectedTower) {
       this.game.events.emit('tower-deselected');
     }

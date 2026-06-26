@@ -74,10 +74,10 @@ export class TowerCombat {
         target.slowPercent = tower.slowPercent;
         target.slowTimer = 2000;
       }
-      if (tower.stunMs > 0) {
+      if (tower.stunMs > 0 && !GameConfig.enemies[target.type]?.immuneToStun) {
         target.stunTimer = tower.stunMs;
       }
-      if (tower.freezeMs > 0) {
+      if (tower.freezeMs > 0 && !GameConfig.enemies[target.type]?.immuneToStun) {
         target.stunTimer = Math.max(target.stunTimer || 0, tower.freezeMs);
         if (target.sprite?.active) target.sprite.setTint(0x88CCFF);
         const freeze = tower.freezeMs;
@@ -142,16 +142,16 @@ export class TowerCombat {
 
     this.towerRecoil(tower);
 
-    if (tower.slowPercent > 0) {
+    if (tower.slowPercent > 0 && !GameConfig.enemies[target.type]?.immuneToSlow) {
       target.slowPercent = tower.slowPercent;
       target.slowTimer = 2000;
     }
 
-    if (tower.stunMs > 0) {
+    if (tower.stunMs > 0 && !GameConfig.enemies[target.type]?.immuneToStun) {
       target.stunTimer = tower.stunMs;
     }
 
-    if (tower.freezeMs > 0) {
+    if (tower.freezeMs > 0 && !GameConfig.enemies[target.type]?.immuneToStun) {
       target.stunTimer = Math.max(target.stunTimer || 0, tower.freezeMs);
       if (target.sprite?.active) target.sprite.setTint(0x88CCFF);
       const freeze = tower.freezeMs;
@@ -368,12 +368,13 @@ export class TowerCombat {
       .setDisplaySize(TILE - 12, TILE - 12)
       .setDepth(20);
 
+    const speedMult = config.speedBonus ?? 1;
     const enemy = {
       type,
       sprite,
       hp: config.hp,
       maxHp: config.hp,
-      speed: config.speed,
+      speed: config.speed * speedMult,
       reward: config.reward,
       damage: config.damage,
       x: start.x,
@@ -393,6 +394,14 @@ export class TowerCombat {
     enemy.hpBar = hpBar;
 
     s.enemies.push(enemy);
+
+    if (!s._seenEnemyTypes.has(type)) {
+      s._seenEnemyTypes.add(type);
+      const intro = GameConfig.enemyIntros?.[type];
+      if (intro) {
+        s.towerPlacement.showFloatingText(start.x, start.y - 36, intro, '#FFD700');
+      }
+    }
   }
 
   spawnSplitEnemy(type, x, y, waypointIndex) {

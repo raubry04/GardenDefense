@@ -194,6 +194,12 @@ export const ENEMY_SPRITES = {
 
   ELEPHANT: 'elephant',
 
+  COW: 'cow',
+
+  HORSE: 'horse',
+
+  BUFFALO: 'buffalo',
+
 };
 
 
@@ -213,6 +219,12 @@ export const ENEMY_SPRITE_FILES = {
   BEAR: 'bear.png',
 
   ELEPHANT: 'elephant.png',
+
+  COW: 'cow.png',
+
+  HORSE: 'horse.png',
+
+  BUFFALO: 'buffalo.png',
 
 };
 
