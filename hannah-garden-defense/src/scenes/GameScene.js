@@ -27,6 +27,9 @@ export class GameScene extends Phaser.Scene {
     this.hannahXp = 0;
     this.battleXpStart = progress.hannahXp ?? 0;
     this.towerUpgrades = { ...(progress.towerUpgrades || {}) };
+    if (this.zone === 0 && this.battle === 0) {
+      this.towerUpgrades = {};
+    }
     this.abilityLastUsed = {};
     for (const key of Object.keys(GameConfig.hannahAbilities)) {
       this.abilityLastUsed[key] = -Infinity;
@@ -46,6 +49,9 @@ export class GameScene extends Phaser.Scene {
     this.selectedTower = null;
     this.ghostPreview = null;
     this.paused = false;
+    this._battleSpeed = 1;
+    this._lastCooldownSeconds = -1;
+    this._lastCooldownIsPrep = false;
     this.hoverHighlight = null;
     this.hoverRangeCircle = null;
     this._livesWarningTimer = 0;
@@ -94,12 +100,16 @@ export class GameScene extends Phaser.Scene {
     this.abilityController.setupAbilities();
     this.towerPlacement.setupInput();
     this._setupPauseMenu();
+    this._lastCooldownSeconds = -1;
+    this._lastCooldownIsPrep = null;
+    this._emitWaveCooldownIfChanged();
   }
 
   update(time, delta) {
     if (this.paused) return;
 
     this.waveManager.update(time, delta);
+    this._emitWaveCooldownIfChanged();
     this.towerCombat.updateTowers(time, delta);
     this.enemyBehavior.updateEnemies(delta);
     this.towerCombat.updateProjectiles(delta);
@@ -236,7 +246,6 @@ export class GameScene extends Phaser.Scene {
       this.sunshinePoints += GameConfig.waveCompletionBonus;
       this.battleSunshineEarned += GameConfig.waveCompletionBonus;
       this.game.events.emit('points-changed', { points: this.sunshinePoints });
-      this._showCooldownTimer();
     });
 
     this.events.on('battle-complete', () => {
@@ -304,6 +313,36 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on('send-wave-early', () => {
       this.waveManager.sendWaveEarly();
     });
+
+    this.game.events.on('tutorial-state-changed', (data) => {
+      this.waveManager?.setPaused(data.active);
+    });
+
+    this.game.events.on('battle-speed-changed', (data) => {
+      this._battleSpeed = data.speed ?? 1;
+      this.time.timeScale = this._battleSpeed;
+    });
+  }
+
+  _emitWaveCooldownIfChanged() {
+    const wm = this.waveManager;
+    if (!wm?.isBetweenWaves()) return;
+
+    const seconds = wm.getCooldownSecondsRemaining();
+    const isPrep = wm.isPrepPhase();
+    if (seconds === this._lastCooldownSeconds && isPrep === this._lastCooldownIsPrep) return;
+
+    this._lastCooldownSeconds = seconds;
+    this._lastCooldownIsPrep = isPrep;
+    this.game.events.emit('wave-cooldown-changed', {
+      seconds,
+      isPrep,
+      manualFirstWave: wm.requiresManualFirstWave(),
+    });
+  }
+
+  _formatWaveBannerTotal(total) {
+    return total == null ? '♾' : String(total);
   }
 
   /* ─── Wave completion ─── */
@@ -322,7 +361,8 @@ export class GameScene extends Phaser.Scene {
 
   _showWaveBanner(wave, total) {
     const view = this._view();
-    const banner = this.add.text(view.x - 400, view.y + 64, `Wave ${wave} of ${total}!`, {
+    const totalLabel = this._formatWaveBannerTotal(total);
+    const banner = this.add.text(view.x - 400, view.y + 64, `Wave ${wave} of ${totalLabel}!`, {
       fontFamily: 'Kenney Pixel',
       fontSize: '40px',
       color: '#FFFFFF',
@@ -330,15 +370,6 @@ export class GameScene extends Phaser.Scene {
       strokeThickness: 5,
       shadow: { offsetX: 2, offsetY: 2, color: '#00000066', blur: 4, fill: true },
     }).setOrigin(0.5).setDepth(150);
-
-    if (this._cooldownText) {
-      this._cooldownText.destroy();
-      this._cooldownText = null;
-    }
-    if (this._cooldownEvent) {
-      this._cooldownEvent.remove(false);
-      this._cooldownEvent = null;
-    }
 
     this.tweens.add({
       targets: banner,
@@ -352,37 +383,6 @@ export class GameScene extends Phaser.Scene {
           targets: banner, x: view.right + 400, duration: 350, ease: 'Power2',
           onComplete: () => banner.destroy(),
         });
-      },
-    });
-  }
-
-  _showCooldownTimer() {
-    const view = this._view();
-    let seconds = GameConfig.waveCooldownSeconds;
-
-    if (this._cooldownText) this._cooldownText.destroy();
-
-    this._cooldownText = this.add.text(view.centerX, view.centerY, `Next wave in ${seconds}s`, {
-      fontFamily: 'Kenney Pixel',
-      fontSize: '28px',
-      color: '#FFFFFF',
-      stroke: '#3D5A1F',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(150).setAlpha(0.85);
-
-    this._cooldownEvent = this.time.addEvent({
-      delay: 1000,
-      repeat: seconds - 1,
-      callback: () => {
-        seconds--;
-        if (this._cooldownText && this._cooldownText.active) {
-          if (seconds > 0) {
-            this._cooldownText.setText(`Next wave in ${seconds}s`);
-          } else {
-            this._cooldownText.destroy();
-            this._cooldownText = null;
-          }
-        }
       },
     });
   }
@@ -446,6 +446,16 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on('toggle-pause', () => {
       this._togglePause();
     });
+
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.towerInspect?.isOpen()) {
+        this.towerInspect.close();
+        return;
+      }
+      if (this.selectedTower) return;
+      if (this.waveManager?.isBattleComplete()) return;
+      this.game.events.emit('toggle-pause');
+    });
   }
 
   _togglePause() {
@@ -457,6 +467,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.paused) {
       this.paused = false;
+      this.time.timeScale = this._battleSpeed;
       if (this.pauseOverlay) {
         this.pauseOverlay.forEach(obj => obj.destroy());
         this.pauseOverlay = null;
@@ -465,6 +476,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.paused = true;
+    this.time.timeScale = 1;
+    this._battleSpeed = 1;
+    this.game.events.emit('battle-speed-changed', { speed: 1 });
     const objects = [];
 
     const overlay = this.add.rectangle(centerX, centerY, width * 2, height * 2, 0x000000, 0.7)
@@ -526,6 +540,9 @@ export class GameScene extends Phaser.Scene {
     this.game.events.off('send-wave-early');
     this.game.events.off('ability-used');
     this.game.events.off('toggle-pause');
+    this.game.events.off('tutorial-state-changed');
+    this.game.events.off('battle-speed-changed');
+    this.time.timeScale = 1;
     this.selectedTower = null;
     this.enemies = [];
     this.towers = [];

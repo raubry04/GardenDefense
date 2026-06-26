@@ -4,7 +4,7 @@ export const GameConfig = {
 
   startingLives: 20,
   // In-battle placement budget per zone (unchanged by meta economy tuning).
-  startingSunshinePoints: { zone1: 200, zone2: 175, zone3: 200, zone4: 225, zone5: 250, endless: 250 },
+  startingSunshinePoints: { zone1: 150, zone2: 175, zone3: 200, zone4: 225, zone5: 250, endless: 250 },
   // Fraction of in-battle sunshine earned that deposits into the upgrade bank on victory.
   // Zone 0 battle 1 (5 waves, ~510 gross + up to 100 star bonus):
   //   before: 200 seed + 100% deposit ≈ 810–860 bank ("god mode")
@@ -24,14 +24,14 @@ export const GameConfig = {
 
   towers: {
     RABBIT: {
-      cost: 50, slowPercent: 0.5, range: 128, aoe: true, unlock: { type: 'level', value: 1 },
+      cost: 50, slowPercent: 0.5, range: 112, aoe: true, unlock: { type: 'level', value: 1 },
       upgrades: [
         { slowPercent: 0.6, range: 160, cost: 75 },
         { slowPercent: 0.75, range: 192, cost: 150 }
       ]
     },
     CHICKEN: {
-      cost: 75, damage: 10, range: 250, fireRate: 800, unlock: { type: 'level', value: 1 },
+      cost: 75, damage: 10, range: 210, fireRate: 800, unlock: { type: 'level', value: 1 },
       upgrades: [
         { damage: 20, range: 300, fireRate: 700, eggs: 2, cost: 100 },
         { damage: 30, range: 340, fireRate: 600, eggs: 3, pierce: 1, cost: 200 }
@@ -116,8 +116,17 @@ export const GameConfig = {
     bossWaveExtra: 0.5,
     spawnDelayMs: 800,
     endlessPreGenerate: 50,
+    endlessBufferBatch: 25,
+    manualFirstWave: true,
     zoneIntro: {
-      0: { gentleWaves: 2, maxEnemyIndex: 0, primaryWeight: 0.85 },
+      0: {
+        gentleWaves: 2,
+        maxEnemyIndex: 0,
+        primaryWeight: 0.85,
+        manualFirstWave: true,
+        lateFrogWeight: 0.4,
+        battle0MaxCount: [3, 3, 4, 5, 6],
+      },
     },
   },
 

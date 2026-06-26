@@ -2,7 +2,7 @@ import { GameConfig } from "../config.js";
 import { syncToBattleCamera, getLayoutScreenSize } from "../utils/responsiveCamera.js";
 import { computeDesignUIMetrics } from "../utils/battleLayout.js";
 import { TutorialManager } from "../systems/TutorialManager.js";
-import { BattleHud } from "../ui/BattleHud.js";
+import { BattleHud, formatWaveHudLabel } from "../ui/BattleHud.js";
 import { TowerTray } from "../ui/TowerTray.js";
 import { AbilityBar } from "../ui/AbilityBar.js";
 import { WavePreview } from "../ui/WavePreview.js";
@@ -121,7 +121,7 @@ export class UIScene extends Phaser.Scene {
       this.betweenWaves = false;
       this.enemiesInWave = data.enemyCount || 0;
       this.enemiesDefeated = 0;
-      this.hud.waveText.setText(`Wave: ${data.wave} / ${data.total}`);
+      this.hud.waveText.setText(formatWaveHudLabel(data.wave, data.total));
       this.abilityBar.setSendWaveVisible(false);
       this.hud.updateWaveProgress();
       this.wavePreview.setVisible(false);
@@ -131,9 +131,22 @@ export class UIScene extends Phaser.Scene {
       this.waveActive = false;
       this.betweenWaves = true;
       this.hud.waveBarFill.setSize(this.hud.waveBarWidth, 8);
-      if (data.wave < data.total) {
+      if (data.total == null || data.wave < data.total) {
         this.abilityBar.setSendWaveVisible(true);
         this.abilityBar.sendWaveText.setText("NEXT WAVE");
+        this.abilityBar.resetSendWaveLabels();
+      }
+    });
+
+    this.game.events.on("wave-cooldown-changed", (data) => {
+      this.abilityBar.updateSendWaveCooldown(data);
+    });
+
+    this.game.events.on("battle-speed-changed", (data) => {
+      const speed = data.speed ?? 1;
+      this.hud._battleSpeed = speed;
+      if (this.hud.speedLabel?.active) {
+        this.hud.speedLabel.setText(`${speed}x`);
       }
     });
 
@@ -192,7 +205,8 @@ export class UIScene extends Phaser.Scene {
       this.game.events.off("ability-fired");
       this.game.events.off("wave-preview-changed");
       this.game.events.off("tower-inspect-open");
-      this.game.events.off("tower-inspect-close");
+      this.game.events.off("wave-cooldown-changed");
+      this.game.events.off("battle-speed-changed");
       this.wavePreview?.destroy();
       this.tray.destroy();
       this.hud.destroy();

@@ -15,6 +15,10 @@ export class WaveManager {
     this.battle = null;
     this.isBossBattle = false;
     this.bossType = null;
+    this.paused = false;
+    this._prepPhaseActive = false;
+    this.isEndless = false;
+    this._manualFirstWave = false;
   }
 
   initBattle(zone, battle) {
@@ -26,6 +30,10 @@ export class WaveManager {
     this.inCooldown = false;
     this.cooldownTimer = 0;
     this.spawnQueue = [];
+    this.paused = false;
+    this._prepPhaseActive = false;
+    this.isEndless = zone >= GameConfig.zones.length;
+    this._manualFirstWave = this._computeManualFirstWave(zone, battle);
     this.waves = this._generateWaves(zone, battle);
     this.isBossBattle = this._computeIsBoss(zone, battle);
     this.bossType = this._computeBossType(zone);
@@ -35,6 +43,7 @@ export class WaveManager {
   beginPrepPhase() {
     if (this.battleComplete) return;
     this.inCooldown = true;
+    this._prepPhaseActive = true;
     this.cooldownTimer = GameConfig.prepPhaseSeconds * 1000;
     this._emitPreview();
   }
@@ -44,26 +53,54 @@ export class WaveManager {
     this.beginPrepPhase();
   }
 
+  setPaused(paused) {
+    this.paused = !!paused;
+  }
+
+  requiresManualFirstWave() {
+    return this._manualFirstWave && this.currentWaveIndex < 0;
+  }
+
+  isPrepPhase() {
+    return this._prepPhaseActive && this.inCooldown;
+  }
+
+  getCooldownSecondsRemaining() {
+    if (!this.inCooldown) return 0;
+    return Math.ceil(this.cooldownTimer / 1000);
+  }
+
   startNextWave() {
     if (this.battleComplete || this.waveActive) return;
 
     this.currentWaveIndex++;
+
+    if (this.isEndless && this.currentWaveIndex >= this.waves.length) {
+      this._ensureEndlessBuffer();
+    }
+
     if (this.currentWaveIndex >= this.waves.length) {
-      this.battleComplete = true;
-      this.scene.events.emit('battle-complete');
-      this._emitPreview();
-      return;
+      if (this.isEndless) {
+        this._ensureEndlessBuffer();
+      }
+      if (this.currentWaveIndex >= this.waves.length) {
+        this.battleComplete = true;
+        this.scene.events.emit('battle-complete');
+        this._emitPreview();
+        return;
+      }
     }
 
     this.waveActive = true;
     this.inCooldown = false;
+    this._prepPhaseActive = false;
     const waveEnemies = this.waves[this.currentWaveIndex];
     this.spawnQueue = [...waveEnemies];
     this.spawnTimer = 0;
 
     this.scene.events.emit('wave-start', {
       wave: this.currentWaveIndex + 1,
-      total: this.waves.length,
+      total: this.getTotalWaves(),
       enemyCount: waveEnemies.length,
     });
     this._emitPreview();
@@ -74,12 +111,15 @@ export class WaveManager {
 
     this.inCooldown = false;
     this.cooldownTimer = 0;
+    this._prepPhaseActive = false;
 
-    this.scene.sunshinePoints += GameConfig.earlyWaveBonusPoints;
-    this.scene.battleSunshineEarned = (this.scene.battleSunshineEarned || 0) + GameConfig.earlyWaveBonusPoints;
-    this.scene.game.events.emit('points-changed', {
-      points: this.scene.sunshinePoints,
-    });
+    if (this.currentWaveIndex >= 0) {
+      this.scene.sunshinePoints += GameConfig.earlyWaveBonusPoints;
+      this.scene.battleSunshineEarned = (this.scene.battleSunshineEarned || 0) + GameConfig.earlyWaveBonusPoints;
+      this.scene.game.events.emit('points-changed', {
+        points: this.scene.sunshinePoints,
+      });
+    }
 
     this.startNextWave();
   }
@@ -88,10 +128,16 @@ export class WaveManager {
     if (this.battleComplete) return;
 
     if (this.inCooldown) {
-      this.cooldownTimer -= delta;
-      if (this.cooldownTimer <= 0) {
-        this.inCooldown = false;
-        this.startNextWave();
+      if (!this.paused) {
+        this.cooldownTimer -= delta;
+        if (this.cooldownTimer <= 0) {
+          if (this.requiresManualFirstWave()) {
+            this.cooldownTimer = 0;
+            return;
+          }
+          this.inCooldown = false;
+          this.startNextWave();
+        }
       }
       return;
     }
@@ -115,15 +161,18 @@ export class WaveManager {
     this.waveActive = false;
     this.scene.events.emit('wave-complete', {
       wave: this.currentWaveIndex + 1,
-      total: this.waves.length,
+      total: this.getTotalWaves(),
     });
 
-    if (this.currentWaveIndex >= this.waves.length - 1) {
+    if (!this.isEndless && this.currentWaveIndex >= this.waves.length - 1) {
       this.battleComplete = true;
       this.scene.events.emit('battle-complete');
     } else {
       this.inCooldown = true;
       this.cooldownTimer = GameConfig.waveCooldownSeconds * 1000;
+      if (this.isEndless) {
+        this._ensureEndlessBuffer();
+      }
     }
     this._emitPreview();
   }
@@ -133,6 +182,7 @@ export class WaveManager {
   }
 
   getTotalWaves() {
+    if (this.isEndless) return null;
     return this.waves.length;
   }
 
@@ -151,7 +201,10 @@ export class WaveManager {
   getNextWavePreview() {
     if (this.battleComplete || this.waveActive) return null;
     const nextIndex = this.currentWaveIndex + 1;
-    if (nextIndex >= this.waves.length) return null;
+    if (nextIndex >= this.waves.length) {
+      if (this.isEndless) this._ensureEndlessBuffer();
+      if (nextIndex >= this.waves.length) return null;
+    }
 
     const waveList = this.waves[nextIndex];
     /** @type {Record<string, number>} */
@@ -162,7 +215,7 @@ export class WaveManager {
 
     return {
       wave: nextIndex + 1,
-      total: this.waves.length,
+      total: this.getTotalWaves(),
       enemies,
       isBoss: this.isBossBattle,
       bossType: this.bossType,
@@ -172,6 +225,22 @@ export class WaveManager {
   _emitPreview() {
     const preview = this.getNextWavePreview();
     this.scene.game.events.emit('wave-preview-changed', preview);
+  }
+
+  _computeManualFirstWave(zoneIndex, battle) {
+    if (zoneIndex === 0 && battle === 0) {
+      const intro = GameConfig.waves?.zoneIntro?.[0];
+      return intro?.manualFirstWave ?? GameConfig.waves?.manualFirstWave ?? false;
+    }
+    return false;
+  }
+
+  _ensureEndlessBuffer() {
+    if (!this.isEndless) return;
+    if (this.currentWaveIndex < this.waves.length - 10) return;
+    const batchSize = GameConfig.waves?.endlessBufferBatch ?? 25;
+    const batch = this._generateEndlessWaves(this.waves.length, batchSize);
+    this.waves.push(...batch);
   }
 
   _computeIsBoss(zoneIndex, battle) {
@@ -192,7 +261,7 @@ export class WaveManager {
 
   _generateWaves(zoneIndex, battle) {
     const isEndless = zoneIndex >= GameConfig.zones.length;
-    if (isEndless) return this._generateEndlessWaves();
+    if (isEndless) return this._generateEndlessWaves(0);
 
     const wc = this._waveConfig();
     const zoneConfig = GameConfig.zones[zoneIndex];
@@ -208,14 +277,20 @@ export class WaveManager {
           + (isBoss ? w * (wc.bossWaveExtra ?? 0.5) : 0),
       );
 
-      if (zoneIndex === 0 && battle === 0 && w < 2) {
-        baseCount = Math.max(2, baseCount - 1);
+      if (zoneIndex === 0 && battle === 0) {
+        if (w < 2) {
+          baseCount = Math.max(2, baseCount - 1);
+        }
+        const caps = intro?.battle0MaxCount;
+        if (caps && caps[w] != null) {
+          baseCount = Math.min(baseCount, caps[w]);
+        }
       }
 
       const enemyPool = zoneConfig.enemies;
 
       for (let i = 0; i < baseCount; i++) {
-        wave.push(this._pickEnemyForWave(zoneIndex, w, enemyPool, intro));
+        wave.push(this._pickEnemyForWave(zoneIndex, battle, w, enemyPool, intro));
       }
 
       if (isBoss && w >= Math.floor(totalWaves * 2 / 3) && enemyPool.length > 1) {
@@ -228,12 +303,17 @@ export class WaveManager {
     return waves;
   }
 
-  _pickEnemyForWave(zoneIndex, waveIndex, enemyPool, intro) {
+  _pickEnemyForWave(zoneIndex, battle, waveIndex, enemyPool, intro) {
     if (intro && waveIndex < (intro.gentleWaves ?? 0)) {
       const maxIdx = Math.min(intro.maxEnemyIndex ?? 0, enemyPool.length - 1);
       return Math.random() < (intro.primaryWeight ?? 0.7)
         ? enemyPool[0]
         : enemyPool[maxIdx];
+    }
+
+    if (zoneIndex === 0 && battle === 0 && waveIndex >= 2 && enemyPool.length > 1) {
+      const frogWeight = intro?.lateFrogWeight ?? 0.4;
+      return Math.random() < frogWeight ? enemyPool[1] : enemyPool[0];
     }
 
     if (zoneIndex === 0) {
@@ -253,14 +333,15 @@ export class WaveManager {
     return enemyPool[maxIdx];
   }
 
-  _generateEndlessWaves() {
-    const preGen = GameConfig.waves?.endlessPreGenerate ?? 50;
+  _generateEndlessWaves(startFrom = 0, count = null) {
+    const preGen = count ?? GameConfig.waves?.endlessPreGenerate ?? 50;
     const waves = [];
     const allEnemies = Object.keys(GameConfig.enemies);
 
-    for (let w = 0; w < preGen; w++) {
+    for (let i = 0; i < preGen; i++) {
+      const w = startFrom + i;
       const difficulty = 1 + (w * GameConfig.endlessDifficultyScale);
-      const count = Math.floor(4 + 2 * difficulty);
+      const waveCount = Math.floor(4 + 2 * difficulty);
       const wave = [];
 
       const maxEnemyIndex = Math.min(
@@ -268,7 +349,7 @@ export class WaveManager {
         allEnemies.length - 1,
       );
 
-      for (let i = 0; i < count; i++) {
+      for (let j = 0; j < waveCount; j++) {
         const idx = Math.floor(Math.random() * (maxEnemyIndex + 1));
         wave.push(allEnemies[idx]);
       }

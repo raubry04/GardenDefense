@@ -37,8 +37,9 @@ Hard-refresh after updates (Ctrl+Shift+R / clear Safari cache on iOS).
 - Tap a tower card, then tap a grass tile to place a defender.
 - Enemies follow the dirt path — stop them before they reach the garden gate.
 - Earn Sunshine Points from kills and completed waves; upgrade towers and unlock new defenders as Hannah levels up.
-- Use Hannah's ability buttons on the right; **pause via the ⏸ HUD button** (top-right).
-- Between waves, check the **wave preview** and tap **Send Wave** for a bonus.
+- Use Hannah's ability buttons on the right; **pause via ⏸** or **Escape** on desktop; optional **1x/2x** speed toggle.
+- Adjust **Music / SFX** from **SETTINGS** on the main menu.
+- Between waves, check the **wave preview** and tap **Send Wave** for a bonus; **Endless Frontier** runs until you lose all hearts.
 - **Tap a placed tower** to inspect stats or sell it.
 
 Full guide: [docs/PLAYER_GUIDE.md](docs/PLAYER_GUIDE.md)

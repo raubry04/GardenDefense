@@ -16,6 +16,8 @@ Your progress saves automatically on this device (and syncs when the family serv
 
 You get a **prep timer** (about 30 seconds) before the first wave. Use it to place defenders!
 
+On your **very first battle**, the tutorial walks you through the garden — the wave timer **waits** until you tap **Send Wave** (it won't start on its own while tips are on screen).
+
 1. Tap a **tower card** at the bottom of the screen.
 2. Move your finger or mouse over the grass — a ghost animal shows where it will go.
 3. Tap a **green-highlighted** tile to place the tower.
@@ -32,6 +34,7 @@ You get a **prep timer** (about 30 seconds) before the first wave. Use it to pla
 
 - You have about **15 seconds** before the next wave.
 - The **Next:** row shows which critters are coming — plan ahead!
+- A **countdown** on the Send Wave button shows when the next wave auto-starts (after wave 1 on the first battle).
 - Tap **Send Wave** (or **Next Wave**) to start early and earn **+10 bonus** Sunshine Points.
 
 ### Sunshine Points ☀
@@ -100,9 +103,21 @@ If you protect the gate, you earn **1 to 3 stars**:
 
 More stars mean more bonus points for upgrades!
 
-## Pause
+## Pause and speed
 
 Tap the **⏸ button** (top-right) to pause. Choose Resume, Restart, or Back to Map.
+
+On a computer, press **Escape** to pause or unpause (unless you're inspecting a tower — Escape closes that first).
+
+The **1x / 2x** button next to pause speeds up the battle for faster replays. It resets when you pause.
+
+## Settings
+
+From the main menu, tap **SETTINGS** to change **Music** and **Sound FX** volume. Your choices are saved on this device.
+
+## Endless Frontier
+
+After you beat all campaign zones, **Endless Frontier** on the world map keeps sending waves until you run out of hearts. The HUD shows **Wave: N ♾**. Your best wave count can appear on the leaderboard when you game over.
 
 ## After you win
 

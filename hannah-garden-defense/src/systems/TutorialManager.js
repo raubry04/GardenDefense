@@ -52,6 +52,7 @@ export class TutorialManager {
     if (!this.shouldShowTutorial()) return;
     this.active = true;
     this.currentStep = 0;
+    this._emitTutorialState(true);
     this._showStep();
   }
 
@@ -71,10 +72,15 @@ export class TutorialManager {
 
   complete() {
     this.active = false;
+    this._emitTutorialState(false);
     this._clearOverlay();
     try {
       localStorage.setItem(STORAGE_KEY, '1');
     } catch { /* storage unavailable */ }
+  }
+
+  _emitTutorialState(active) {
+    this.scene.game.events.emit('tutorial-state-changed', { active });
   }
 
   isActive() {

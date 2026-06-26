@@ -106,6 +106,30 @@ export class GameOverScene extends Phaser.Scene {
     this._createButtons(width, height);
 
     this.sound.play('gameOver', { volume: GameConfig.audio.musicVolume });
+
+    if (this.zone >= GameConfig.zones.length) {
+      this._postEndlessScore();
+    }
+  }
+
+  async _postEndlessScore() {
+    const payload = {
+      player_name: this.playerName,
+      score: this.waveReached,
+      stars_earned: 0,
+      zone: GameConfig.zones.length + 1,
+      battle: this.battle + 1,
+    };
+
+    try {
+      await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      console.warn('Failed to post endless score:', e);
+    }
   }
 
   _drawBackground(width, height) {

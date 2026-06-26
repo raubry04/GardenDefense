@@ -251,6 +251,41 @@ export class AbilityBar {
     }
   }
 
+  resetSendWaveLabels() {
+    this.sendWaveText.setText("SEND WAVE");
+    this.sendWaveBonusText.setText("+10 BONUS");
+  }
+
+  updateSendWaveCooldown({ seconds, isPrep, manualFirstWave }) {
+    if (!this.sendWaveBg?.visible) {
+      if (seconds <= 0) return;
+      this.sendWaveBg.setVisible(true);
+      this.sendWaveText.setVisible(true);
+      this.sendWaveBonusText.setVisible(true);
+      this.sendWaveText.setText(`Next in ${seconds}s`);
+      this.sendWaveBonusText.setText("");
+      this._sendWaveGlowTween?.pause();
+      return;
+    }
+
+    if (manualFirstWave && isPrep) {
+      this.sendWaveText.setText("SEND WAVE");
+      this.sendWaveBonusText.setText(
+        seconds > 0 ? `${seconds}s prep — tap when ready` : "Tap when ready!",
+      );
+      return;
+    }
+
+    if (seconds > 0) {
+      if (this.sendWaveText.text !== "NEXT WAVE") {
+        this.sendWaveText.setText("SEND WAVE");
+      }
+      this.sendWaveBonusText.setText(`Next in ${seconds}s · +10 BONUS`);
+    } else {
+      this.resetSendWaveLabels();
+    }
+  }
+
   startAbilityCooldown(btn, duration) {
     const scene = this.scene;
     if (btn.cooldownTween) btn.cooldownTween.stop();

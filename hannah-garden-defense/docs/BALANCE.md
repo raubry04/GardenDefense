@@ -15,7 +15,7 @@ Avoid scattering magic numbers in scene files; battle modules read from `GameCon
 
 | Key | Default | Effect |
 |-----|---------|--------|
-| `startingSunshinePoints` | zone1: 200 … zone5: 250 | In-battle placement budget at battle start |
+| `startingSunshinePoints` | zone1: 150 … zone5: 250 | In-battle placement budget at battle start |
 | `metaSunshineBankRate` | `0.2` | Fraction of `(battle earnings + star bonuses)` deposited on victory |
 | `earlyWaveBonusPoints` | `10` | Reward for Send Wave early |
 | `waveCompletionBonus` | `25` | Per-wave completion (in-battle) |
@@ -84,7 +84,20 @@ Zone pools in `zones[].enemies` control which types `WaveManager` can spawn. Add
 | `countPerBattle` | 2 | Added per battle index within zone |
 | `bossWaveExtra` | 0.5 | Boss battle extra per wave |
 | `spawnDelayMs` | 800 | Ms between spawns |
-| `zoneIntro` | zone 0 gentle curve | Limits enemy variety early |
+| `zoneIntro` | zone 0 gentle curve | Limits enemy variety early; battle 0 caps and manual first wave |
+
+Zone 0 battle 1 (tutorial) tuning:
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| `startingSunshinePoints.zone1` | 150 | Rabbit (50) + one Chicken (75); second Chicken needs early kills |
+| Rabbit / Chicken tier-0 range | 112 / 210 px | ~1.75 / ~3.25 tiles; upgrade tiers unchanged relative to new bases |
+| `zoneIntro[0].manualFirstWave` | true | Wave 1 only starts when player taps Send Wave |
+| `zoneIntro[0].battle0MaxCount` | `[3,3,4,5,6]` | Per-wave enemy caps for battle 1 |
+| `zoneIntro[0].lateFrogWeight` | 0.4 | Frogs from wave 3 onward in battle 1 |
+| Tutorial tier override | `towerUpgrades = {}` | GameScene forces tier 0 on zone 0 battle 1 regardless of save file |
+
+Wave timer pauses while `TutorialManager` overlay is active (`tutorial-state-changed`).
 
 Also top-level:
 

@@ -1,6 +1,8 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
 import { getFullGuideSteps } from '../data/tutorialContent.js';
+import { applyAudioSettings } from '../utils/audioSettings.js';
+import { createSettingsPanel } from '../ui/SettingsPanel.js';
 
 const COLORS = GameConfig.colors;
 
@@ -15,6 +17,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.cameras.main.fadeIn(300);
     this.cameras.main.setBackgroundColor('#5A9A38');
     setupResponsiveCamera(this);
+    applyAudioSettings(this);
 
     this._createForegroundDecor(width, height);
     this._createDecorativeAnimals(width, height);
@@ -56,6 +59,15 @@ export class MainMenuScene extends Phaser.Scene {
       this._ensureMusic();
       this._playSFX();
       this._showInstructions();
+    });
+
+    this._createButton(width / 2, buttonY + buttonSpacing * 3, 'SETTINGS', () => {
+      this._ensureMusic();
+      this._playSFX();
+      if (this._settingsPanel) return;
+      this._settingsPanel = createSettingsPanel(this, {
+        onClose: () => { this._settingsPanel = null; },
+      });
     });
   }
 

@@ -3,6 +3,11 @@ import { GameConfig } from "../config.js";
 const COLORS = GameConfig.colors;
 const HUD_DEPTH = 200;
 
+export function formatWaveHudLabel(wave, total) {
+  if (total == null) return `Wave: ${wave} ♾`;
+  return `Wave: ${wave} / ${total}`;
+}
+
 export class BattleHud {
   /** @param {import("../scenes/UIScene.js").UIScene} scene */
   constructor(scene) {
@@ -51,7 +56,7 @@ export class BattleHud {
     this.wavePanel.setOrigin(0.5);
 
     this.waveText = scene.add
-      .text(wavePanelX, row2Y - 16, `Wave: 0 / ${scene.totalWaves}`, {
+      .text(wavePanelX, row2Y - 16, formatWaveHudLabel(0, scene.totalWaves), {
         fontFamily: "Kenney Future",
         fontSize: "22px",
         color: "#FFD700",
@@ -87,6 +92,27 @@ export class BattleHud {
       .setDepth(hudDepth);
 
     const pauseX = width - 28;
+    this.speedBtn = scene.add
+      .circle(pauseX - 44, row1Y, 18, COLORS.button)
+      .setStrokeStyle(2, COLORS.outline)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(hudDepth);
+    this.speedLabel = scene.add
+      .text(pauseX - 44, row1Y, "1x", {
+        fontFamily: "Kenney Future",
+        fontSize: "13px",
+        color: "#4A2C0A",
+      })
+      .setOrigin(0.5)
+      .setDepth(hudDepth);
+    this._battleSpeed = 1;
+    this.speedBtn.on("pointerdown", () => {
+      this._battleSpeed = this._battleSpeed === 1 ? 2 : 1;
+      this.speedLabel.setText(`${this._battleSpeed}x`);
+      scene.game.events.emit("battle-speed-changed", { speed: this._battleSpeed });
+      scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
+    });
+
     this.pauseBtn = scene.add
       .circle(pauseX, row1Y, 18, COLORS.button)
       .setStrokeStyle(2, COLORS.outline)
@@ -103,6 +129,11 @@ export class BattleHud {
     this.pauseBtn.on("pointerdown", () => {
       scene.game.events.emit("toggle-pause");
     });
+  }
+
+  resetSpeed() {
+    this._battleSpeed = 1;
+    if (this.speedLabel?.active) this.speedLabel.setText("1x");
   }
 
   startLowHealthPulse() {

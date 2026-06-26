@@ -143,6 +143,8 @@ export class EnemyBehavior {
     enemy.hpBar.destroy();
     enemy.hpBarBg.destroy();
 
+    s.cameras.main.shake(120, 0.004);
+
     const last = s.waypoints[s.waypoints.length - 1];
     const gateFlash = s.add.rectangle(last.x, last.y, TILE, TILE, 0xE63946, 0.5).setDepth(8);
     s.tweens.add({
