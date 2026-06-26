@@ -50,9 +50,9 @@ hannah-garden-defense/
 ├── server/              Express API + SQLite (port 5050)
 ├── src/
 │   ├── scenes/          Phaser scenes (menu, map, game, UI, victory, …)
-│   ├── entities/        Towers, enemies, Hannah, projectiles
-│   ├── systems/         Waves, path, economy, audio, progress
-│   ├── ui/              HUD widgets
+│   ├── battle/          Battle modules (combat, placement, enemies, abilities)
+│   ├── systems/         Wave manager, tutorial
+│   ├── ui/              HUD widgets (BattleHud, TowerTray, AbilityBar)
 │   └── utils/           Asset registry, responsive camera, Craftpix tiles
 ├── index.html           Entry HTML + mobile viewport meta
 ├── vite.config.js       Vite build; serves /game-assets in dev
@@ -66,9 +66,12 @@ hannah-garden-defense/
 |--------|---------|
 | `npm run setup` | `npm install` + collect assets + production build |
 | `npm run dev` | Vite dev server (port 5173, proxies `/api` to 5050) |
+| `npm run dev:all` | Vite + Express together (full stack with HMR) |
 | `npm run build` | Production bundle → `dist/` + copy assets → `dist/game-assets/` |
 | `npm run start` | Run Express server on port 5050 |
 | `npm run assets` | Copy used files from parent packs into `assets/` |
+| `npm run test` | Run Vitest unit tests |
+| `npm run validate` | Tests + runtime asset manifest check |
 | `npm run full-start` | Build then start server |
 
 ## Tech stack

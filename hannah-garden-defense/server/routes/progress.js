@@ -42,7 +42,11 @@ router.post('/', (req, res) => {
       hannah_xp = 0,
       garden_level = 1,
       sunshine_points = 0,
-      battle_stars = '{}'
+      battle_stars = '{}',
+      unlocked_zone = 0,
+      zone_stars = '{}',
+      zone_battles = '{}',
+      tower_upgrades = '{}',
     } = req.body;
 
     if (!player_name) {
@@ -51,10 +55,22 @@ router.post('/', (req, res) => {
 
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO player_progress
-        (player_name, hannah_level, hannah_xp, garden_level, sunshine_points, battle_stars, last_played)
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        (player_name, hannah_level, hannah_xp, garden_level, sunshine_points,
+         battle_stars, unlocked_zone, zone_stars, zone_battles, tower_upgrades, last_played)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `);
-    stmt.run(player_name, hannah_level, hannah_xp, garden_level, sunshine_points, battle_stars);
+    stmt.run(
+      player_name,
+      hannah_level,
+      hannah_xp,
+      garden_level,
+      sunshine_points,
+      battle_stars,
+      unlocked_zone,
+      zone_stars,
+      zone_battles,
+      tower_upgrades,
+    );
 
     const row = db.prepare(
       'SELECT * FROM player_progress WHERE player_name = ?'

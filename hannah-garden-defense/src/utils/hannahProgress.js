@@ -115,6 +115,10 @@ export function progressToServerPayload(progress) {
     garden_level: data.gardenLevel,
     sunshine_points: data.sunshinePoints,
     battle_stars: JSON.stringify(data.battleStars || {}),
+    unlocked_zone: data.unlockedZone ?? 0,
+    zone_stars: JSON.stringify(data.zoneStars || {}),
+    zone_battles: JSON.stringify(data.zoneBattles || {}),
+    tower_upgrades: JSON.stringify(data.towerUpgrades || {}),
   };
 }
 
@@ -127,10 +131,28 @@ export function progressToServerPayload(progress) {
 export function serverRowToProgress(row, playerName) {
   if (!row) return loadLocalProgress(playerName);
   let battleStars = {};
+  let zoneStars = {};
+  let zoneBattles = {};
+  let towerUpgrades = {};
   try {
     battleStars = typeof row.battle_stars === 'string'
       ? JSON.parse(row.battle_stars)
       : (row.battle_stars || {});
+  } catch { /* ignore */ }
+  try {
+    zoneStars = typeof row.zone_stars === 'string'
+      ? JSON.parse(row.zone_stars)
+      : (row.zone_stars || {});
+  } catch { /* ignore */ }
+  try {
+    zoneBattles = typeof row.zone_battles === 'string'
+      ? JSON.parse(row.zone_battles)
+      : (row.zone_battles || {});
+  } catch { /* ignore */ }
+  try {
+    towerUpgrades = typeof row.tower_upgrades === 'string'
+      ? JSON.parse(row.tower_upgrades)
+      : (row.tower_upgrades || {});
   } catch { /* ignore */ }
 
   const local = loadLocalProgress(playerName);
@@ -141,7 +163,11 @@ export function serverRowToProgress(row, playerName) {
     hannahXp: row.hannah_xp ?? local.hannahXp,
     gardenLevel: row.garden_level ?? local.gardenLevel,
     sunshinePoints: row.sunshine_points ?? local.sunshinePoints,
+    unlockedZone: row.unlocked_zone ?? local.unlockedZone,
     battleStars,
+    zoneStars,
+    zoneBattles,
+    towerUpgrades,
   });
 }
 
@@ -155,11 +181,14 @@ export async function saveProgressWithSync(progress) {
   saveLocalProgress(data);
 
   try {
-    await fetch('/api/progress', {
+    const res = await fetch('/api/progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(progressToServerPayload(data)),
     });
+    if (!res.ok) {
+      console.warn('Progress sync failed:', res.status);
+    }
   } catch { /* offline – local save is sufficient */ }
 
   return data;

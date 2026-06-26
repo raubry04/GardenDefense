@@ -36,8 +36,27 @@ db.exec(`
     garden_level INTEGER DEFAULT 1,
     sunshine_points INTEGER DEFAULT 150,
     battle_stars TEXT DEFAULT '{}',
+    unlocked_zone INTEGER DEFAULT 0,
+    zone_stars TEXT DEFAULT '{}',
+    zone_battles TEXT DEFAULT '{}',
+    tower_upgrades TEXT DEFAULT '{}',
     last_played TEXT DEFAULT (datetime('now'))
   );
 `);
+
+const progressColumns = [
+  ['unlocked_zone', 'INTEGER DEFAULT 0'],
+  ['zone_stars', "TEXT DEFAULT '{}'"],
+  ['zone_battles', "TEXT DEFAULT '{}'"],
+  ['tower_upgrades', "TEXT DEFAULT '{}'"],
+];
+for (const [name, definition] of progressColumns) {
+  const exists = db.prepare(
+    `SELECT 1 FROM pragma_table_info('player_progress') WHERE name = ?`,
+  ).get(name);
+  if (!exists) {
+    db.exec(`ALTER TABLE player_progress ADD COLUMN ${name} ${definition}`);
+  }
+}
 
 export default db;

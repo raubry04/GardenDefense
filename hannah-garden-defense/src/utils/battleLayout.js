@@ -46,10 +46,8 @@ export function computeBattleChrome(sw, sh) {
 
 
 
-  let top = 0;
-
-  let bottom = 0;
-
+  let top;
+  let bottom;
   let right = 0;
 
 

@@ -8,11 +8,15 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:all": "concurrently \"vite\" \"node server/index.js\"",
     "build": "vite build",
     "start": "node server/index.js",
     "assets": "node scripts/collect-assets.mjs",
     "setup": "npm install && npm run assets && npm run build",
-    "full-start": "npm run build && npm run start"
+    "full-start": "npm run build && npm run start",
+    "test": "vitest run",
+    "lint": "eslint src/scenes src/utils",
+    "validate": "vitest run && node scripts/check-assets.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
@@ -22,6 +26,12 @@
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
-    "vite": "^5.4.0"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.3",
+    "eslint": "^10.5.0",
+    "globals": "^17.7.0",
+    "supertest": "^7.2.2",
+    "vite": "^5.4.0",
+    "vitest": "^4.1.9"
   }
 }

@@ -29,9 +29,12 @@ npm run start    # or: start.bat
 ### Day-to-day
 
 ```bash
+npm run dev:all  # Vite HMR + API on one command
 npm run dev      # hot reload on :5173 (run server separately for API)
 npm run build    # refresh dist/ after code changes
 npm run start    # serve dist/ on :5050
+npm test         # unit tests
+npm run validate # tests + asset check
 ```
 
 ### Dev vs production

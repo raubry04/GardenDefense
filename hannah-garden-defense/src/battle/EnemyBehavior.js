@@ -1,0 +1,185 @@
+import { GameConfig } from '../config.js';
+import { TILE } from './battleConstants.js';
+
+export class EnemyBehavior {
+  constructor(scene) {
+    this.scene = scene;
+  }
+
+  updateEnemies(delta) {
+    const s = this.scene;
+    for (let i = s.enemies.length - 1; i >= 0; i--) {
+      const enemy = s.enemies[i];
+      if (!enemy.alive) {
+        s.enemies.splice(i, 1);
+        continue;
+      }
+
+      if (enemy.stunTimer > 0) {
+        enemy.stunTimer -= delta;
+        continue;
+      }
+
+      let speed = enemy.speed;
+      if (enemy.slowTimer > 0) {
+        speed *= (1 - enemy.slowPercent);
+        enemy.slowTimer -= delta;
+      }
+
+      if (enemy.type === 'ELEPHANT') {
+        enemy.stompTimer = (enemy.stompTimer || 0) + delta;
+        if (enemy.stompTimer >= 5000) {
+          enemy.stompTimer = 0;
+          const cfg = GameConfig.enemies.ELEPHANT;
+          const stompRange = cfg.stompRange || 100;
+          let stomped = false;
+          for (const tower of s.towers) {
+            if (tower.hp <= 0) continue;
+            if (Phaser.Math.Distance.Between(enemy.x, enemy.y, tower.x, tower.y) <= stompRange) {
+              tower.fireRateMultiplier = 2;
+              stomped = true;
+              s.time.delayedCall(cfg.stompSlowMs || 3000, () => {
+                if (tower.hp > 0) tower.fireRateMultiplier = 1;
+              });
+            }
+          }
+          if (stomped) {
+            s.abilityController.showAbilityPulse({ x: enemy.x, y: enemy.y }, 0x888888, stompRange);
+          }
+        }
+      }
+
+      if (enemy.flies) {
+        const gate = s.waypoints[s.waypoints.length - 1];
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, gate.x, gate.y);
+        const move = speed * (delta / 1000);
+        enemy.x += Math.cos(angle) * move;
+        enemy.y += Math.sin(angle) * move;
+        enemy.sprite.setPosition(enemy.x, enemy.y);
+        enemy.hpBarBg.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+        enemy.hpBar.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+
+        if (Phaser.Math.Distance.Between(enemy.x, enemy.y, gate.x, gate.y) < TILE * 0.5) {
+          this.enemyReachedGate(enemy);
+          s.enemies.splice(i, 1);
+        }
+        continue;
+      }
+
+      if (enemy.type === 'BEAR') {
+        let nearestTower = null;
+        let nearestDist = TILE * 2.5;
+        for (const tower of s.towers) {
+          if (tower.hp <= 0) continue;
+          const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, tower.x, tower.y);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearestTower = tower;
+          }
+        }
+        if (nearestTower) {
+          if (nearestDist < TILE * 0.7) {
+            enemy.attackTimer = (enemy.attackTimer || 0) + delta;
+            if (enemy.attackTimer >= 1000) {
+              enemy.attackTimer = 0;
+              this.damageTower(nearestTower, GameConfig.enemies.BEAR.towerDmg || 15);
+            }
+          } else {
+            const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, nearestTower.x, nearestTower.y);
+            const mv = speed * (delta / 1000);
+            enemy.x += Math.cos(angle) * mv;
+            enemy.y += Math.sin(angle) * mv;
+            enemy.sprite.setPosition(enemy.x, enemy.y);
+            enemy.hpBarBg.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+            enemy.hpBar.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+          }
+          continue;
+        }
+      }
+
+      const pigWall = s.towers.find(t =>
+        t.type === 'PIG_WALL' && t.onPath && t.hp > 0 &&
+        Phaser.Math.Distance.Between(enemy.x, enemy.y, t.x, t.y) < TILE
+      );
+      if (pigWall) {
+        enemy.attackTimer = (enemy.attackTimer || 0) + delta;
+        if (enemy.attackTimer >= 800) {
+          enemy.attackTimer = 0;
+          this.damageTower(pigWall, enemy.damage * 2);
+          if (pigWall.thorns > 0 && enemy.alive) {
+            s.towerCombat.damageEnemy(enemy, pigWall.thorns);
+          }
+        }
+        continue;
+      }
+
+      const target = s.waypoints[enemy.waypointIndex];
+      if (!target) {
+        this.enemyReachedGate(enemy);
+        s.enemies.splice(i, 1);
+        continue;
+      }
+
+      const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y);
+      const move = speed * (delta / 1000);
+      enemy.x += Math.cos(angle) * move;
+      enemy.y += Math.sin(angle) * move;
+      enemy.sprite.setPosition(enemy.x, enemy.y);
+      enemy.hpBarBg.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+      enemy.hpBar.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+
+      const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
+      if (dist < 8) {
+        enemy.waypointIndex++;
+      }
+    }
+  }
+
+  enemyReachedGate(enemy) {
+    const s = this.scene;
+    enemy.alive = false;
+    enemy.sprite.destroy();
+    enemy.hpBar.destroy();
+    enemy.hpBarBg.destroy();
+
+    const last = s.waypoints[s.waypoints.length - 1];
+    const gateFlash = s.add.rectangle(last.x, last.y, TILE, TILE, 0xE63946, 0.5).setDepth(8);
+    s.tweens.add({
+      targets: gateFlash, alpha: 0, duration: 400,
+      onComplete: () => gateFlash.destroy(),
+    });
+
+    s.lives -= enemy.damage;
+    s.game.events.emit('lives-changed', { lives: s.lives });
+
+    if (s.lives <= 0) {
+      s.lives = 0;
+      s.scene.stop('UIScene');
+      s.scene.start('GameOverScene', {
+        waveReached: s.waveManager.getCurrentWave(),
+        zone: s.zone,
+        battle: s.battle,
+        playerName: s.playerName,
+      });
+    }
+  }
+
+  damageTower(tower, damage) {
+    const s = this.scene;
+    if (tower.shielded) return;
+    tower.hp -= damage;
+    s.towerCombat.showFloatingDamage(tower.x, tower.y - 20, damage);
+
+    if (tower.hp <= 0) this.destroyTower(tower);
+  }
+
+  destroyTower(tower) {
+    const s = this.scene;
+    const idx = s.towers.indexOf(tower);
+    if (idx !== -1) s.towers.splice(idx, 1);
+
+    s.tileGrid[tower.gridRow][tower.gridCol] = tower.onPath ? 'path' : 'grass';
+    if (tower.sprite?.active) tower.sprite.destroy();
+    s.towerPlacement.spawnPlacementParticles(tower.x, tower.y);
+  }
+}

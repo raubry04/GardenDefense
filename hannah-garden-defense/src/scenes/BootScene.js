@@ -65,9 +65,21 @@ export class BootScene extends Phaser.Scene {
 
 
     this.load.on('progress', (value) => {
-
       fillBar.width = barWidth * value;
+    });
 
+    this.load.on('loaderror', (file) => {
+      loadingText.setText('Failed to load assets');
+      loadingText.setColor('#E63946');
+      const msg = this.add.text(width / 2, barY + 48, `${file.key}\nRefresh the page to retry.`, {
+        fontFamily: 'Kenney Pixel',
+        fontSize: '16px',
+        color: '#ffffff',
+        align: 'center',
+        wordWrap: { width: barWidth },
+      });
+      msg.setOrigin(0.5);
+      this.load.reset();
     });
 
 
