@@ -116,6 +116,8 @@ export const AssetRegistry = {
 
       menu: `${A}/audio/music/menu.ogg`,
 
+      battle: `${A}/audio/music/menu.ogg`,
+
       victory: `${A}/audio/music/victory.ogg`,
 
       gameOver: `${A}/audio/music/gameOver.ogg`,

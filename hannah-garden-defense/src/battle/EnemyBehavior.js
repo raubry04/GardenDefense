@@ -1,5 +1,6 @@
 import { GameConfig } from '../config.js';
 import { TILE } from './battleConstants.js';
+import { updateEnemyStatusFx } from './EnemyStatusFx.js';
 
 export class EnemyBehavior {
   constructor(scene) {
@@ -15,8 +16,17 @@ export class EnemyBehavior {
         continue;
       }
 
+      const syncBars = () => {
+        const dy = enemy.hpBarDy ?? TILE / 2 - 4;
+        const by = enemy.y - dy;
+        enemy.hpBarBg?.setPosition(enemy.x, by);
+        enemy.hpBar?.setPosition(enemy.x, by);
+        updateEnemyStatusFx(enemy);
+      };
+
       if (enemy.stunTimer > 0) {
         enemy.stunTimer -= delta;
+        syncBars();
         continue;
       }
 
@@ -56,8 +66,7 @@ export class EnemyBehavior {
         enemy.x += Math.cos(angle) * move;
         enemy.y += Math.sin(angle) * move;
         enemy.sprite.setPosition(enemy.x, enemy.y);
-        enemy.hpBarBg.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
-        enemy.hpBar.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+        syncBars();
 
         if (Phaser.Math.Distance.Between(enemy.x, enemy.y, gate.x, gate.y) < TILE * 0.5) {
           this.enemyReachedGate(enemy);
@@ -90,8 +99,7 @@ export class EnemyBehavior {
             enemy.x += Math.cos(angle) * mv;
             enemy.y += Math.sin(angle) * mv;
             enemy.sprite.setPosition(enemy.x, enemy.y);
-            enemy.hpBarBg.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
-            enemy.hpBar.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+            syncBars();
           }
           continue;
         }
@@ -126,8 +134,7 @@ export class EnemyBehavior {
       enemy.x += Math.cos(angle) * move;
       enemy.y += Math.sin(angle) * move;
       enemy.sprite.setPosition(enemy.x, enemy.y);
-      enemy.hpBarBg.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
-      enemy.hpBar.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+      syncBars();
 
       const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
       if (dist < 8) {

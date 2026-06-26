@@ -8,6 +8,7 @@ import {
   normalizeProgress,
   battleSunshineToMetaBank,
 } from '../utils/hannahProgress.js';
+import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 const COLORS = GameConfig.colors;
 
@@ -26,12 +27,15 @@ export class VictoryScene extends Phaser.Scene {
     this.hannahXp = data.hannahXp ?? 0;
     this.hannahLevel = data.hannahLevel ?? 1;
     this.prevHannahLevel = this.hannahLevel;
+    const progress = loadLocalProgress(this.playerName);
+    this.prevStars = progress.battleStars?.[this.zone]?.[this.battle] ?? 0;
   }
 
   create() {
     const { width, height } = DESIGN;
     setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
+    SceneMusicManager.transition(this, 'victory');
 
     this._drawBackground(width, height);
     this._createConfetti(width, height);
@@ -73,12 +77,55 @@ export class VictoryScene extends Phaser.Scene {
 
     const stars = this._calculateStars();
     this._displayStars(width, 200, stars);
+    this._showStarFeedback(width, 200, stars);
     this._animatePoints(width, 280, stars);
     this._saveProgress(stars);
     this._postScore(stars);
     this._createButtons(width, height);
+  }
 
-    this.sound.play('victory', { volume: GameConfig.audio.musicVolume });
+  _showStarFeedback(width, starY, stars) {
+    const delta = stars - (this.prevStars ?? 0);
+    if (delta > 0) {
+      const bonus = this.add.text(width / 2, starY + 50, `+${delta} ★`, {
+        fontFamily: 'Kenney Future',
+        fontSize: '28px',
+        color: '#FFE135',
+        stroke: '#3D5A1F',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setAlpha(0).setScale(0.5);
+
+      this.tweens.add({
+        targets: bonus,
+        alpha: 1,
+        scaleX: 1,
+        scaleY: 1,
+        y: starY + 44,
+        duration: 500,
+        delay: 1500,
+        ease: 'Back.easeOut',
+      });
+    }
+
+    if (stars < 3) {
+      const need = GameConfig.starThresholds.three;
+      const replayHint = this.add.text(width / 2, starY + (delta > 0 ? 78 : 50),
+        `Replay from the map to chase 3★ (need ${need} lives left)`,
+        {
+          fontFamily: 'Kenney Future',
+          fontSize: '14px',
+          color: '#A8DADC',
+          wordWrap: { width: width * 0.8 },
+          align: 'center',
+        }).setOrigin(0.5, 0).setAlpha(0);
+
+      this.tweens.add({
+        targets: replayHint,
+        alpha: 1,
+        duration: 400,
+        delay: 2000,
+      });
+    }
   }
 
   _drawBackground(width, height) {

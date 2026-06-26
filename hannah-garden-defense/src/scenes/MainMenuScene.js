@@ -3,6 +3,7 @@ import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
 import { getFullGuideSteps } from '../data/tutorialContent.js';
 import { applyAudioSettings } from '../utils/audioSettings.js';
 import { createSettingsPanel } from '../ui/SettingsPanel.js';
+import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 const COLORS = GameConfig.colors;
 
@@ -343,10 +344,7 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   _resumeAudio() {
-    const ctx = this.sound.context;
-    if (ctx?.state === 'suspended') {
-      ctx.resume();
-    }
+    SceneMusicManager.resumeAudioContext(this);
   }
 
   /* ── Name prompt ─────────────────────────────────────── */
@@ -511,12 +509,7 @@ export class MainMenuScene extends Phaser.Scene {
   _ensureMusic() {
     if (this.musicStarted) return;
     this.musicStarted = true;
-    this._resumeAudio();
-    if (this.sound.get('menu')) {
-      this.sound.get('menu').play({ loop: true, volume: GameConfig.audio.musicVolume });
-    } else {
-      this.sound.play('menu', { loop: true, volume: GameConfig.audio.musicVolume });
-    }
+    SceneMusicManager.transition(this, 'menu');
   }
 
   _playSFX() {

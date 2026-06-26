@@ -1,4 +1,5 @@
 import { GameConfig } from '../config.js';
+import { applyMusicVolumeToActiveTracks } from './SceneMusicManager.js';
 
 const STORAGE_KEY = 'hannahGarden_audioSettings';
 
@@ -48,10 +49,7 @@ export function applyAudioSettings(scene) {
   GameConfig.audio.musicVolume = settings.musicVolume;
   GameConfig.audio.sfxVolume = settings.sfxVolume;
 
-  const menuMusic = scene?.sound?.get?.('menu');
-  if (menuMusic?.isPlaying) {
-    menuMusic.setVolume(settings.musicVolume);
-  }
+  applyMusicVolumeToActiveTracks(scene, settings.musicVolume);
 
   return settings;
 }

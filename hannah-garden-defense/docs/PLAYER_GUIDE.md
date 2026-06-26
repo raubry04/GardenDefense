@@ -74,7 +74,7 @@ Wait for the circle to fill before using a power again.
 
 - **Tap a placed tower** to see its stats and range.
 - Tap **SELL** to remove it and get half your Sunshine Points back.
-- **Upgrades** happen after you win — on the Upgrade screen, not during battle.
+- **Upgrades** happen after you win — on the Upgrade screen, not during battle. Every tower type appears in the list (use ◀ ▶ if you have many); towers you didn't use last battle are still upgradeable.
 
 ## Critters to know
 
@@ -101,7 +101,15 @@ If you protect the gate, you earn **1 to 3 stars**:
 - ★★ — Half or more hearts left (8–14)
 - ★ — You made it with fewer hearts (1–7)
 
-More stars mean more bonus points for upgrades!
+More stars mean more bonus points for upgrades! If you earn fewer than 3★, the victory screen reminds you how many lives you need for a perfect run — replay any unlocked battle from the world map (battles with 1–2★ show a **Chase ★** hint).
+
+### Boss waves
+
+On the final battle in each zone, extra waves appear. In the last third of those waves, a **BOSS INCOMING** banner warns you before the zone's toughest critter arrives (gold-trimmed health bar).
+
+### Battle music
+
+Campaign battles play looping background music (quieter than the menu theme). Victory and game over switch to their own short tracks. Adjust volume in **Settings** on the main menu.
 
 ## Pause and speed
 
@@ -131,7 +139,8 @@ If critters get through completely, don't worry — the game cheers you on to tr
 - Put **Rabbits near the start** of the path to slow everything down.
 - Save some Sunshine for **later waves** — they get tougher!
 - **Send Wave early** when your garden is ready — free bonus points.
-- Check the **wave preview** so you know when to place Owls or Pigs.
+- Check the **wave preview** so you know when to place Owls or Pigs — icons with ✈ ⚡ or 🧱 mark flying, fast, or wall-breaking threats.
+- **Flower Bomb** (Hannah level 6+): tap the ability, move the circle, tap again to detonate (or wait 5 seconds for a path-center blast).
 - Upgrade **Chickens and Owls** between battles for big damage.
 
 Have fun defending the garden! 🌻

@@ -287,6 +287,13 @@ export class WaveManager {
         }
       }
 
+      if (zoneIndex === 1 && battle === 0 && intro?.battle0MaxCount) {
+        const caps = intro.battle0MaxCount;
+        if (caps[w] != null) {
+          baseCount = Math.min(baseCount, caps[w]);
+        }
+      }
+
       const enemyPool = zoneConfig.enemies;
 
       for (let i = 0; i < baseCount; i++) {
@@ -304,33 +311,42 @@ export class WaveManager {
   }
 
   _pickEnemyForWave(zoneIndex, battle, waveIndex, enemyPool, intro) {
-    if (intro && waveIndex < (intro.gentleWaves ?? 0)) {
-      const maxIdx = Math.min(intro.maxEnemyIndex ?? 0, enemyPool.length - 1);
-      return Math.random() < (intro.primaryWeight ?? 0.7)
-        ? enemyPool[0]
-        : enemyPool[maxIdx];
+    let pool = enemyPool;
+    if (intro?.buffaloFromBattle != null && battle < intro.buffaloFromBattle) {
+      pool = enemyPool.filter((e) => e !== 'BUFFALO');
+      if (pool.length === 0) pool = enemyPool;
     }
 
-    if (zoneIndex === 0 && battle === 0 && waveIndex >= 2 && enemyPool.length > 1) {
+    if (intro && waveIndex < (intro.gentleWaves ?? 0)) {
+      const maxIdx = Math.min(intro.maxEnemyIndex ?? 0, pool.length - 1);
+      return Math.random() < (intro.primaryWeight ?? 0.7)
+        ? pool[0]
+        : pool[maxIdx];
+    }
+
+    if (zoneIndex === 0 && battle === 0 && waveIndex >= 2 && pool.length > 1) {
       const frogWeight = intro?.lateFrogWeight ?? 0.4;
-      return Math.random() < frogWeight ? enemyPool[1] : enemyPool[0];
+      return Math.random() < frogWeight ? pool[1] : pool[0];
     }
 
     if (zoneIndex === 0) {
-      const maxIdx = waveIndex < 2 ? 0 : Math.min(1, enemyPool.length - 1);
-      return Math.random() < 0.7 ? enemyPool[0] : enemyPool[maxIdx];
+      const maxIdx = waveIndex < 2 ? 0 : Math.min(1, pool.length - 1);
+      return Math.random() < 0.7 ? pool[0] : pool[maxIdx];
     }
 
-    if (zoneIndex === 1) {
-      const maxIdx = Math.min(Math.floor(1 + waveIndex / 3), enemyPool.length - 1);
-      return enemyPool[Math.floor(Math.random() * (maxIdx + 1))];
+    if (intro?.maxEnemyIndex != null) {
+      const maxIdx = Math.min(
+        intro.maxEnemyIndex + Math.floor(waveIndex / 3),
+        pool.length - 1,
+      );
+      return pool[Math.floor(Math.random() * (maxIdx + 1))];
     }
 
     const maxIdx = Math.min(
-      Math.floor(Math.random() * Math.min(enemyPool.length, 1 + Math.floor(waveIndex / 2))),
-      enemyPool.length - 1,
+      Math.floor(Math.random() * Math.min(pool.length, 1 + Math.floor(waveIndex / 2))),
+      pool.length - 1,
     );
-    return enemyPool[maxIdx];
+    return pool[maxIdx];
   }
 
   _generateEndlessWaves(startFrom = 0, count = null) {

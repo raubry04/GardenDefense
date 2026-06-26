@@ -18,12 +18,14 @@ The game lives in [`hannah-garden-defense/`](hannah-garden-defense/). See that f
 
 1. Install **Node.js 20+** ([nodejs.org](https://nodejs.org) or [nvm-windows](https://github.com/coreybutler/nvm-windows)).
 2. Place the **Assets/** and **Animal Pack Remastered/** folders in this directory (same level as `hannah-garden-defense/`). These packs are gitignored because of size; you need them once to run `npm run assets`.
-3. From `hannah-garden-defense/`:
+3. From `hannah-garden-defense/` (or run `npm start` from this repo root):
 
    ```bash
    npm run setup
    start.bat
    ```
+
+   From the **Garden** root you can also use `npm start` (delegates to `hannah-garden-defense`).
 
 4. Open http://localhost:5050 (or your PC's LAN IP on phones/tablets).
 

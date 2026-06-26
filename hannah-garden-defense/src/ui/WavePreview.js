@@ -1,4 +1,11 @@
 import { ENEMY_SPRITES } from '../utils/AssetRegistry.js';
+import { GameConfig } from '../config.js';
+
+const THREAT_BADGE = {
+  flying: '✈',
+  fast: '⚡',
+  wallBreaker: '🧱',
+};
 
 const HUD_DEPTH = 199;
 
@@ -46,6 +53,17 @@ export class WavePreview {
         .setDepth(HUD_DEPTH);
       if (preview.isBoss && type === preview.bossType) {
         icon.setTint(0xff6666);
+      }
+      const threat = GameConfig.enemyThreatTags?.[type];
+      if (threat && THREAT_BADGE[threat]) {
+        const badge = this.scene.add.text(x + 8, y - 10, THREAT_BADGE[threat], {
+          fontFamily: 'Kenney Future',
+          fontSize: '8px',
+          color: '#FFD700',
+          stroke: '#000000',
+          strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(HUD_DEPTH + 1);
+        this._icons.push(badge);
       }
       const countText = this.scene.add.text(x + 10, y + 6, `×${count}`, {
         fontFamily: 'Kenney Future',

@@ -11,6 +11,8 @@ import { EnemyBehavior } from '../battle/EnemyBehavior.js';
 import { TowerPlacement } from '../battle/TowerPlacement.js';
 import { AbilityController } from '../battle/AbilityController.js';
 import { TowerInspect } from '../battle/TowerInspect.js';
+import { BossBanner } from '../ui/BossBanner.js';
+import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -40,6 +42,7 @@ export class GameScene extends Phaser.Scene {
     applyMobileLayout();
     this.cameras.main.setBackgroundColor('#5A9A38');
     this.cameras.main.fadeIn(300);
+    SceneMusicManager.transition(this, 'battle');
     this.lives = GameConfig.startingLives;
     this.sunshinePoints = GameConfig.startingSunshinePoints[`zone${this.zone + 1}`] || 150;
     this.battleSunshineEarned = 0;
@@ -83,6 +86,7 @@ export class GameScene extends Phaser.Scene {
     this.towerPlacement = new TowerPlacement(this);
     this.abilityController = new AbilityController(this);
     this.towerInspect = new TowerInspect(this);
+    this.bossBanner = new BossBanner(this);
     this._seenEnemyTypes = new Set();
 
     this.scene.launch('UIScene', {
@@ -239,6 +243,14 @@ export class GameScene extends Phaser.Scene {
     this.events.on('wave-start', (data) => {
       this.game.events.emit('wave-started', data);
       this._showWaveBanner(data.wave, data.total);
+      const wm = this.waveManager;
+      const total = data.total ?? wm.getTotalWaves();
+      if (wm.isBossBattle && wm.bossType && total) {
+        const bossWaveStart = Math.floor(total * 2 / 3) + 1;
+        if (data.wave >= bossWaveStart) {
+          this.bossBanner.show(wm.bossType);
+        }
+      }
     });
 
     this.events.on('wave-complete', (data) => {

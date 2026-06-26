@@ -6,7 +6,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-_Nothing pending._
+### Added
+
+- **Upgrade all towers** — Upgrade screen lists every tower type (paginated); towers not used in the last battle show a subtle label.
+- **Star replay loop** — Victory shows star improvement delta and replay hint; world map highlights battles with 1–2★ (`Chase ★` ring).
+- **Boss banner** — Boss battles show a “BOSS INCOMING” banner in the final third of waves.
+- **Elite HP bars** — Boss-type enemies get gold-trimmed HP bars; first hit triggers camera shake.
+- **Threat telegraphs** — Wave preview badges for flying, fast, and wall-breaker enemies.
+- **Battle music** — Looping battle BGM (menu track alias at lower volume) via `SceneMusicManager`.
+- **Flower Bomb aim** — Tap to place the blast; auto-detonates at path center after 5s.
+- **Enemy status tints** — Slow (blue), stun (white), and freeze (cyan) visual feedback.
+- **Zone 1–2 balance** — `waves.zoneIntro` tuning for Berry Patch and Chicken Coop; boss HP/speed modifiers.
+- **Root npm scripts** — `npm start` and `npm validate` from the Garden monorepo root.
+
+### Fixed
+
+- **Battle crash** — Removed invalid `_emitWaveCooldownIfChanged()` call from `UIScene.create()` (cooldown emit stays on `GameScene` only).
 
 ## [2026-06-25] — Player experience round 3
 

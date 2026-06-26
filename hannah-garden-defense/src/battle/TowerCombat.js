@@ -1,6 +1,7 @@
 import { GameConfig } from '../config.js';
 import { TOWER_SPRITES, ENEMY_SPRITES } from '../utils/AssetRegistry.js';
 import { hannahLevelFromXp } from '../utils/hannahProgress.js';
+import { updateEnemyStatusFx } from './EnemyStatusFx.js';
 import { TILE, COLORS } from './battleConstants.js';
 
 export class TowerCombat {
@@ -79,10 +80,10 @@ export class TowerCombat {
       }
       if (tower.freezeMs > 0 && !GameConfig.enemies[target.type]?.immuneToStun) {
         target.stunTimer = Math.max(target.stunTimer || 0, tower.freezeMs);
-        if (target.sprite?.active) target.sprite.setTint(0x88CCFF);
+        target.frozen = true;
         const freeze = tower.freezeMs;
         s.time.delayedCall(freeze, () => {
-          if (target.alive && target.sprite?.active) target.sprite.clearTint();
+          if (target.alive) target.frozen = false;
         });
       }
     }
@@ -153,10 +154,10 @@ export class TowerCombat {
 
     if (tower.freezeMs > 0 && !GameConfig.enemies[target.type]?.immuneToStun) {
       target.stunTimer = Math.max(target.stunTimer || 0, tower.freezeMs);
-      if (target.sprite?.active) target.sprite.setTint(0x88CCFF);
+      target.frozen = true;
       const freeze = tower.freezeMs;
       s.time.delayedCall(freeze, () => {
-        if (target.alive && target.sprite?.active) target.sprite.clearTint();
+        if (target.alive) target.frozen = false;
       });
     }
   }
@@ -237,6 +238,11 @@ export class TowerCombat {
       damage = 0;
     }
     if (damage <= 0) return;
+
+    if (enemy.isElite && !enemy._bossHitShake) {
+      enemy._bossHitShake = true;
+      s.cameras.main.shake(120, 0.004);
+    }
 
     enemy.hp -= damage;
     s.sound.play('enemyHit', { volume: GameConfig.audio.sfxVolume * 0.3 });
@@ -364,17 +370,28 @@ export class TowerCombat {
     const spriteKey = ENEMY_SPRITES[type];
     const start = s.waypoints[0];
 
+    let hp = config.hp;
+    let speed = config.speed * (config.speedBonus ?? 1);
+    const wm = s.waveManager;
+    const isBossType = wm?.isBossBattle && type === wm?.bossType;
+    const isElite = isBossType || (wm?.isBossBattle && (type === 'ELEPHANT' || type === 'BUFFALO'));
+
+    if (isBossType) {
+      const mods = GameConfig.bossModifiers || {};
+      hp = Math.round(hp * (mods.hpMult ?? 1));
+      speed *= mods.speedMult ?? 1;
+    }
+
     const sprite = s.add.image(start.x, start.y, spriteKey)
       .setDisplaySize(TILE - 12, TILE - 12)
       .setDepth(20);
 
-    const speedMult = config.speedBonus ?? 1;
     const enemy = {
       type,
       sprite,
-      hp: config.hp,
-      maxHp: config.hp,
-      speed: config.speed * speedMult,
+      hp,
+      maxHp: hp,
+      speed,
       reward: config.reward,
       damage: config.damage,
       x: start.x,
@@ -383,15 +400,24 @@ export class TowerCombat {
       slowTimer: 0,
       slowPercent: 0,
       stunTimer: 0,
+      frozen: false,
       alive: true,
       attackTimer: 0,
       flies: config.flies ?? false,
+      isElite,
     };
 
-    const hpBarBg = s.add.rectangle(start.x, start.y - TILE / 2 + 4, TILE - 16, 6, 0x222222).setDepth(21);
-    const hpBar = s.add.rectangle(start.x, start.y - TILE / 2 + 4, TILE - 16, 6, COLORS.enemyThreat).setDepth(22);
+    const barW = isElite ? TILE : TILE - 16;
+    const barH = isElite ? 8 : 6;
+    const barY = start.y - TILE / 2 + (isElite ? 2 : 4);
+    const hpBarBg = s.add.rectangle(start.x, barY, barW, barH, 0x222222).setDepth(21);
+    const hpBar = s.add.rectangle(start.x, barY, barW, barH, COLORS.enemyThreat).setDepth(22);
+    if (isElite) {
+      hpBarBg.setStrokeStyle(1, 0xffd700, 0.8);
+    }
     enemy.hpBarBg = hpBarBg;
     enemy.hpBar = hpBar;
+    enemy.hpBarDy = isElite ? TILE / 2 - 2 : TILE / 2 - 4;
 
     s.enemies.push(enemy);
 

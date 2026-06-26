@@ -105,6 +105,7 @@ export const GameConfig = {
   sellRefundPercent: 0.5,
   endlessDifficultyScale: 0.08,
   bossWaveBonus: 3,
+  bossModifiers: { hpMult: 1.15, speedMult: 1.05 },
   towerDefaultHp: 200,
 
   waves: {
@@ -127,13 +128,32 @@ export const GameConfig = {
         lateFrogWeight: 0.4,
         battle0MaxCount: [3, 3, 4, 5, 6],
       },
+      1: {
+        gentleWaves: 1,
+        maxEnemyIndex: 2,
+        primaryWeight: 0.7,
+        battle0MaxCount: [4, 5, 6, 7, 8],
+      },
+      2: {
+        buffaloFromBattle: 2,
+        gentleWaves: 1,
+        maxEnemyIndex: 3,
+        primaryWeight: 0.65,
+      },
     },
+  },
+
+  enemyThreatTags: {
+    PARROT: 'flying',
+    HORSE: 'fast',
+    BUFFALO: 'wallBreaker',
   },
 
   enemyIntros: {
     COW: 'Cows are slow but tough!',
-    HORSE: 'Watch out — Horses are fast!',
+    HORSE: 'Horses are blisteringly fast!',
     BUFFALO: 'Buffalo charge through Pig Walls!',
+    PARROT: 'Parrots fly over ground towers!',
   },
 
   audio: { musicVolume: 0.6, sfxVolume: 0.8 },

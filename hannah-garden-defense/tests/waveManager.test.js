@@ -132,4 +132,32 @@ describe('WaveManager', () => {
     expect(GameConfig.towers.RABBIT.range).toBe(112);
     expect(GameConfig.towers.CHICKEN.range).toBe(210);
   });
+
+  it('zone 1 battle 0 wave counts respect battle0MaxCount caps', () => {
+    const wm = new WaveManager(mockScene());
+    wm.initBattle(1, 0);
+    const caps = GameConfig.waves.zoneIntro[1].battle0MaxCount;
+    wm.waves.forEach((wave, i) => {
+      if (caps[i] != null) {
+        expect(wave.length).toBeLessThanOrEqual(caps[i]);
+      }
+    });
+  });
+
+  it('zone 2 battle 0 excludes buffalo before battle 2', () => {
+    const wm = new WaveManager(mockScene());
+    wm.initBattle(2, 0);
+    const allTypes = wm.waves.flat();
+    expect(allTypes).not.toContain('BUFFALO');
+  });
+
+  it('boss preview includes bossType on final battles', () => {
+    const wm = new WaveManager(mockScene());
+    const zone = GameConfig.zones[2];
+    wm.initBattle(2, zone.battles - 1);
+    wm.beginPrepPhase();
+    const preview = wm.getNextWavePreview();
+    expect(preview.isBoss).toBe(true);
+    expect(preview.bossType).toBeTruthy();
+  });
 });

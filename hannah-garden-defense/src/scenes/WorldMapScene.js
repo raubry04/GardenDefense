@@ -1,6 +1,7 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN, getSafeTop } from '../utils/responsiveCamera.js';
 import { loadLocalProgress, loadProgress } from '../utils/hannahProgress.js';
+import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 const COLORS = GameConfig.colors;
 const ZONES = GameConfig.zones;
@@ -27,6 +28,7 @@ export class WorldMapScene extends Phaser.Scene {
 
     setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
+    SceneMusicManager.transition(this, 'menu');
     this.cameras.main.setBackgroundColor('#5A9A38');
 
     this._drawBackground(width, height);
@@ -153,6 +155,18 @@ export class WorldMapScene extends Phaser.Scene {
           fontSize: '20px',
           color: '#FFE135',
         }).setOrigin(1, 0.5);
+
+        if (stars < maxStars) {
+          const remaining = maxStars - stars;
+          this.add.text(width / 2 - zoneWidth / 2 + 50, y + 32,
+            `${remaining} star${remaining === 1 ? '' : 's'} to perfect this zone`,
+            {
+              fontFamily: 'Kenney Future',
+              fontSize: '12px',
+              color: '#FFE135',
+              alpha: 0.85,
+            }).setOrigin(0, 0.5);
+        }
 
         zoneBg.on('pointerover', () => {
           this.tweens.add({ targets: [zoneBg, shadow], scaleX: 1.03, scaleY: 1.03, duration: 80 });
@@ -283,6 +297,27 @@ export class WorldMapScene extends Phaser.Scene {
         color: stars > 0 ? '#FFE135' : '#666666',
       }).setOrigin(0.5).setDepth(303);
       objects.push(starText);
+
+      if (unlocked && stars > 0 && stars < 3) {
+        const chaseRing = this.add.circle(bx, btnY, 38, 0xFFE135, 0)
+          .setStrokeStyle(2, 0xFFE135, 0.9).setDepth(301);
+        objects.push(chaseRing);
+        this.tweens.add({
+          targets: chaseRing,
+          scaleX: 1.15,
+          scaleY: 1.15,
+          alpha: { from: 0.9, to: 0.3 },
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+        });
+        const chaseLabel = this.add.text(bx, btnY - 38, 'Chase ★', {
+          fontFamily: 'Kenney Future',
+          fontSize: '9px',
+          color: '#FFE135',
+        }).setOrigin(0.5).setDepth(303);
+        objects.push(chaseLabel);
+      }
 
       if (unlocked) {
         btnBg.on('pointerover', () => {

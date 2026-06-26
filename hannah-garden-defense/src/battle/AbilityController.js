@@ -5,6 +5,8 @@ import { TILE } from './battleConstants.js';
 export class AbilityController {
   constructor(scene) {
     this.scene = scene;
+    this._flowerBombAimGfx = null;
+    this._flowerBombCleanup = null;
   }
 
   setupAbilities() {
@@ -26,6 +28,7 @@ export class AbilityController {
     const ability = GameConfig.hannahAbilities[key];
     if (!ability) return false;
     if (ability.unlockLevel && s.hannahLevel < ability.unlockLevel) return false;
+    if (s._flowerBombAiming) return false;
     return s.time.now - s.abilityLastUsed[key] >= this.abilityCooldownMs(key);
   }
 
@@ -70,25 +73,92 @@ export class AbilityController {
         break;
       }
       case 'FLOWER_BOMB': {
-        const center = s.waypoints[Math.floor(s.waypoints.length / 2)];
-        const rangePx = ability.range * (GameConfig.tileSize / 64);
-        for (const enemy of s.enemies) {
-          if (!enemy.alive) continue;
-          if (Phaser.Math.Distance.Between(center.x, center.y, enemy.x, enemy.y) <= rangePx) {
-            s.towerCombat.damageEnemy(enemy, ability.damage);
-          }
-        }
-        this.showAbilityPulse(center, 0xFF69B4, rangePx);
+        this.startFlowerBombAim(ability);
         break;
       }
     }
 
-    s.sound.play('abilityUsed', { volume: GameConfig.audio.sfxVolume });
-    s.game.events.emit('ability-fired', {
-      key,
-      cooldown: this.abilityCooldownMs(key),
-    });
+    if (key !== 'FLOWER_BOMB') {
+      s.sound.play('abilityUsed', { volume: GameConfig.audio.sfxVolume });
+      s.game.events.emit('ability-fired', {
+        key,
+        cooldown: this.abilityCooldownMs(key),
+      });
+    }
     return true;
+  }
+
+  startFlowerBombAim(ability) {
+    const s = this.scene;
+    if (s._flowerBombAiming) return;
+
+    s._flowerBombAiming = true;
+    const rangePx = ability.range * (GameConfig.tileSize / 64);
+    const pointer = s.input.activePointer;
+    const startX = pointer.worldX || s.waypoints[Math.floor(s.waypoints.length / 2)].x;
+    const startY = pointer.worldY || s.waypoints[Math.floor(s.waypoints.length / 2)].y;
+
+    this._flowerBombAimGfx = s.add.circle(startX, startY, rangePx, 0xFF69B4, 0.2)
+      .setStrokeStyle(2, 0xFF69B4, 0.65).setDepth(35);
+
+    const hint = s.add.text(startX, startY - rangePx - 12, 'Tap to detonate', {
+      fontFamily: 'Kenney Future',
+      fontSize: '12px',
+      color: '#FFFFFF',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(36);
+
+    const onMove = (ptr) => {
+      this._flowerBombAimGfx.setPosition(ptr.worldX, ptr.worldY);
+      hint.setPosition(ptr.worldX, ptr.worldY - rangePx - 12);
+    };
+
+    const detonateAt = (x, y) => {
+      this._clearFlowerBombAim();
+      for (const enemy of s.enemies) {
+        if (!enemy.alive) continue;
+        if (Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y) <= rangePx) {
+          s.towerCombat.damageEnemy(enemy, ability.damage);
+        }
+      }
+      this.showAbilityPulse({ x, y }, 0xFF69B4, rangePx);
+      s.sound.play('abilityUsed', { volume: GameConfig.audio.sfxVolume });
+      s.game.events.emit('ability-fired', {
+        key: 'FLOWER_BOMB',
+        cooldown: this.abilityCooldownMs('FLOWER_BOMB'),
+      });
+    };
+
+    const onTap = (ptr) => {
+      detonateAt(ptr.worldX, ptr.worldY);
+    };
+
+    this._flowerBombCleanup = () => {
+      s.input.off('pointermove', onMove);
+      s.input.off('pointerdown', onTap);
+      hint.destroy();
+    };
+
+    s.input.on('pointermove', onMove);
+    s.time.delayedCall(50, () => {
+      if (s._flowerBombAiming) s.input.once('pointerdown', onTap);
+    });
+
+    s.time.delayedCall(5000, () => {
+      if (!s._flowerBombAiming) return;
+      const fallback = s.waypoints[Math.floor(s.waypoints.length / 2)];
+      detonateAt(fallback.x, fallback.y);
+    });
+  }
+
+  _clearFlowerBombAim() {
+    const s = this.scene;
+    s._flowerBombAiming = false;
+    this._flowerBombCleanup?.();
+    this._flowerBombCleanup = null;
+    if (this._flowerBombAimGfx?.active) this._flowerBombAimGfx.destroy();
+    this._flowerBombAimGfx = null;
   }
 
   showAbilityPulse(center, color, radius = TILE * 2) {

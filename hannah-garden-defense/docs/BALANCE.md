@@ -84,7 +84,8 @@ Zone pools in `zones[].enemies` control which types `WaveManager` can spawn. Add
 | `countPerBattle` | 2 | Added per battle index within zone |
 | `bossWaveExtra` | 0.5 | Boss battle extra per wave |
 | `spawnDelayMs` | 800 | Ms between spawns |
-| `zoneIntro` | zone 0 gentle curve | Limits enemy variety early; battle 0 caps and manual first wave |
+| `zoneIntro` | zone 0–2 gentle curves | Limits enemy variety early; battle 0 caps; zone 2 delays Buffalo until battle 2+ |
+| `bossModifiers` | hp 1.15×, speed 1.05× | Applied to zone boss-type spawns on final battles |
 
 Zone 0 battle 1 (tutorial) tuning:
 
@@ -98,6 +99,21 @@ Zone 0 battle 1 (tutorial) tuning:
 | Tutorial tier override | `towerUpgrades = {}` | GameScene forces tier 0 on zone 0 battle 1 regardless of save file |
 
 Wave timer pauses while `TutorialManager` overlay is active (`tutorial-state-changed`).
+
+Zone 1 (Vegetable Garden) battle 1 targets:
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| `zoneIntro[1].gentleWaves` | 1 | First wave uses intro pool only |
+| `zoneIntro[1].battle0MaxCount` | `[4,5,6,7,8]` | Caps early battle 1 pressure |
+| Design goal | 2 towers + 1 upgrade | Player should afford Rabbit + Chicken + one tier-1 after victory bank |
+
+Zone 2 (Chicken Coop):
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| `zoneIntro[2].buffaloFromBattle` | 2 | No Buffalo in battles 0–1 |
+| Boss design goal | tier-1 on 2+ tower types | Berry Patch boss expects meta investment |
 
 Also top-level:
 

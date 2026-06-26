@@ -1,0 +1,9 @@
+{
+  "name": "garden",
+  "private": true,
+  "description": "Monorepo root for Hannah's Garden Defense",
+  "scripts": {
+    "start": "npm --prefix hannah-garden-defense run full-start",
+    "validate": "npm --prefix hannah-garden-defense run validate"
+  }
+}

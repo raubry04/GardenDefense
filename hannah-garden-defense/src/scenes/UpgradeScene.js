@@ -7,6 +7,8 @@ import {
   hannahLevelFromXp,
 } from '../utils/hannahProgress.js';
 import { LevelUpBanner } from '../ui/LevelUpBanner.js';
+import { getUpgradeableTowerTypes, paginateTowerTypes } from '../utils/upgradeTowers.js';
+import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 const COLORS = GameConfig.colors;
 
@@ -21,6 +23,7 @@ export class UpgradeScene extends Phaser.Scene {
     this.zone = data.zone ?? 0;
     this.battle = data.battle ?? 0;
     this.prevHannahLevel = data.prevHannahLevel ?? data.hannahLevel ?? 1;
+    this._upgradePage = data.upgradePage ?? 0;
 
     const progress = loadLocalProgress(this.playerName);
     this.sunshinePoints = progress.sunshinePoints ?? 0;
@@ -39,7 +42,9 @@ export class UpgradeScene extends Phaser.Scene {
     const { width, height } = DESIGN;
     setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
+    SceneMusicManager.transition(this, 'menu');
 
+    this._upgradePage = this._upgradePage ?? 0;
     this._drawBackground(width, height);
     this._drawHeader(width);
     this._createHannahXPBar(width);
@@ -193,34 +198,60 @@ export class UpgradeScene extends Phaser.Scene {
   }
 
   _createTowerUpgradeList(width, height) {
-    const towerTypes = [...new Set(this.placedTowers.map(t => t.type))];
+    const placedSet = new Set(this.placedTowers.map((t) => t.type));
+    const towerTypes = getUpgradeableTowerTypes(this.placedTowers);
     const startY = 140;
     const cardHeight = 104;
     const spacing = 8;
     const listBottom = height - 100;
-    const maxCards = Math.min(
-      towerTypes.length,
-      Math.max(1, Math.floor((listBottom - startY + spacing) / (cardHeight + spacing))),
-    );
+    const pageSize = Math.max(1, Math.floor((listBottom - startY + spacing) / (cardHeight + spacing)));
+    const { pageTypes, totalPages, page } = paginateTowerTypes(towerTypes, pageSize, this._upgradePage);
+    this._upgradePage = page;
 
-    if (towerTypes.length === 0) {
-      this.add.text(width / 2, height / 2 - 20, 'No towers placed yet!', {
-        fontFamily: 'Kenney Future',
-        fontSize: '24px',
-        color: '#FFF9E6',
+    if (totalPages > 1) {
+      const pageY = listBottom + 8;
+      const prevBtn = this.add.text(width / 2 - 80, pageY, '◀', {
+        fontFamily: 'Kenney Future', fontSize: '20px', color: page > 0 ? '#FFD700' : '#666666',
+      }).setOrigin(0.5).setInteractive({ useHandCursor: page > 0 });
+      this.add.text(width / 2, pageY, `${page + 1} / ${totalPages}`, {
+        fontFamily: 'Kenney Future', fontSize: '14px', color: '#A8DADC',
       }).setOrigin(0.5);
-      this.add.text(width / 2, height / 2 + 20, 'Place towers in the next battle to unlock upgrades.', {
-        fontFamily: 'Kenney Future',
-        fontSize: '16px',
-        color: '#A8DADC',
-        wordWrap: { width: width * 0.7 },
-        align: 'center',
-      }).setOrigin(0.5);
-      return;
+      const nextBtn = this.add.text(width / 2 + 80, pageY, '▶', {
+        fontFamily: 'Kenney Future', fontSize: '20px', color: page < totalPages - 1 ? '#FFD700' : '#666666',
+      }).setOrigin(0.5).setInteractive({ useHandCursor: page < totalPages - 1 });
+
+      if (page > 0) {
+        prevBtn.on('pointerdown', () => {
+          this._upgradePage = page - 1;
+          this.scene.restart({
+            towers: this.placedTowers,
+            playerName: this.playerName,
+            zone: this.zone,
+            battle: this.battle,
+            prevHannahLevel: this.hannahLevel,
+            hannahLevel: this.hannahLevel,
+            upgradePage: page - 1,
+          });
+        });
+      }
+      if (page < totalPages - 1) {
+        nextBtn.on('pointerdown', () => {
+          this._upgradePage = page + 1;
+          this.scene.restart({
+            towers: this.placedTowers,
+            playerName: this.playerName,
+            zone: this.zone,
+            battle: this.battle,
+            prevHannahLevel: this.hannahLevel,
+            hannahLevel: this.hannahLevel,
+            upgradePage: page + 1,
+          });
+        });
+      }
     }
 
-    for (let idx = 0; idx < maxCards; idx++) {
-      const type = towerTypes[idx];
+    for (let idx = 0; idx < pageTypes.length; idx++) {
+      const type = pageTypes[idx];
       const y = startY + idx * (cardHeight + spacing);
       const config = GameConfig.towers[type];
       const tower = this.placedTowers.find(t => t.type === type);
@@ -259,6 +290,14 @@ export class UpgradeScene extends Phaser.Scene {
         fontSize: '13px',
         color: '#888888',
       }).setOrigin(0, 0);
+
+      if (!placedSet.has(type)) {
+        this.add.text(textLeft, y + 42, 'Not used last battle', {
+          fontFamily: 'Kenney Future',
+          fontSize: '10px',
+          color: '#A8A8A8',
+        }).setOrigin(0, 0);
+      }
 
       if (tier < 2 && config && config.upgrades && config.upgrades[tier]) {
         const upgrade = config.upgrades[tier];
@@ -301,8 +340,9 @@ export class UpgradeScene extends Phaser.Scene {
           upgradeBtn.on('pointerdown', () => {
             this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
             this.sunshinePoints -= upgCost;
-            tower.tier = tier + 1;
-            this.towerUpgrades[type] = tower.tier;
+            const newTier = tier + 1;
+            this.towerUpgrades[type] = newTier;
+            if (tower) tower.tier = newTier;
             this._persistProgress();
             this.pointsDisplay.setText(`☀️ ${this.sunshinePoints}`);
             this.sound.play('levelUp', { volume: GameConfig.audio.sfxVolume });
@@ -322,6 +362,7 @@ export class UpgradeScene extends Phaser.Scene {
                 battle: this.battle,
                 prevHannahLevel: this.hannahLevel,
                 hannahLevel: this.hannahLevel,
+                upgradePage: this._upgradePage,
               });
             });
           });

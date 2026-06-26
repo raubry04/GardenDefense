@@ -1,5 +1,6 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
+import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 const COLORS = GameConfig.colors;
 
@@ -105,7 +106,7 @@ export class GameOverScene extends Phaser.Scene {
     this._drawHintBox(width, height);
     this._createButtons(width, height);
 
-    this.sound.play('gameOver', { volume: GameConfig.audio.musicVolume });
+    SceneMusicManager.transition(this, 'gameOver');
 
     if (this.zone >= GameConfig.zones.length) {
       this._postEndlessScore();
