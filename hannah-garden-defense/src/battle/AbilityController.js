@@ -47,6 +47,7 @@ export class AbilityController {
           s.towerCombat.damageEnemy(enemy, ability.damage);
         }
         this.showAbilityPulse(s.waypoints[Math.floor(s.waypoints.length / 2)], 0xFFD700);
+        s.battleVfx?.burstAbility('SUNSHINE_BURST', s.waypoints[Math.floor(s.waypoints.length / 2)].x, s.waypoints[Math.floor(s.waypoints.length / 2)].y);
         break;
       }
       case 'GARDEN_RAIN': {
@@ -122,7 +123,10 @@ export class AbilityController {
           s.towerCombat.damageEnemy(enemy, ability.damage);
         }
       }
-      this.showAbilityPulse({ x, y }, 0xFF69B4, rangePx);
+      s.battleVfx?.burstAbility('FLOWER_BOMB', x, y, rangePx);
+      if (!s.battleVfx) {
+        this.showAbilityPulse({ x, y }, 0xFF69B4, rangePx);
+      }
       s.sound.play('abilityUsed', { volume: GameConfig.audio.sfxVolume });
       s.game.events.emit('ability-fired', {
         key: 'FLOWER_BOMB',

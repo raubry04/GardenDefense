@@ -111,6 +111,14 @@ On the final battle in each zone, extra waves appear. In the last third of those
 
 Campaign battles play looping background music (quieter than the menu theme). Victory and game over switch to their own short tracks. Adjust volume in **Settings** on the main menu.
 
+### Visual effects
+
+- Towers fire distinct projectiles (eggs, slashes, magic sparkles) with muzzle flashes.
+- Hits and defeats show particle bursts; placement uses a magic puff.
+- Enemies bob as they walk and face along the path; parrots cast a ground shadow.
+- Slow, stun, and freeze show colored tints plus a ring around the critter.
+- Each zone has a subtle color mood; trees and bushes sway gently.
+
 ## Pause and speed
 
 Tap the **⏸ button** (top-right) to pause. Choose Resume, Restart, or Back to Map.

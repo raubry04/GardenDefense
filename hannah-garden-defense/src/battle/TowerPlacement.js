@@ -266,6 +266,10 @@ export class TowerPlacement {
 
   spawnPlacementParticles(x, y) {
     const s = this.scene;
+    if (s.battleVfx) {
+      s.battleVfx.burstPlace(x, y);
+      return;
+    }
     const count = Phaser.Math.Between(4, 6);
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
@@ -344,6 +348,10 @@ export class TowerPlacement {
 
   showFloatingText(x, y, message, color) {
     const s = this.scene;
+    if (s.battleVfx) {
+      s.battleVfx.showFloatingText(x, y, message, color);
+      return;
+    }
     const txt = s.add.text(x, y, message, {
       fontFamily: 'Kenney Pixel', fontSize: '16px', color,
       fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,

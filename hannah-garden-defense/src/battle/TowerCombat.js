@@ -103,9 +103,10 @@ export class TowerCombat {
 
   spawnProjectile(x, y, target, damage, pierce, source) {
     const s = this.scene;
-    const proj = s.add.ellipse(x, y, 10, 7, COLORS.primary).setDepth(30);
     const angle = Phaser.Math.Angle.Between(x, y, target.x, target.y);
-    proj.setRotation(angle);
+    const proj = s.battleVfx
+      ? s.battleVfx.spawnProjectileSprite(x, y, source, angle)
+      : s.add.ellipse(x, y, 10, 7, COLORS.primary).setDepth(30);
 
     s.projectiles.push({
       sprite: proj,
@@ -251,7 +252,13 @@ export class TowerCombat {
     enemy.hpBar.setScale(hpPercent, 1);
 
     this.flashEnemyRed(enemy);
-    this.showFloatingDamage(enemy.x, enemy.y - TILE / 2, damage);
+    s.battleVfx?.burstHit(enemy.x, enemy.y);
+    s.battleVfx?.squashSprite(enemy.sprite);
+    if (s.battleVfx) {
+      s.battleVfx.showFloatingDamage(enemy.x, enemy.y - TILE / 2, damage);
+    } else {
+      this.showFloatingDamage(enemy.x, enemy.y - TILE / 2, damage);
+    }
 
     if (enemy.type === 'MONKEY' && enemy.alive) {
       const cfg = GameConfig.enemies.MONKEY;
@@ -320,26 +327,30 @@ export class TowerCombat {
 
     enemy.hpBar.destroy();
     enemy.hpBarBg.destroy();
+    s.battleVfx?.destroyEnemyFx(enemy);
+    s.battleVfx?.burstDeath(ex, ey);
     s.sound.play('enemyDies', { volume: GameConfig.audio.sfxVolume });
 
-    const particleCount = Phaser.Math.Between(4, 6);
-    for (let i = 0; i < particleCount; i++) {
-      const angle = (Math.PI * 2 * i) / particleCount;
-      const pKey = i % 2 === 0 ? 'particle_sparkle' : 'particle_smoke';
-      const p = s.add.image(ex, ey, pKey)
-        .setDisplaySize(12, 12).setTint(COLORS.enemyThreat).setAlpha(0.9).setDepth(50);
-      const dist = Phaser.Math.Between(20, 45);
-      s.tweens.add({
-        targets: p,
-        x: ex + Math.cos(angle) * dist,
-        y: ey + Math.sin(angle) * dist,
-        alpha: 0,
-        scaleX: 0.3,
-        scaleY: 0.3,
-        duration: 300,
-        ease: 'Power2',
-        onComplete: () => p.destroy(),
-      });
+    if (!s.battleVfx) {
+      const particleCount = Phaser.Math.Between(4, 6);
+      for (let i = 0; i < particleCount; i++) {
+        const angle = (Math.PI * 2 * i) / particleCount;
+        const pKey = i % 2 === 0 ? 'particle_sparkle' : 'particle_smoke';
+        const p = s.add.image(ex, ey, pKey)
+          .setDisplaySize(12, 12).setTint(COLORS.enemyThreat).setAlpha(0.9).setDepth(50);
+        const dist = Phaser.Math.Between(20, 45);
+        s.tweens.add({
+          targets: p,
+          x: ex + Math.cos(angle) * dist,
+          y: ey + Math.sin(angle) * dist,
+          alpha: 0,
+          scaleX: 0.3,
+          scaleY: 0.3,
+          duration: 300,
+          ease: 'Power2',
+          onComplete: () => p.destroy(),
+        });
+      }
     }
 
     s.sunshinePoints += enemy.reward;
@@ -405,6 +416,8 @@ export class TowerCombat {
       attackTimer: 0,
       flies: config.flies ?? false,
       isElite,
+      bobOffset: Math.random() * Math.PI * 2,
+      lastFacingRight: true,
     };
 
     const barW = isElite ? TILE : TILE - 16;
@@ -420,6 +433,11 @@ export class TowerCombat {
     enemy.hpBarDy = isElite ? TILE / 2 - 2 : TILE / 2 - 4;
 
     s.enemies.push(enemy);
+
+    if (enemy.flies) {
+      s.battleVfx?.createFlyingShadow(enemy);
+    }
+    s.battleVfx?.createEliteAura(enemy);
 
     if (!s._seenEnemyTypes.has(type)) {
       s._seenEnemyTypes.add(type);

@@ -261,8 +261,14 @@ export class UpgradeScene extends Phaser.Scene {
 
       this.add.rectangle(width / 2 + 2, y + cardHeight / 2 + 2, cardW, cardHeight, 0x000000, 0.2);
 
-      this.add.rectangle(width / 2, y + cardHeight / 2, cardW, cardHeight, COLORS.uiPanel, 0.95)
-        .setStrokeStyle(2, COLORS.outline);
+      if (this.textures.exists('ui_panelBorder')) {
+        this.add.image(width / 2, y + cardHeight / 2, 'ui_panelBorder')
+          .setDisplaySize(cardW, cardHeight)
+          .setAlpha(0.9);
+      } else {
+        this.add.rectangle(width / 2, y + cardHeight / 2, cardW, cardHeight, COLORS.uiPanel, 0.95)
+          .setStrokeStyle(2, COLORS.outline);
+      }
       this.add.rectangle(width / 2, y + 4, cardW - 8, 3, COLORS.primary, 0.4);
 
       if (this.textures.exists(spriteKey)) {

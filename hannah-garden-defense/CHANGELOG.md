@@ -19,6 +19,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Zone 1–2 balance** — `waves.zoneIntro` tuning for Berry Patch and Chicken Coop; boss HP/speed modifiers.
 - **Root npm scripts** — `npm start` and `npm validate` from the Garden monorepo root.
 
+### Added — Visual and effects pass
+
+- **BattleVfx** — Pooled particle bursts, floating damage text, tower-specific projectiles, muzzle flashes.
+- **Kenney combat particles** — flame, magic, spark, muzzle, star, slash textures wired into combat.
+- **Enemy motion** — Walk bob, path-facing flip, flying shadows, elite aura rings, status rings.
+- **Map ambience** — Zone mood tints, path-edge decals, swaying trees/bushes, gate sparkle bursts.
+- **UI polish** — Kenney panel chrome on HUD/upgrade cards; trophy sprite on victory; textured zone map buttons.
+
 ### Fixed
 
 - **Battle crash** — Removed invalid `_emitWaveCooldownIfChanged()` call from `UIScene.create()` (cooldown emit stays on `GameScene` only).

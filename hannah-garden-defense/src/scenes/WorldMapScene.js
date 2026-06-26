@@ -130,9 +130,17 @@ export class WorldMapScene extends Phaser.Scene {
 
       const shadow = this.add.rectangle(width / 2 + 3, y + 3, zoneWidth, zoneHeight, 0x000000, 0.3);
 
-      const zoneBg = this.add.rectangle(width / 2, y, zoneWidth, zoneHeight, color)
-        .setStrokeStyle(3, unlocked ? COLORS.outline : 0x444444)
-        .setInteractive({ useHandCursor: unlocked });
+      let zoneBg;
+      if (this.textures.exists('ui_buttonRect')) {
+        zoneBg = this.add.image(width / 2, y, 'ui_buttonRect')
+          .setDisplaySize(zoneWidth, zoneHeight)
+          .setTint(color)
+          .setInteractive({ useHandCursor: unlocked });
+      } else {
+        zoneBg = this.add.rectangle(width / 2, y, zoneWidth, zoneHeight, color)
+          .setStrokeStyle(3, unlocked ? COLORS.outline : 0x444444)
+          .setInteractive({ useHandCursor: unlocked });
+      }
 
       if (unlocked) {
         this.add.text(width / 2 - zoneWidth / 2 + 50, y - 12, `${zoneEmojis[i]} Zone ${i + 1}`, {
@@ -155,6 +163,11 @@ export class WorldMapScene extends Phaser.Scene {
           fontSize: '20px',
           color: '#FFE135',
         }).setOrigin(1, 0.5);
+
+        if (this.textures.exists('icon_star')) {
+          this.add.image(width / 2 + zoneWidth / 2 - 52, y, 'icon_star')
+            .setDisplaySize(18, 18).setTint(0xffe135);
+        }
 
         if (stars < maxStars) {
           const remaining = maxStars - stars;

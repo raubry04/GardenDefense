@@ -48,7 +48,16 @@ export function buildAssetCopyList() {
     add(`${craftpixDir}/${propFiles[key]}`, `craftpix/props/${key}.png`);
   }
 
-  const particles = { sparkle: 'star_04.png', smoke: 'smoke_03.png' };
+  const particles = {
+    sparkle: 'star_04.png',
+    smoke: 'smoke_03.png',
+    flame: 'flame_03.png',
+    magic: 'magic_03.png',
+    spark: 'spark_04.png',
+    muzzle: 'muzzle_03.png',
+    star: 'star_05.png',
+    slash: 'slash_02.png',
+  };
   for (const [key, file] of Object.entries(particles)) {
     add(`Assets/2D assets/Particle Pack/PNG (Transparent)/${file}`, `kenney/particles/${key}.png`);
   }
@@ -60,6 +69,8 @@ export function buildAssetCopyList() {
   const ui = {
     buttonRect: 'button_rectangle_depth_flat.png',
     uiStar: 'star.png',
+    buttonSquare: 'button_square_depth_flat.png',
+    panelBorder: 'button_rectangle_border.png',
   };
   for (const [key, file] of Object.entries(ui)) {
     add(`Assets/UI assets/UI Pack/PNG/Yellow/Default/${file}`, `kenney/ui/${key}.png`);

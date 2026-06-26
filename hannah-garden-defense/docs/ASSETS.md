@@ -2,6 +2,25 @@
 
 *Audience: developers and artists*
 
+## Animation and motion notes
+
+**Animal Pack Remastered** (audited June 2026): `PNG/` contains static variants only (`Round`, `Square`, outline/detail variants). **No walk/attack spritesheets** — enemy motion uses procedural bob, squash, path-facing flip, and tint-based status FX.
+
+**Kenney Particle Pack** — combat set copied into `kenney/particles/`:
+
+| Key | Source file | Use |
+|-----|-------------|-----|
+| sparkle | star_04.png | Legacy + chicken eggs |
+| smoke | smoke_03.png | Death poof |
+| flame | flame_03.png | Gate breach, Flower Bomb |
+| magic | magic_03.png | Tower place, slow towers |
+| spark | spark_04.png | Hit burst, Dog |
+| muzzle | muzzle_03.png | Tower muzzle flash |
+| star | star_05.png | Death sparkle, abilities |
+| slash | slash_02.png | Owl projectiles |
+
+VFX presets live in [`src/battle/battleVfxConfig.js`](../src/battle/battleVfxConfig.js); runtime pooling in [`BattleVfx.js`](../src/battle/BattleVfx.js).
+
 ## Source packs (repo root, gitignored)
 
 Place these **one folder above** `hannah-garden-defense/`:

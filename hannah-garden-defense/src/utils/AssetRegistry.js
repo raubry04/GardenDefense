@@ -58,6 +58,18 @@ export const AssetRegistry = {
 
     smoke: `${A}/kenney/particles/smoke.png`,
 
+    flame: `${A}/kenney/particles/flame.png`,
+
+    magic: `${A}/kenney/particles/magic.png`,
+
+    spark: `${A}/kenney/particles/spark.png`,
+
+    muzzle: `${A}/kenney/particles/muzzle.png`,
+
+    star: `${A}/kenney/particles/star.png`,
+
+    slash: `${A}/kenney/particles/slash.png`,
+
   },
 
 
@@ -83,6 +95,10 @@ export const AssetRegistry = {
     buttonRect: `${A}/kenney/ui/buttonRect.png`,
 
     uiStar: `${A}/kenney/ui/uiStar.png`,
+
+    buttonSquare: `${A}/kenney/ui/buttonSquare.png`,
+
+    panelBorder: `${A}/kenney/ui/panelBorder.png`,
 
   },
 

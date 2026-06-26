@@ -158,6 +158,21 @@ export const GameConfig = {
 
   audio: { musicVolume: 0.6, sfxVolume: 0.8 },
 
+  vfx: {
+    enabled: true,
+    maxBurstsPerFrame: 24,
+    floatingTextPoolSize: 24,
+  },
+
+  zoneMoodTints: [
+    0xfff8e0, // meadow warm
+    0xe8f5e0, // vegetable fresh
+    0xfff0d0, // coop golden
+    0xe8e0ff, // berry cool
+    0xffe8d8, // orchard sunset
+    0xd8e8ff, // endless twilight
+  ],
+
   colors: {
     primary: 0xFFD700,
     grass: 0x7EC850,

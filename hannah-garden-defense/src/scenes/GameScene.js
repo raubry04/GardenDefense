@@ -11,6 +11,7 @@ import { EnemyBehavior } from '../battle/EnemyBehavior.js';
 import { TowerPlacement } from '../battle/TowerPlacement.js';
 import { AbilityController } from '../battle/AbilityController.js';
 import { TowerInspect } from '../battle/TowerInspect.js';
+import { BattleVfx } from '../battle/BattleVfx.js';
 import { BossBanner } from '../ui/BossBanner.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
@@ -59,6 +60,7 @@ export class GameScene extends Phaser.Scene {
     this.hoverRangeCircle = null;
     this._livesWarningTimer = 0;
     this._warningEdges = null;
+    this._swayDecor = [];
 
     const mapData = this._buildMapData();
     this.waypoints = mapData.waypoints;
@@ -74,6 +76,8 @@ export class GameScene extends Phaser.Scene {
     }, { immediate: false });
 
     this._drawTileMap();
+    this._drawPathEdgeDecals();
+    this._drawZoneMoodOverlay();
     this._drawGardenGate();
     this._createLivesWarningOverlay();
     applyCamera();
@@ -87,6 +91,7 @@ export class GameScene extends Phaser.Scene {
     this.abilityController = new AbilityController(this);
     this.towerInspect = new TowerInspect(this);
     this.bossBanner = new BossBanner(this);
+    this.battleVfx = new BattleVfx(this);
     this._seenEnemyTypes = new Set();
 
     this.scene.launch('UIScene', {
@@ -182,17 +187,36 @@ export class GameScene extends Phaser.Scene {
   _drawTreeDecoration(cx, cy, rng) {
     const key = TREE_KEYS[rng.between(0, TREE_KEYS.length - 1)];
     const size = rng.between(48, 72);
-    return this.add.image(cx + rng.between(-4, 4), cy + rng.between(-8, 4), key)
+    const img = this.add.image(cx + rng.between(-4, 4), cy + rng.between(-8, 4), key)
       .setDisplaySize(size, size)
       .setDepth(2);
+    this._addPropSway(img);
+    return img;
   }
 
   _drawBushDecoration(cx, cy, rng) {
     const key = BUSH_KEYS[rng.between(0, BUSH_KEYS.length - 1)];
     const size = rng.between(28, 44);
-    return this.add.image(cx + rng.between(-6, 6), cy + rng.between(-4, 6), key)
+    const img = this.add.image(cx + rng.between(-6, 6), cy + rng.between(-4, 6), key)
       .setDisplaySize(size, size)
       .setDepth(2);
+    this._addPropSway(img);
+    return img;
+  }
+
+  _addPropSway(img) {
+    if (!this._swayDecor) this._swayDecor = [];
+    const baseY = img.y;
+    this._swayDecor.push(img);
+    this.tweens.add({
+      targets: img,
+      y: baseY - 3,
+      angle: { from: -2, to: 2 },
+      duration: Phaser.Math.Between(1800, 2600),
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   _drawRockDecoration(cx, cy, rng) {
@@ -204,6 +228,48 @@ export class GameScene extends Phaser.Scene {
   }
 
   /* ─── Garden gate ─── */
+
+  _drawZoneMoodOverlay() {
+    const tints = GameConfig.zoneMoodTints ?? [];
+    const tint = tints[this.zone] ?? 0xffffff;
+    const r = (tint >> 16) & 0xff;
+    const g = (tint >> 8) & 0xff;
+    const b = tint & 0xff;
+    const color = Phaser.Display.Color.GetColor(r, g, b);
+    this.add.rectangle(
+      this.worldWidth / 2, this.worldHeight / 2,
+      this.worldWidth, this.worldHeight,
+      color, 0.06,
+    ).setDepth(1).setScrollFactor(1);
+  }
+
+  _drawPathEdgeDecals() {
+    const rows = this.tileGrid.length;
+    const cols = this.tileGrid[0].length;
+    const rng = new Phaser.Math.RandomDataGenerator([`decals-${this.zone}-${this.battle}`]);
+    const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (this.tileGrid[r][c] !== 'grass') continue;
+        let nearPath = false;
+        for (const [dc, dr] of dirs) {
+          const nc = c + dc;
+          const nr = r + dr;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && this.tileGrid[nr][nc] === 'path') {
+            nearPath = true;
+            break;
+          }
+        }
+        if (!nearPath || rng.frac() > 0.35) continue;
+        const cx = c * TILE + TILE / 2 + rng.between(-8, 8);
+        const cy = r * TILE + TILE / 2 + rng.between(-8, 8);
+        if (!this.textures.exists('particle_magic')) continue;
+        this.add.image(cx, cy, 'particle_magic')
+          .setDisplaySize(10, 10).setTint(0x7ec850).setAlpha(0.45).setDepth(1);
+      }
+    }
+  }
 
   _drawGardenGate() {
     const last = this.waypoints[this.waypoints.length - 1];
@@ -219,14 +285,14 @@ export class GameScene extends Phaser.Scene {
       .setTint(0xFFD700)
       .setDepth(7);
 
-    const glow = this.add.circle(gx, gy, TILE * 0.6, 0xFFD700, 0.1)
+    const glow = this.add.circle(gx, gy, TILE * 0.6, 0xFFD700, 0.06)
       .setDepth(4);
     this.tweens.add({
       targets: glow,
-      alpha: { from: 0.1, to: 0.25 },
-      scaleX: { from: 1, to: 1.15 },
-      scaleY: { from: 1, to: 1.15 },
-      duration: 1500,
+      alpha: { from: 0.06, to: 0.12 },
+      scaleX: { from: 1, to: 1.08 },
+      scaleY: { from: 1, to: 1.08 },
+      duration: 2000,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',

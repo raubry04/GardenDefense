@@ -24,6 +24,13 @@ export class BattleHud {
     const row1Y = this._hudRow1Y;
     const row2Y = this._hudRow2Y;
 
+    if (scene.textures.exists('ui_panelBorder')) {
+      scene.add.image(width / 2, row2Y + 4, 'ui_panelBorder')
+        .setDisplaySize(width * 0.96, 72)
+        .setAlpha(0.35)
+        .setDepth(hudDepth - 1);
+    }
+
     const maxIcons = Math.min(scene.lives, 8);
     const heartSpacing = 22;
     const startX = 20;

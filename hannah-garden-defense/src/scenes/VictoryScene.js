@@ -40,8 +40,9 @@ export class VictoryScene extends Phaser.Scene {
     this._drawBackground(width, height);
     this._createConfetti(width, height);
 
-    const trophy = this.add.text(width / 2, 50, '🏆', { fontSize: '48px' })
-      .setOrigin(0.5).setScale(0);
+    const trophy = this.textures.exists('icon_trophy')
+      ? this.add.image(width / 2, 50, 'icon_trophy').setDisplaySize(56, 56).setOrigin(0.5).setScale(0)
+      : this.add.text(width / 2, 50, '🏆', { fontSize: '48px' }).setOrigin(0.5).setScale(0);
 
     this.tweens.add({
       targets: trophy,

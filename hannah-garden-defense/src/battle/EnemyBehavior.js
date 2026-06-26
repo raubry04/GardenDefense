@@ -1,10 +1,19 @@
 import { GameConfig } from '../config.js';
 import { TILE } from './battleConstants.js';
-import { updateEnemyStatusFx } from './EnemyStatusFx.js';
+import { updateEnemyStatusFx, updateStatusRing } from './EnemyStatusFx.js';
 
 export class EnemyBehavior {
   constructor(scene) {
     this.scene = scene;
+  }
+
+  _faceMovement(enemy, dx) {
+    if (Math.abs(dx) < 0.5) return;
+    const facingRight = dx > 0;
+    if (facingRight !== enemy.lastFacingRight) {
+      enemy.sprite.flipX = !facingRight;
+      enemy.lastFacingRight = facingRight;
+    }
   }
 
   updateEnemies(delta) {
@@ -16,12 +25,15 @@ export class EnemyBehavior {
         continue;
       }
 
+      const prevX = enemy.x;
       const syncBars = () => {
         const dy = enemy.hpBarDy ?? TILE / 2 - 4;
         const by = enemy.y - dy;
         enemy.hpBarBg?.setPosition(enemy.x, by);
         enemy.hpBar?.setPosition(enemy.x, by);
         updateEnemyStatusFx(enemy);
+        updateStatusRing(enemy);
+        s.battleVfx?.updateEnemyMotionFx(enemy, delta);
       };
 
       if (enemy.stunTimer > 0) {
@@ -65,6 +77,7 @@ export class EnemyBehavior {
         const move = speed * (delta / 1000);
         enemy.x += Math.cos(angle) * move;
         enemy.y += Math.sin(angle) * move;
+        this._faceMovement(enemy, enemy.x - prevX);
         enemy.sprite.setPosition(enemy.x, enemy.y);
         syncBars();
 
@@ -98,6 +111,7 @@ export class EnemyBehavior {
             const mv = speed * (delta / 1000);
             enemy.x += Math.cos(angle) * mv;
             enemy.y += Math.sin(angle) * mv;
+            this._faceMovement(enemy, enemy.x - prevX);
             enemy.sprite.setPosition(enemy.x, enemy.y);
             syncBars();
           }
@@ -133,6 +147,7 @@ export class EnemyBehavior {
       const move = speed * (delta / 1000);
       enemy.x += Math.cos(angle) * move;
       enemy.y += Math.sin(angle) * move;
+      this._faceMovement(enemy, enemy.x - prevX);
       enemy.sprite.setPosition(enemy.x, enemy.y);
       syncBars();
 
@@ -146,6 +161,7 @@ export class EnemyBehavior {
   enemyReachedGate(enemy) {
     const s = this.scene;
     enemy.alive = false;
+    s.battleVfx?.destroyEnemyFx(enemy);
     enemy.sprite.destroy();
     enemy.hpBar.destroy();
     enemy.hpBarBg.destroy();
@@ -153,11 +169,7 @@ export class EnemyBehavior {
     s.cameras.main.shake(120, 0.004);
 
     const last = s.waypoints[s.waypoints.length - 1];
-    const gateFlash = s.add.rectangle(last.x, last.y, TILE, TILE, 0xE63946, 0.5).setDepth(8);
-    s.tweens.add({
-      targets: gateFlash, alpha: 0, duration: 400,
-      onComplete: () => gateFlash.destroy(),
-    });
+    s.battleVfx?.burstGate(last.x, last.y);
 
     s.lives -= enemy.damage;
     s.game.events.emit('lives-changed', { lives: s.lives });
