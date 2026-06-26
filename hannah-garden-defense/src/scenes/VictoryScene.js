@@ -6,6 +6,7 @@ import {
   loadLocalProgress,
   saveProgressWithSync,
   normalizeProgress,
+  battleSunshineToMetaBank,
 } from '../utils/hannahProgress.js';
 
 const COLORS = GameConfig.colors;
@@ -72,7 +73,7 @@ export class VictoryScene extends Phaser.Scene {
 
     const stars = this._calculateStars();
     this._displayStars(width, 200, stars);
-    this._animatePoints(width, 280);
+    this._animatePoints(width, 280, stars);
     this._saveProgress(stars);
     this._postScore(stars);
     this._createButtons(width, height);
@@ -169,7 +170,20 @@ export class VictoryScene extends Phaser.Scene {
     }
   }
 
-  _animatePoints(width, y) {
+  _starBonusPoints(stars) {
+    let bonus = 0;
+    if (stars >= 2) bonus += GameConfig.twoStarBonus;
+    if (stars >= 3) bonus += GameConfig.threeStarBonus;
+    return bonus;
+  }
+
+  _metaPointsEarned(stars) {
+    return battleSunshineToMetaBank(this.pointsEarned + this._starBonusPoints(stars));
+  }
+
+  _animatePoints(width, y, stars) {
+    const totalEarned = this._metaPointsEarned(stars);
+
     this.add.text(width / 2, y, 'Sunshine Points Earned:', {
       fontFamily: 'Kenney Future',
       fontSize: '20px',
@@ -184,7 +198,7 @@ export class VictoryScene extends Phaser.Scene {
 
     this.tweens.addCounter({
       from: 0,
-      to: this.pointsEarned,
+      to: totalEarned,
       duration: 1500,
       delay: 1800,
       ease: 'Power2',
@@ -199,11 +213,7 @@ export class VictoryScene extends Phaser.Scene {
       const progress = normalizeProgress(loadLocalProgress(this.playerName));
       progress.playerName = this.playerName;
 
-      let bonusPoints = 0;
-      if (stars >= 2) bonusPoints += GameConfig.twoStarBonus;
-      if (stars >= 3) bonusPoints += GameConfig.threeStarBonus;
-
-      progress.sunshinePoints = (progress.sunshinePoints || 0) + this.pointsEarned + bonusPoints;
+      progress.sunshinePoints = (progress.sunshinePoints || 0) + this._metaPointsEarned(stars);
 
       if (!progress.battleStars[this.zone]) progress.battleStars[this.zone] = {};
       progress.battleStars[this.zone][this.battle] = Math.max(
@@ -240,7 +250,7 @@ export class VictoryScene extends Phaser.Scene {
   async _postScore(stars) {
     const payload = {
       player_name: this.playerName,
-      score: this.pointsEarned,
+      score: this._metaPointsEarned(stars),
       stars_earned: stars,
       zone: this.zone + 1,
       battle: this.battle + 1,

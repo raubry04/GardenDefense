@@ -7,13 +7,24 @@ export const DEFAULT_PROGRESS = {
   hannahLevel: 1,
   hannahXp: 0,
   gardenLevel: 1,
-  sunshinePoints: GameConfig.startingSunshinePoints.zone1,
+  sunshinePoints: 0,
   unlockedZone: 0,
   zoneStars: {},
   zoneBattles: {},
   battleStars: {},
   towerUpgrades: {},
 };
+
+/**
+ * Convert in-battle sunshine earnings into upgrade-bank deposit.
+ * In-battle rewards stay at full value for tower placement; only meta bank uses this rate.
+ * @param {number} amount
+ * @returns {number}
+ */
+export function battleSunshineToMetaBank(amount) {
+  const rate = GameConfig.metaSunshineBankRate ?? 0.2;
+  return Math.max(0, Math.floor(amount * rate));
+}
 
 /**
  * Derive Hannah's level from cumulative XP using config thresholds.

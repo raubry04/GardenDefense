@@ -41,7 +41,7 @@ router.post('/', (req, res) => {
       hannah_level = 1,
       hannah_xp = 0,
       garden_level = 1,
-      sunshine_points = 150,
+      sunshine_points = 0,
       battle_stars = '{}'
     } = req.body;
 

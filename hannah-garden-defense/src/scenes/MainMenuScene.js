@@ -1,5 +1,6 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
+import { getFullGuideSteps } from '../data/tutorialContent.js';
 
 const COLORS = GameConfig.colors;
 
@@ -512,55 +513,103 @@ export class MainMenuScene extends Phaser.Scene {
 
   _showInstructions() {
     const { width, height } = DESIGN;
+    const steps = getFullGuideSteps();
+    let stepIndex = 0;
+    const panelW = Math.min(620, width - 48);
+    const panelH = Math.min(400, height - 120);
+    const objects = [];
 
-    const overlay = this.add.rectangle(width / 2, height / 2, width * 2, height * 2, 0x000000, 0.8)
-      .setInteractive()
+    const overlay = this.add.rectangle(width / 2, height / 2, width * 2, height * 2, 0x000000, 0.82)
       .setDepth(100);
+    objects.push(overlay);
 
-    const panel = this.add.rectangle(width / 2, height / 2, 600, 420, COLORS.uiPanel)
+    const panel = this.add.rectangle(width / 2, height / 2, panelW, panelH, COLORS.uiPanel)
       .setStrokeStyle(3, COLORS.outline)
       .setDepth(101);
+    objects.push(panel);
 
-    const instructions = [
-      'HOW TO PLAY',
-      '',
-      '1. Place animal towers on grass tiles to defend your garden!',
-      '2. Enemies walk along the path — stop them before they reach the gate.',
-      '3. Earn Sunshine Points by defeating critters.',
-      '4. Upgrade your towers and unlock new abilities!',
-      '5. Complete zones to progress through the world map.',
-      '',
-      'Tap towers from the tray, then tap a valid tile to place them.',
-      "Use Hannah's special abilities when things get tough!",
-    ];
-
-    const instrText = this.add.text(width / 2, height / 2 - 60, instructions.join('\n'), {
-      fontFamily: 'Kenney Future',
-      fontSize: '18px',
+    const titleText = this.add.text(width / 2, height / 2 - panelH / 2 + 28, '', {
+      fontFamily: 'Kenney Pixel',
+      fontSize: '22px',
       color: '#3D5A1F',
       align: 'center',
-      wordWrap: { width: 540 },
-      lineSpacing: 4,
     }).setOrigin(0.5).setDepth(102);
+    objects.push(titleText);
 
-    const closeBtn = this.add.rectangle(width / 2, height / 2 + 170, 160, 50, COLORS.button)
+    const bodyText = this.add.text(width / 2, height / 2 - 10, '', {
+      fontFamily: 'Kenney Future',
+      fontSize: '17px',
+      color: '#4A2C0A',
+      align: 'center',
+      wordWrap: { width: panelW - 48 },
+      lineSpacing: 6,
+    }).setOrigin(0.5).setDepth(102);
+    objects.push(bodyText);
+
+    const progressText = this.add.text(width / 2, height / 2 + panelH / 2 - 72, '', {
+      fontFamily: 'Kenney Future',
+      fontSize: '13px',
+      color: '#888888',
+    }).setOrigin(0.5).setDepth(102);
+    objects.push(progressText);
+
+    const renderStep = () => {
+      const step = steps[stepIndex];
+      titleText.setText(step.title || 'How To Play');
+      bodyText.setText(step.text);
+      progressText.setText(`${stepIndex + 1} / ${steps.length}`);
+    };
+
+    const closeAll = () => {
+      this._playSFX();
+      objects.forEach((o) => { if (o?.active) o.destroy(); });
+    };
+
+    const prevBtn = this.add.rectangle(width / 2 - 110, height / 2 + panelH / 2 - 28, 100, 44, COLORS.button)
       .setInteractive({ useHandCursor: true })
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(102);
-
-    const closeText = this.add.text(width / 2, height / 2 + 170, 'CLOSE', {
-      fontFamily: 'Kenney Future',
-      fontSize: '22px',
-      color: '#4A2C0A',
+    const prevLabel = this.add.text(width / 2 - 110, height / 2 + panelH / 2 - 28, 'Back', {
+      fontFamily: 'Kenney Future', fontSize: '18px', color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(102);
+    objects.push(prevBtn, prevLabel);
 
-    closeBtn.on('pointerdown', () => {
-      this._playSFX();
-      overlay.destroy();
-      panel.destroy();
-      instrText.destroy();
-      closeBtn.destroy();
-      closeText.destroy();
+    const nextBtn = this.add.rectangle(width / 2 + 110, height / 2 + panelH / 2 - 28, 100, 44, COLORS.button)
+      .setInteractive({ useHandCursor: true })
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(102);
+    const nextLabel = this.add.text(width / 2 + 110, height / 2 + panelH / 2 - 28, 'Next', {
+      fontFamily: 'Kenney Future', fontSize: '18px', color: '#4A2C0A',
+    }).setOrigin(0.5).setDepth(102);
+    objects.push(nextBtn, nextLabel);
+
+    const closeBtn = this.add.rectangle(width / 2, height / 2 + panelH / 2 + 36, 140, 44, COLORS.accent)
+      .setInteractive({ useHandCursor: true })
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(102);
+    const closeLabel = this.add.text(width / 2, height / 2 + panelH / 2 + 36, 'CLOSE', {
+      fontFamily: 'Kenney Future', fontSize: '18px', color: '#4A2C0A',
+    }).setOrigin(0.5).setDepth(102);
+    objects.push(closeBtn, closeLabel);
+
+    prevBtn.on('pointerdown', () => {
+      if (stepIndex > 0) {
+        this._playSFX();
+        stepIndex--;
+        renderStep();
+      }
     });
+    nextBtn.on('pointerdown', () => {
+      if (stepIndex < steps.length - 1) {
+        this._playSFX();
+        stepIndex++;
+        renderStep();
+      } else {
+        closeAll();
+      }
+    });
+    closeBtn.on('pointerdown', closeAll);
+
+    renderStep();
   }
 }

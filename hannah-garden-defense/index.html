@@ -130,6 +130,9 @@
       touch-action: none;
       -webkit-tap-highlight-color: transparent;
       background: #5A9A38;
+      /* Keep canvas above iOS home indicator / Android gesture bar */
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      box-sizing: border-box;
     }
 
 

@@ -26,6 +26,7 @@ export class UpgradeScene extends Phaser.Scene {
     this.sunshinePoints = progress.sunshinePoints ?? 0;
     this.hannahXp = progress.hannahXp ?? 0;
     this.hannahLevel = progress.hannahLevel ?? hannahLevelFromXp(this.hannahXp);
+    this.unlockedZone = progress.unlockedZone ?? 0;
     this.towerUpgrades = { ...(progress.towerUpgrades || {}) };
 
     for (const tower of this.placedTowers) {
@@ -138,19 +139,35 @@ export class UpgradeScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
 
     const nextUnlocks = [];
+    const nextZoneUnlocks = [];
     for (const [name, cfg] of Object.entries(GameConfig.towers)) {
       if (cfg.unlock?.type === 'level' && cfg.unlock.value === this.hannahLevel + 1) {
         nextUnlocks.push(name.replace(/_/g, ' '));
+      }
+      if (cfg.unlock?.type === 'zone' && cfg.unlock.value === this.unlockedZone + 2) {
+        nextZoneUnlocks.push(name.replace(/_/g, ' '));
       }
     }
     for (const [, cfg] of Object.entries(GameConfig.hannahAbilities)) {
       if (cfg.unlockLevel === this.hannahLevel + 1) nextUnlocks.push(cfg.label);
     }
+    let hintY = barY + barHeight + 28;
     if (nextUnlocks.length > 0) {
-      this.add.text(width / 2, barY + barHeight + 28, `Lv.${this.hannahLevel + 1} unlocks: ${nextUnlocks.join(', ')}`, {
+      this.add.text(width / 2, hintY, `Lv.${this.hannahLevel + 1} unlocks: ${nextUnlocks.join(', ')}`, {
         fontFamily: 'Kenney Future',
         fontSize: '13px',
         color: '#FFD700',
+        wordWrap: { width: width * 0.85 },
+        align: 'center',
+      }).setOrigin(0.5, 0);
+      hintY += 18;
+    }
+    if (nextZoneUnlocks.length > 0) {
+      const zoneName = GameConfig.zones[this.unlockedZone + 1]?.name || `Zone ${this.unlockedZone + 2}`;
+      this.add.text(width / 2, hintY, `${zoneName} unlocks: ${nextZoneUnlocks.join(', ')}`, {
+        fontFamily: 'Kenney Future',
+        fontSize: '13px',
+        color: '#A8DADC',
         wordWrap: { width: width * 0.85 },
         align: 'center',
       }).setOrigin(0.5, 0);

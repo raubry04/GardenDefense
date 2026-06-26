@@ -3,7 +3,13 @@ export const GameConfig = {
   tileSize: 64,
 
   startingLives: 20,
+  // In-battle placement budget per zone (unchanged by meta economy tuning).
   startingSunshinePoints: { zone1: 200, zone2: 175, zone3: 200, zone4: 225, zone5: 250, endless: 250 },
+  // Fraction of in-battle sunshine earned that deposits into the upgrade bank on victory.
+  // Zone 0 battle 1 (5 waves, ~510 gross + up to 100 star bonus):
+  //   before: 200 seed + 100% deposit ≈ 810–860 bank ("god mode")
+  //   after:  0 seed + 20% deposit ≈ 102–132 bank (one tier-1 upgrade)
+  metaSunshineBankRate: 0.2,
   waveCooldownSeconds: 15,
   prepPhaseSeconds: 30,
   earlyWaveBonusPoints: 10,

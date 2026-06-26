@@ -70,6 +70,7 @@ export class WaveManager {
     this.cooldownTimer = 0;
 
     this.scene.sunshinePoints += GameConfig.earlyWaveBonusPoints;
+    this.scene.battleSunshineEarned = (this.scene.battleSunshineEarned || 0) + GameConfig.earlyWaveBonusPoints;
     this.scene.game.events.emit('points-changed', {
       points: this.scene.sunshinePoints,
     });

@@ -42,6 +42,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.fadeIn(300);
     this.lives = GameConfig.startingLives;
     this.sunshinePoints = GameConfig.startingSunshinePoints[`zone${this.zone + 1}`] || 150;
+    this.battleSunshineEarned = 0;
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
@@ -79,6 +80,7 @@ export class GameScene extends Phaser.Scene {
       sunshinePoints: this.sunshinePoints,
       totalWaves: this.waveManager.getTotalWaves(),
       zone: this.zone,
+      battle: this.battle,
       hannahLevel: this.hannahLevel,
       worldWidth: this.worldWidth,
       worldHeight: this.worldHeight,
@@ -229,6 +231,7 @@ export class GameScene extends Phaser.Scene {
     this.events.on('wave-complete', (data) => {
       this.game.events.emit('wave-ended', data);
       this.sunshinePoints += GameConfig.waveCompletionBonus;
+      this.battleSunshineEarned += GameConfig.waveCompletionBonus;
       this.game.events.emit('points-changed', { points: this.sunshinePoints });
       this._showCooldownTimer();
     });
@@ -242,7 +245,7 @@ export class GameScene extends Phaser.Scene {
           livesRemaining: this.lives,
           zone: this.zone,
           battle: this.battle,
-          pointsEarned: this.sunshinePoints,
+          pointsEarned: this.battleSunshineEarned,
           playerName: this.playerName,
           towers: towerData,
           hannahXp: this.battleXpStart + (this.hannahXp || 0),
@@ -257,12 +260,35 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.game.events.on('tower-deselected', () => {
-      this.selectedTower = null;
-      if (this.ghostPreview) {
-        this.ghostPreview.destroy();
-        this.ghostPreview = null;
-      }
-      this._clearHoverHighlight();
+      this._clearTowerSelection();
+    });
+
+    this.game.events.on('tower-drag-start', (towerType) => {
+      this.selectedTower = towerType;
+      this._createGhostPreview(towerType);
+    });
+
+    this.game.events.on('tower-drag-move', (pointer) => {
+      if (!this.selectedTower || !pointer) return;
+      this._ensureGhostPreview();
+      const { col, row } = this._placementTileFromPointer(pointer);
+      this._updateGhostAt(col, row);
+    });
+
+    this.game.events.on('tower-drag-end', (pointer) => {
+      if (!this.selectedTower || !pointer) return;
+      this._handleTowerPlacement(pointer);
+      this._clearTowerSelection();
+    });
+
+    this.game.events.on('tower-drag-cancel', () => {
+      this._clearTowerSelection();
+    });
+
+    this.game.events.on('tower-place-request', (pointer) => {
+      if (!this.selectedTower || !pointer) return;
+      const placed = this._handleTowerPlacement(pointer);
+      if (placed) this._clearTowerSelection();
     });
 
     this.game.events.on('send-next-wave', () => {
@@ -315,6 +341,12 @@ export class GameScene extends Phaser.Scene {
         for (const tower of this.towers) {
           if (tower.hp <= 0) continue;
           tower.hp = tower.maxHp;
+          this.tweens.add({
+            targets: tower.sprite,
+            alpha: { from: 0.5, to: 1 },
+            duration: 300,
+            yoyo: true,
+          });
         }
         break;
       }
@@ -361,53 +393,87 @@ export class GameScene extends Phaser.Scene {
 
   /* ─── Input ─── */
 
+  _placementTileFromPointer(pointer) {
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    return {
+      col: Math.floor(world.x / TILE),
+      row: Math.floor(world.y / TILE),
+    };
+  }
+
+  _canAffordSelectedTower() {
+    if (!this.selectedTower) return false;
+    const towerConfig = GameConfig.towers[this.selectedTower];
+    return towerConfig && this.sunshinePoints >= towerConfig.cost;
+  }
+
   _updateGhostAt(col, row) {
     if (!this.ghostPreview || !this.selectedTower) return;
     this.ghostPreview.setPosition(col * TILE + TILE / 2, row * TILE + TILE / 2);
-    const valid = this._isValidPlacement(row, col);
-    this.ghostPreview.setAlpha(valid ? 0.7 : 0.3);
-    this.ghostPreview.setTint(valid ? 0xFFD700 : 0xE63946);
-    this._updateHoverTile(col, row, valid);
+    const validTile = this._isValidPlacement(row, col);
+    const affordable = this._canAffordSelectedTower();
+    const ok = validTile && affordable;
+    this.ghostPreview.setAlpha(ok ? 0.7 : 0.3);
+    this.ghostPreview.setTint(ok ? 0xFFD700 : 0xE63946);
+    this._updateHoverTile(col, row, ok);
+  }
+
+  _clearTowerSelection() {
+    this.selectedTower = null;
+    if (this.ghostPreview) {
+      this.ghostPreview.destroy();
+      this.ghostPreview = null;
+    }
+    this._clearHoverHighlight();
+  }
+
+  _ensureGhostPreview() {
+    if (!this.selectedTower) return;
+    if (!this.ghostPreview || !this.ghostPreview.active) {
+      this._createGhostPreview(this.selectedTower);
+    }
+  }
+
+  _handleTowerPlacement(pointer) {
+    const { col, row } = this._placementTileFromPointer(pointer);
+
+    this._ensureGhostPreview();
+    this._updateGhostAt(col, row);
+
+    if (!this._isValidPlacement(row, col)) {
+      this.sound.play('invalidAction', { volume: GameConfig.audio.sfxVolume });
+      this._flashInvalidTile(col, row);
+      return false;
+    }
+
+    const towerConfig = GameConfig.towers[this.selectedTower];
+    if (this.sunshinePoints < towerConfig.cost) {
+      this.sound.play('invalidAction', { volume: GameConfig.audio.sfxVolume });
+      this.game.events.emit('placement-rejected', { reason: 'afford' });
+      return false;
+    }
+
+    this.sunshinePoints -= towerConfig.cost;
+    this.game.events.emit('points-changed', { points: this.sunshinePoints });
+
+    this._placeTower(this.selectedTower, row, col);
+    this.sound.play('towerPlaced', { volume: GameConfig.audio.sfxVolume });
+    return true;
   }
 
   _setupInput() {
     this.input.on('pointermove', (pointer) => {
-      if (!this.ghostPreview || !this.selectedTower) return;
-      const col = Math.floor(pointer.worldX / TILE);
-      const row = Math.floor(pointer.worldY / TILE);
+      if (!this.selectedTower) return;
+      this._ensureGhostPreview();
+      const { col, row } = this._placementTileFromPointer(pointer);
       this._updateGhostAt(col, row);
     });
 
     this.input.on('pointerdown', (pointer) => {
-      const col = Math.floor(pointer.worldX / TILE);
-      const row = Math.floor(pointer.worldY / TILE);
-
-      if (pointer.rightButtonDown()) {
-        const tower = this.towers.find(t => t.gridRow === row && t.gridCol === col);
-        if (tower && tower.hp > 0) this._showSellUI(tower);
-        return;
-      }
-      if (!this.selectedTower) return;
-
-      this._updateGhostAt(col, row);
-
-      if (!this._isValidPlacement(row, col)) {
-        this.sound.play('invalidAction', { volume: GameConfig.audio.sfxVolume });
-        this._flashInvalidTile(col, row);
-        return;
-      }
-
-      const towerConfig = GameConfig.towers[this.selectedTower];
-      if (this.sunshinePoints < towerConfig.cost) {
-        this.sound.play('invalidAction', { volume: GameConfig.audio.sfxVolume });
-        return;
-      }
-
-      this.sunshinePoints -= towerConfig.cost;
-      this.game.events.emit('points-changed', { points: this.sunshinePoints });
-
-      this._placeTower(this.selectedTower, row, col);
-      this.sound.play('towerPlaced', { volume: GameConfig.audio.sfxVolume });
+      if (!pointer.rightButtonDown()) return;
+      const { col, row } = this._placementTileFromPointer(pointer);
+      const tower = this.towers.find(t => t.gridRow === row && t.gridCol === col);
+      if (tower && tower.hp > 0) this._showSellUI(tower);
     });
 
     this.input.mouse.disableContextMenu();
@@ -532,6 +598,10 @@ export class GameScene extends Phaser.Scene {
       shielded: false,
       cost: baseConfig.cost,
       onPath: this.tileGrid[row][col] === 'path',
+      eggs: config.eggs || 1,
+      pierce: config.pierce || 0,
+      thorns: config.thorns || 0,
+      fireRateMultiplier: 1,
     };
 
     this.towers.push(tower);
@@ -624,7 +694,8 @@ export class GameScene extends Phaser.Scene {
     for (const tower of this.towers) {
       if (tower.hp <= 0) continue;
       if (tower.damage <= 0 && !tower.slowPercent && !tower.stunMs && !tower.freezeMs) continue;
-      if (time - tower.lastFired < tower.fireRate) continue;
+      const rateMult = tower.fireRateMultiplier || 1;
+      if (time - tower.lastFired < tower.fireRate * rateMult) continue;
 
       const isAoE = GameConfig.towers[tower.type]?.aoe;
 
@@ -641,14 +712,29 @@ export class GameScene extends Phaser.Scene {
         }
       } else {
         let target = null;
-        let closestDist = tower.range;
-        for (const enemy of this.enemies) {
-          if (!enemy.alive) continue;
-          if (tower.type === 'CHICKEN' && enemy.type === 'ELEPHANT') continue;
-          const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
-          if (dist <= closestDist) {
-            closestDist = dist;
-            target = enemy;
+        if (tower.type === 'OWL') {
+          let bestProgress = -1;
+          for (const enemy of this.enemies) {
+            if (!enemy.alive) continue;
+            const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
+            if (dist > tower.range) continue;
+            const progress = enemy.waypointIndex ?? 0;
+            if (progress > bestProgress) {
+              bestProgress = progress;
+              target = enemy;
+            }
+          }
+        } else {
+          let closestDist = tower.range;
+          for (const enemy of this.enemies) {
+            if (!enemy.alive) continue;
+            if (tower.type === 'CHICKEN' && enemy.flies) continue;
+            if (tower.type === 'CHICKEN' && enemy.type === 'ELEPHANT') continue;
+            const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
+            if (dist <= closestDist) {
+              closestDist = dist;
+              target = enemy;
+            }
           }
         }
         if (target) {
@@ -693,20 +779,41 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  _spawnProjectile(x, y, target, damage, pierce, source) {
+    const proj = this.add.ellipse(x, y, 10, 7, COLORS.primary).setDepth(30);
+    const angle = Phaser.Math.Angle.Between(x, y, target.x, target.y);
+    proj.setRotation(angle);
+
+    this.projectiles.push({
+      sprite: proj,
+      x,
+      y,
+      target,
+      speed: 400,
+      damage,
+      pierce: pierce || 0,
+      source: source || '',
+      hitEnemies: new Set(),
+    });
+  }
+
   _fireTower(tower, target) {
     if (tower.damage > 0) {
-      const proj = this.add.ellipse(tower.x, tower.y, 10, 7, COLORS.primary).setDepth(30);
-      const angle = Phaser.Math.Angle.Between(tower.x, tower.y, target.x, target.y);
-      proj.setRotation(angle);
+      const eggs = tower.eggs || 1;
+      const pierce = tower.pierce || 0;
+      const source = tower.type;
 
-      this.projectiles.push({
-        sprite: proj,
-        x: tower.x,
-        y: tower.y,
-        target,
-        speed: 400,
-        damage: tower.damage,
-      });
+      if (eggs === 1) {
+        this._spawnProjectile(tower.x, tower.y, target, tower.damage, pierce, source);
+      } else {
+        const baseAngle = Phaser.Math.Angle.Between(tower.x, tower.y, target.x, target.y);
+        for (let i = 0; i < eggs; i++) {
+          const offset = (i - (eggs - 1) / 2) * 0.15;
+          const sx = tower.x + Math.cos(baseAngle + offset) * 10;
+          const sy = tower.y + Math.sin(baseAngle + offset) * 10;
+          this._spawnProjectile(sx, sy, target, tower.damage, pierce, source);
+        }
+      }
       this.sound.play('towerFires', { volume: GameConfig.audio.sfxVolume * 0.5 });
     }
 
@@ -750,10 +857,21 @@ export class GameScene extends Phaser.Scene {
   _updateProjectiles(delta) {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const proj = this.projectiles[i];
-      if (!proj.target.alive) {
-        proj.sprite.destroy();
-        this.projectiles.splice(i, 1);
-        continue;
+      if (!proj.target || !proj.target.alive) {
+        let found = null;
+        for (const enemy of this.enemies) {
+          if (enemy.alive && !proj.hitEnemies.has(enemy) &&
+              Phaser.Math.Distance.Between(proj.x, proj.y, enemy.x, enemy.y) < 150) {
+            found = enemy;
+            break;
+          }
+        }
+        proj.target = found;
+        if (!found) {
+          proj.sprite.destroy();
+          this.projectiles.splice(i, 1);
+          continue;
+        }
       }
 
       const angle = Phaser.Math.Angle.Between(proj.x, proj.y, proj.target.x, proj.target.y);
@@ -766,16 +884,38 @@ export class GameScene extends Phaser.Scene {
 
       const dist = Phaser.Math.Distance.Between(proj.x, proj.y, proj.target.x, proj.target.y);
       if (dist < 12) {
-        this._damageEnemy(proj.target, proj.damage);
-        proj.sprite.destroy();
-        this.projectiles.splice(i, 1);
+        if (!proj.hitEnemies.has(proj.target)) {
+          proj.hitEnemies.add(proj.target);
+          this._damageEnemy(proj.target, proj.damage, proj.source);
+        }
+        if (proj.pierce > 0) {
+          proj.pierce--;
+          const next = this.enemies.find(
+            (e) => e.alive && !proj.hitEnemies.has(e) &&
+              Phaser.Math.Distance.Between(proj.x, proj.y, e.x, e.y) < 150,
+          );
+          proj.target = next ?? null;
+          if (!next) {
+            proj.sprite.destroy();
+            this.projectiles.splice(i, 1);
+          }
+        } else {
+          proj.sprite.destroy();
+          this.projectiles.splice(i, 1);
+        }
       }
     }
   }
 
   /* ─── Damage & enemy hit effects ─── */
 
-  _damageEnemy(enemy, damage) {
+  _damageEnemy(enemy, damage, source = '') {
+    if (!enemy.alive) return;
+    if (source === 'CHICKEN' && GameConfig.enemies[enemy.type]?.armored) {
+      damage = 0;
+    }
+    if (damage <= 0) return;
+
     enemy.hp -= damage;
     this.sound.play('enemyHit', { volume: GameConfig.audio.sfxVolume * 0.3 });
 
@@ -872,9 +1012,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.sunshinePoints += enemy.reward;
+    this.battleSunshineEarned += enemy.reward;
     this.hannahXp += Math.ceil(enemy.reward * 0.5);
     if (enemy.type === 'ELEPHANT') {
       this.hannahXp += GameConfig.hannahXpRewards.bossKill ?? 0;
+    }
+    const newLevel = hannahLevelFromXp(this.battleXpStart + this.hannahXp);
+    if (newLevel > this.hannahLevel) {
+      this.hannahLevel = newLevel;
+      this.game.events.emit('hannah-level-changed', { level: newLevel });
     }
     this.game.events.emit('points-changed', { points: this.sunshinePoints });
     this.game.events.emit('enemy-defeated');
@@ -906,6 +1052,46 @@ export class GameScene extends Phaser.Scene {
       if (enemy.slowTimer > 0) {
         speed *= (1 - enemy.slowPercent);
         enemy.slowTimer -= delta;
+      }
+
+      if (enemy.type === 'ELEPHANT') {
+        enemy.stompTimer = (enemy.stompTimer || 0) + delta;
+        if (enemy.stompTimer >= 5000) {
+          enemy.stompTimer = 0;
+          const cfg = GameConfig.enemies.ELEPHANT;
+          const stompRange = cfg.stompRange || 100;
+          let stomped = false;
+          for (const tower of this.towers) {
+            if (tower.hp <= 0) continue;
+            if (Phaser.Math.Distance.Between(enemy.x, enemy.y, tower.x, tower.y) <= stompRange) {
+              tower.fireRateMultiplier = 2;
+              stomped = true;
+              this.time.delayedCall(cfg.stompSlowMs || 3000, () => {
+                if (tower.hp > 0) tower.fireRateMultiplier = 1;
+              });
+            }
+          }
+          if (stomped) {
+            this._showAbilityPulse({ x: enemy.x, y: enemy.y }, 0x888888, stompRange);
+          }
+        }
+      }
+
+      if (enemy.flies) {
+        const gate = this.waypoints[this.waypoints.length - 1];
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, gate.x, gate.y);
+        const move = speed * (delta / 1000);
+        enemy.x += Math.cos(angle) * move;
+        enemy.y += Math.sin(angle) * move;
+        enemy.sprite.setPosition(enemy.x, enemy.y);
+        enemy.hpBarBg.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+        enemy.hpBar.setPosition(enemy.x, enemy.y - TILE / 2 + 4);
+
+        if (Phaser.Math.Distance.Between(enemy.x, enemy.y, gate.x, gate.y) < TILE * 0.5) {
+          this._enemyReachedGate(enemy);
+          this.enemies.splice(i, 1);
+        }
+        continue;
       }
 
       if (enemy.type === 'BEAR') {
@@ -948,6 +1134,9 @@ export class GameScene extends Phaser.Scene {
         if (enemy.attackTimer >= 800) {
           enemy.attackTimer = 0;
           this._damageTower(pigWall, enemy.damage * 2);
+          if (pigWall.thorns > 0 && enemy.alive) {
+            this._damageEnemy(enemy, pigWall.thorns);
+          }
         }
         continue;
       }
@@ -1325,8 +1514,16 @@ export class GameScene extends Phaser.Scene {
   /* ─── Cleanup ─── */
 
   shutdown() {
+    if (this.selectedTower) {
+      this.game.events.emit('tower-deselected');
+    }
     this.game.events.off('tower-selected');
     this.game.events.off('tower-deselected');
+    this.game.events.off('tower-drag-start');
+    this.game.events.off('tower-drag-move');
+    this.game.events.off('tower-drag-end');
+    this.game.events.off('tower-drag-cancel');
+    this.game.events.off('tower-place-request');
     this.game.events.off('send-next-wave');
     this.game.events.off('send-wave-early');
     this.game.events.off('ability-used');

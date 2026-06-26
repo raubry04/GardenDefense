@@ -6,7 +6,7 @@
 
  */
 
-import { getSafeInsets } from './mobileViewport.js';
+import { getSafeInsets, isMobileViewport } from './mobileViewport.js';
 
 import { GameConfig } from '../config.js';
 
@@ -270,6 +270,89 @@ export function computeBattleUI(sw, sh) {
 
   };
 
+}
+
+
+
+/**
+ * Convert screen pixels to design-space distance (1280×720 coords).
+ * Used to lift bottom HUD above OS gesture zones on phones.
+ */
+export function screenPxToDesign(sw, sh, px) {
+  const zoom = Math.max(0.0001, Math.min(sw / DESIGN.width, sh / DESIGN.height));
+  return px / zoom;
+}
+
+/**
+ * Design-space HUD anchors for UIScene (tray, send wave, abilities).
+ *
+ * Recommended safe padding (screen px):
+ * - iOS home indicator: env(safe-area-inset-bottom) ≈ 34px (handled via CSS + getSafeInsets)
+ * - Android gesture bar fallback when env is 0: 48px portrait / 32px landscape
+ * - Touch clearance above gesture zone: 16px
+ * - Design equivalent at phone zoom (~0.3): ~40–80px for touch margin alone,
+ *   ~120–160px total when CSS safe-area is unavailable
+ */
+export function computeDesignUIMetrics(sw, sh) {
+  const ui = computeBattleUI(sw, sh);
+  const safe = getSafeInsets();
+  const mobile = ui.isPhone || isMobileViewport();
+  const zoom = Math.max(0.0001, Math.min(sw / DESIGN.width, sh / DESIGN.height));
+
+  const TOUCH_MARGIN_PX = 16;
+  const GESTURE_FALLBACK_PX = ui.isPortrait ? 48 : 32;
+  let screenBottomPad = 0;
+
+  if (mobile) {
+    const envInset = safe.bottom;
+    const gesturePad = envInset > 8 ? envInset + TOUCH_MARGIN_PX : GESTURE_FALLBACK_PX + TOUCH_MARGIN_PX;
+    screenBottomPad = Math.max(gesturePad, TOUCH_MARGIN_PX);
+  }
+
+  let designBottomInset = mobile ? screenPxToDesign(sw, sh, screenBottomPad) : 0;
+  if (mobile) {
+    designBottomInset = Math.min(designBottomInset, DESIGN.height * 0.22);
+    designBottomInset = Math.max(designBottomInset, screenPxToDesign(sw, sh, 24));
+  }
+
+  const trayHeight = ui.trayHeight;
+  const trayBottom = DESIGN.height - designBottomInset;
+  const trayCenterY = trayBottom - trayHeight / 2;
+  const trayTop = trayBottom - trayHeight;
+
+  const sendWaveY = trayTop - screenPxToDesign(sw, sh, ui.sendWaveAboveTray);
+
+  const abilityStep = mobile && ui.compact
+    ? screenPxToDesign(sw, sh, ui.abilityStep)
+    : 80;
+  const abilityX = DESIGN.width - (mobile && ui.compact && !ui.isPortrait
+    ? screenPxToDesign(sw, sh, ui.pad.right) + 32
+    : 50);
+
+  const abilityCount = 4;
+  let abilityCenterY = DESIGN.height / 2;
+  if (mobile && ui.isPortrait) {
+    const stackH = (abilityCount - 1) * abilityStep;
+    const aboveTray = screenPxToDesign(sw, sh, ui.abilityYAboveTray);
+    abilityCenterY = trayTop - aboveTray - stackH / 2 - 32;
+    abilityCenterY = Math.max(ui.pad.top / zoom + 80, abilityCenterY);
+  }
+
+  return {
+    ui,
+    zoom,
+    designBottomInset,
+    screenBottomPad,
+    trayHeight,
+    trayCenterY,
+    trayTop,
+    trayBottom,
+    sendWaveY,
+    abilityX,
+    abilityStep,
+    abilityCenterY,
+    mobile,
+  };
 }
 
 
