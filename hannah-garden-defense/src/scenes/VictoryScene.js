@@ -27,6 +27,8 @@ export class VictoryScene extends Phaser.Scene {
     this.hannahXp = data.hannahXp ?? 0;
     this.hannahLevel = data.hannahLevel ?? 1;
     this.prevHannahLevel = this.hannahLevel;
+    this.mode = data.mode ?? 'campaign';
+    this.dailyDateKey = data.dailyDateKey ?? null;
     const progress = loadLocalProgress(this.playerName);
     this.prevStars = progress.battleStars?.[this.zone]?.[this.battle] ?? 0;
   }
@@ -67,10 +69,15 @@ export class VictoryScene extends Phaser.Scene {
       delay: 200,
     });
 
-    const zoneName = this.zone < GameConfig.zones.length
-      ? GameConfig.zones[this.zone].name : 'Endless';
+    const zoneName = this.mode === 'daily'
+      ? 'Daily Challenge'
+      : (this.zone < GameConfig.zones.length ? GameConfig.zones[this.zone].name : 'Endless');
 
-    this.add.text(width / 2, 140, `${zoneName} — Battle ${this.battle + 1} Complete!`, {
+    const battleLabel = this.mode === 'daily'
+      ? (this.dailyDateKey ?? 'Today')
+      : `Battle ${this.battle + 1} Complete!`;
+
+    this.add.text(width / 2, 140, `${zoneName} — ${battleLabel}`, {
       fontFamily: 'Kenney Future',
       fontSize: '20px',
       color: '#FFF9E6',
@@ -226,7 +233,12 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   _metaPointsEarned(stars) {
+    if (this.mode === 'daily') return 0;
     return battleSunshineToMetaBank(this.pointsEarned + this._starBonusPoints(stars));
+  }
+
+  _dailyScore(stars) {
+    return stars * 1000 + this.livesRemaining;
   }
 
   _animatePoints(width, y, stars) {
@@ -257,6 +269,7 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   _saveProgress(stars) {
+    if (this.mode === 'daily') return;
     try {
       const progress = normalizeProgress(loadLocalProgress(this.playerName));
       progress.playerName = this.playerName;
@@ -298,10 +311,11 @@ export class VictoryScene extends Phaser.Scene {
   async _postScore(stars) {
     const payload = {
       player_name: this.playerName,
-      score: this._metaPointsEarned(stars),
+      score: this.mode === 'daily' ? this._dailyScore(stars) : this._metaPointsEarned(stars),
       stars_earned: stars,
       zone: this.zone + 1,
       battle: this.battle + 1,
+      mode: this.mode === 'daily' ? 'daily' : 'campaign',
     };
 
     try {

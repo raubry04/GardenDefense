@@ -19,17 +19,11 @@ export class BattleHud {
   create(width) {
     const scene = this.scene;
     const hudDepth = HUD_DEPTH;
+    this._hudWidth = width;
     this._hudRow1Y = 42;
     this._hudRow2Y = 74;
     const row1Y = this._hudRow1Y;
     const row2Y = this._hudRow2Y;
-
-    if (scene.textures.exists('ui_panelBorder')) {
-      scene.add.image(width / 2, row2Y + 4, 'ui_panelBorder')
-        .setDisplaySize(width * 0.96, 72)
-        .setAlpha(0.35)
-        .setDepth(hudDepth - 1);
-    }
 
     const maxIcons = Math.min(scene.lives, 8);
     const heartSpacing = 22;
@@ -84,44 +78,69 @@ export class BattleHud {
       .setDepth(hudDepth);
     this.waveBarWidth = barWidth;
 
-    this._hudStarIcon = scene.add
-      .image(width - 116, row1Y, "ui_uiStar")
-      .setDisplaySize(24, 24)
-      .setTint(0xffd700)
-      .setDepth(hudDepth);
-    this.pointsText = scene.add
-      .text(width - 98, row1Y - 10, `${scene.sunshinePoints}`, {
-        fontFamily: "Kenney Future",
-        fontSize: "22px",
-        color: "#FFD700",
-        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
-      })
-      .setDepth(hudDepth);
+    this._createTopRightControls(width, row1Y, hudDepth);
+    this._canonicalRow1Y = row1Y;
+    this._canonicalRow2Y = row2Y;
+    this._trackHudY(this.livesText, row1Y - 10);
+    this._trackHudY(this.wavePanel, row2Y);
+    this._trackHudY(this.waveText, row2Y - 16);
+    this._trackHudY(this.waveBarBg, row2Y + 12);
+    this._trackHudY(this.waveBarFill, row2Y + 12);
+  }
 
-    const pauseX = width - 28;
-    this.speedBtn = scene.add
-      .circle(pauseX - 44, row1Y, 18, COLORS.button)
-      .setStrokeStyle(2, COLORS.outline)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(hudDepth);
-    this.speedLabel = scene.add
-      .text(pauseX - 44, row1Y, "1x", {
-        fontFamily: "Kenney Future",
-        fontSize: "13px",
-        color: "#4A2C0A",
-      })
-      .setOrigin(0.5)
-      .setDepth(hudDepth);
-    this._battleSpeed = 1;
-    this.speedBtn.on("pointerdown", () => {
-      this._battleSpeed = this._battleSpeed === 1 ? 2 : 1;
-      this.speedLabel.setText(`${this._battleSpeed}x`);
-      scene.game.events.emit("battle-speed-changed", { speed: this._battleSpeed });
-      scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
+  _trackHudY(obj, y) {
+    if (obj) obj.setData('layoutY', y);
+  }
+
+  applyLayout(m) {
+    if (m.hudRow1Y == null) return;
+    const row1Delta = m.hudRow1Y - this._canonicalRow1Y;
+    const row2Delta = m.hudRow2Y - this._canonicalRow2Y;
+
+    this.heartIcons.forEach((h) => h.setY(h.y + row1Delta));
+    if (this.livesText?.active) this.livesText.setY(this.livesText.getData('layoutY') + row1Delta);
+    if (this.wavePanel?.active) this.wavePanel.setY(this.wavePanel.getData('layoutY') + row2Delta);
+    if (this.waveText?.active) this.waveText.setY(this.waveText.getData('layoutY') + row2Delta);
+    if (this.waveBarBg?.active) this.waveBarBg.setY(this.waveBarBg.getData('layoutY') + row2Delta);
+    if (this.waveBarFill?.active) this.waveBarFill.setY(this.waveBarFill.getData('layoutY') + row2Delta);
+
+    for (const key of ['pauseBtn', 'pauseLabel', 'pauseHint', 'speedBtn', 'speedLabel', 'speedHint', 'sunPanel', '_hudStarIcon', 'pointsText']) {
+      const obj = this[key];
+      if (obj?.active) obj.setY(obj.getData('layoutY') != null ? obj.getData('layoutY') + row1Delta : obj.y + row1Delta);
+    }
+
+    if (m.hudPauseX != null) {
+      this._repositionTopRight(m.hudRow1Y, m.hudPauseX, m.hudSpeedX, m.hudSunPanelX);
+    }
+
+    this._hudRow1Y = m.hudRow1Y;
+    this._hudRow2Y = m.hudRow2Y;
+  }
+
+  pulseWavePanel() {
+    const scene = this.scene;
+    if (!this.wavePanel?.active) return;
+    scene.tweens.add({
+      targets: this.wavePanel,
+      scaleX: 1.06,
+      scaleY: 1.06,
+      duration: 150,
+      yoyo: true,
+      ease: 'Quad.easeOut',
     });
+  }
+
+  _createTopRightControls(width, row1Y, hudDepth) {
+    const scene = this.scene;
+    const rightMargin = 16;
+    const btnGap = 8;
+    const btnR = 22;
+
+    const pauseX = width - rightMargin - btnR;
+    const speedX = pauseX - btnR * 2 - btnGap;
 
     this.pauseBtn = scene.add
-      .circle(pauseX, row1Y, 18, COLORS.button)
+      .circle(pauseX, row1Y, btnR, COLORS.button)
       .setStrokeStyle(2, COLORS.outline)
       .setInteractive({ useHandCursor: true })
       .setDepth(hudDepth);
@@ -133,14 +152,130 @@ export class BattleHud {
       })
       .setOrigin(0.5)
       .setDepth(hudDepth);
+    this.pauseHint = scene.add
+      .text(pauseX, row1Y + btnR + 2, "Pause", {
+        fontFamily: "Kenney Future",
+        fontSize: "9px",
+        color: "#FFF9E6",
+        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(hudDepth);
+
+    this.speedBtn = scene.add
+      .circle(speedX, row1Y, btnR, COLORS.button)
+      .setStrokeStyle(2, COLORS.outline)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(hudDepth);
+    this.speedLabel = scene.add
+      .text(speedX, row1Y, "×1", {
+        fontFamily: "Kenney Future",
+        fontSize: "14px",
+        color: "#4A2C0A",
+      })
+      .setOrigin(0.5)
+      .setDepth(hudDepth);
+    this.speedHint = scene.add
+      .text(speedX, row1Y + btnR + 2, "Speed", {
+        fontFamily: "Kenney Future",
+        fontSize: "9px",
+        color: "#FFF9E6",
+        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(hudDepth);
+    this._battleSpeed = 1;
+
+    const sunPanelRight = speedX - btnR - 12;
+    const sunPanelW = 108;
+    const sunPanelX = sunPanelRight - sunPanelW / 2;
+    this.sunPanel = scene.add
+      .rectangle(sunPanelX, row1Y, sunPanelW, 34, 0x000000, 0.5)
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(hudDepth - 1);
+
+    this._hudStarIcon = scene.add
+      .image(sunPanelX - sunPanelW / 2 + 18, row1Y, "ui_uiStar")
+      .setDisplaySize(22, 22)
+      .setTint(0xffd700)
+      .setDepth(hudDepth);
+    this.pointsText = scene.add
+      .text(sunPanelX - sunPanelW / 2 + 32, row1Y - 10, `${scene.sunshinePoints}`, {
+        fontFamily: "Kenney Future",
+        fontSize: "22px",
+        color: "#FFD700",
+        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+      })
+      .setDepth(hudDepth);
+
+    const speedTooltip = scene.add
+      .text(speedX, row1Y - btnR - 6, "Toggle game speed", {
+        fontFamily: "Kenney Future",
+        fontSize: "10px",
+        color: "#FFFFFF",
+        backgroundColor: "#000000cc",
+        padding: { x: 6, y: 3 },
+      })
+      .setOrigin(0.5, 1)
+      .setVisible(false)
+      .setDepth(hudDepth + 1);
+
+    const touch = scene.sys.game.device.input.touch;
+    if (!touch) {
+      this.speedBtn.on("pointerover", () => speedTooltip.setVisible(true));
+      this.speedBtn.on("pointerout", () => speedTooltip.setVisible(false));
+    }
+    this.speedBtn.on("pointerdown", () => {
+      if (touch) {
+        if (this._speedTooltipOpen) {
+          this._battleSpeed = this._battleSpeed === 1 ? 2 : 1;
+          this.speedLabel.setText(`×${this._battleSpeed}`);
+          scene.game.events.emit("battle-speed-changed", { speed: this._battleSpeed });
+          scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
+          this._speedTooltipOpen = false;
+          speedTooltip.setVisible(false);
+        } else {
+          this._speedTooltipOpen = true;
+          speedTooltip.setText('Tap again to toggle 1× / 2× speed');
+          speedTooltip.setVisible(true);
+        }
+        return;
+      }
+      this._battleSpeed = this._battleSpeed === 1 ? 2 : 1;
+      this.speedLabel.setText(`×${this._battleSpeed}`);
+      scene.game.events.emit("battle-speed-changed", { speed: this._battleSpeed });
+      scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
+    });
+
     this.pauseBtn.on("pointerdown", () => {
       scene.game.events.emit("toggle-pause");
     });
+
+    this._canonicalPauseX = pauseX;
+    this._canonicalSpeedX = speedX;
+    this._canonicalSunPanelX = sunPanelX;
+    this._sunPanelW = sunPanelW;
+    this._speedTooltip = speedTooltip;
+    this._speedTooltipOpen = false;
+  }
+
+  _repositionTopRight(row1Y, pauseX, speedX, sunPanelX) {
+    const sunPanelW = this._sunPanelW ?? 108;
+    this.pauseBtn?.setPosition(pauseX, row1Y);
+    this.pauseLabel?.setPosition(pauseX, row1Y);
+    this.pauseHint?.setPosition(pauseX, row1Y + 24);
+    this.speedBtn?.setPosition(speedX, row1Y);
+    this.speedLabel?.setPosition(speedX, row1Y);
+    this.speedHint?.setPosition(speedX, row1Y + 24);
+    this._speedTooltip?.setPosition(speedX, row1Y - 28);
+    this.sunPanel?.setPosition(sunPanelX, row1Y);
+    this._hudStarIcon?.setPosition(sunPanelX - sunPanelW / 2 + 18, row1Y);
+    this.pointsText?.setPosition(sunPanelX - sunPanelW / 2 + 32, row1Y - 10);
   }
 
   resetSpeed() {
     this._battleSpeed = 1;
-    if (this.speedLabel?.active) this.speedLabel.setText("1x");
+    if (this.speedLabel?.active) this.speedLabel.setText("×1");
   }
 
   startLowHealthPulse() {

@@ -269,4 +269,17 @@ export class TutorialManager {
     });
     this._objects = [];
   }
+
+  replay() {
+    this._clearOverlay();
+    this.active = true;
+    this.currentStep = 0;
+    this._emitTutorialState(true);
+    this._showStep();
+  }
+
+  destroy() {
+    this._clearOverlay();
+    this.active = false;
+  }
 }

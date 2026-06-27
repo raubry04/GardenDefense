@@ -118,9 +118,9 @@ export class BootScene extends Phaser.Scene {
 
 
 
-    for (const [key, propKey] of Object.entries(CRAFTPIX_PROPS || {})) {
+    for (const [key, filename] of Object.entries(CRAFTPIX_PROPS || {})) {
 
-      safeImage(`cp_${key}`, craftpixPropPath(propKey));
+      safeImage(`cp_${key}`, craftpixPropPath(filename));
 
     }
 

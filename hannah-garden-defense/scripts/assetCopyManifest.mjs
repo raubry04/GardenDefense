@@ -1,11 +1,10 @@
 /**
  * Single source of truth for asset copy rules.
  * Used by collect-assets.mjs and check-assets.mjs.
+ *
+ * Craftpix tiles/props are hand-curated under assets/craftpix/ — not copied here.
  */
-import { CRAFTPIX_USED_GROUND_TILES, CRAFTPIX_PROPS } from '../src/utils/craftpixTiles.js';
-
-const craftpixDir =
-  'Assets/craftpix-net-381103-free-simple-summer-top-down-vector-tileset/PNG';
+import { listCraftpixRuntimePaths } from '../src/utils/craftpixTiles.js';
 
 /** @returns {{ srcParts: string[], destParts: string[] }[]} */
 export function buildAssetCopyList() {
@@ -21,31 +20,10 @@ export function buildAssetCopyList() {
   const animals = [
     'rabbit', 'chicken', 'dog', 'owl', 'duck', 'penguin', 'pig', 'snake', 'frog',
     'gorilla', 'parrot', 'monkey', 'bear', 'elephant', 'cow', 'chick', 'horse', 'buffalo',
+    'rhino', 'hippo', 'crocodile', 'zebra',
   ];
   for (const a of animals) {
     add(`Animal Pack Remastered/PNG/Round/${a}.png`, `animals/${a}.png`);
-  }
-
-  for (const n of CRAFTPIX_USED_GROUND_TILES) {
-    const id = String(n).padStart(2, '0');
-    add(
-      `${craftpixDir}/Top-Down Simple Summer_Ground ${id}.png`,
-      `craftpix/ground/${id}.png`,
-    );
-  }
-
-  const propFiles = {
-    treeSmall: 'Prop - Tree Small.png',
-    treeMedium: 'Prop - Tree Medium.png',
-    bushSmall: 'Prop - Bushes Small.png',
-    bushMedium: 'Prop - Bushes Medium.png',
-    rock1: 'Prop - Rock 01.png',
-    rock2: 'Prop - Rock 02.png',
-    rock3: 'Prop - Rock 03.png',
-    house: 'Prop - House.png',
-  };
-  for (const key of Object.keys(CRAFTPIX_PROPS)) {
-    add(`${craftpixDir}/${propFiles[key]}`, `craftpix/props/${key}.png`);
   }
 
   const particles = {
@@ -92,6 +70,7 @@ export function buildAssetCopyList() {
   }
 
   add('Assets/Audio/Music Loops/Loops/Cheerful Annoyance.ogg', 'audio/music/menu.ogg');
+  add('Assets/Audio/Music Loops/Loops/Farm Frolics.ogg', 'audio/music/battle.ogg');
   add('Assets/Audio/Music Jingles/Audio (Pizzicato)/jingles-pizzicato_03.ogg', 'audio/music/victory.ogg');
   add('Assets/Audio/Music Jingles/Audio (Pizzicato)/jingles-pizzicato_11.ogg', 'audio/music/gameOver.ogg');
   add('Assets/Other/Fonts/Kenney Pixel.ttf', 'fonts/Kenney Pixel.ttf');
@@ -102,5 +81,8 @@ export function buildAssetCopyList() {
 
 /** Runtime asset paths relative to assets/ folder. */
 export function listRuntimeAssetDestPaths() {
-  return buildAssetCopyList().map(({ destParts }) => destParts.join('/'));
+  return [
+    ...buildAssetCopyList().map(({ destParts }) => destParts.join('/')),
+    ...listCraftpixRuntimePaths(),
+  ];
 }

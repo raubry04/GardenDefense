@@ -1,4 +1,6 @@
 import { GameConfig } from "../config.js";
+import { sfxVol } from "../utils/audioMix.js";
+import { showToast } from "./Toast.js";
 
 const COLORS = GameConfig.colors;
 
@@ -9,12 +11,17 @@ const ABILITY_COLORS = {
   FLOWER_BOMB: 0xff69b4,
 };
 
-const ABILITY_ICONS = {
-  SUNSHINE_BURST: "☀",
-  GARDEN_RAIN: "🌧",
-  RAINBOW_SHIELD: "🛡",
-  FLOWER_BOMB: "💣",
+const ABILITY_LABELS = {
+  SUNSHINE_BURST: 'S',
+  GARDEN_RAIN: 'R',
+  RAINBOW_SHIELD: 'D',
+  FLOWER_BOMB: 'F',
 };
+
+/** @param {string} text */
+export function isNextWaveLabel(text) {
+  return text === 'NEXT WAVE';
+}
 
 export class AbilityBar {
   /** @param {import("../scenes/UIScene.js").UIScene} scene */
@@ -23,6 +30,8 @@ export class AbilityBar {
     this.abilityButtons = [];
     this._abilityObjects = [];
     this._sendWaveObjects = [];
+    this._touchMode = scene.sys.game.device.input.touch;
+    this._openAbilityTooltip = null;
   }
 
   create(width, height) {
@@ -38,7 +47,7 @@ export class AbilityBar {
   _createAbilityButtons(width, height) {
     const scene = this.scene;
     const abilities = Object.entries(GameConfig.hannahAbilities);
-    const btnRadius = 32;
+    const btnRadius = 36;
     const spacing = 80;
     const startY = height / 2 - ((abilities.length - 1) * spacing) / 2;
     const x = width - 50;
@@ -65,7 +74,7 @@ export class AbilityBar {
         y,
       );
 
-      const icon = ABILITY_ICONS[key] || config.label.charAt(0);
+      const icon = ABILITY_LABELS[key] || config.label.charAt(0);
       const label = trackY(
         scene.add
           .text(x, y, icon, {
@@ -119,7 +128,8 @@ export class AbilityBar {
       };
 
       circle.on("pointerover", () => {
-        tooltip.setVisible(true);
+        if (this._touchMode) return;
+        this._showAbilityTooltip(btn);
         if (unlocked && !btn.onCooldown) {
           scene.tweens.add({
             targets: [circle, label],
@@ -130,7 +140,8 @@ export class AbilityBar {
         }
       });
       circle.on("pointerout", () => {
-        tooltip.setVisible(false);
+        if (this._touchMode) return;
+        btn.tooltip.setVisible(false);
         scene.tweens.add({
           targets: [circle, label],
           scaleX: 1,
@@ -140,6 +151,17 @@ export class AbilityBar {
       });
       circle.on("pointerdown", () => {
         if (!unlocked) return;
+        if (this._touchMode) {
+          if (this._openAbilityTooltip === btn) {
+            this._dismissAbilityTooltips();
+            this._requestAbility(key, config, btn);
+          } else {
+            this._dismissAbilityTooltips();
+            this._openAbilityTooltip = btn;
+            this._showAbilityTooltip(btn, true);
+          }
+          return;
+        }
         this._requestAbility(key, config, btn);
       });
 
@@ -189,17 +211,26 @@ export class AbilityBar {
       y - 4,
     );
 
+    const bonusY = y + 34;
+    this.sendWaveBonusBg = trackY(
+      scene.add
+        .rectangle(x, bonusY + 8, 280, 22, 0x000000, 0.65)
+        .setStrokeStyle(1, 0x4a2c0a, 0.5)
+        .setDepth(10),
+      bonusY + 8,
+    );
+
     this.sendWaveBonusText = trackY(
       scene.add
-        .text(x, y + 20, "+10 BONUS", {
+        .text(x, bonusY, "+10 BONUS", {
           fontFamily: "Kenney Future",
           fontSize: "12px",
-          color: "#FFD700",
+          color: "#FFF9E6",
           shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
         })
         .setOrigin(0.5, 0)
-        .setDepth(10),
-      y + 20,
+        .setDepth(11),
+      bonusY,
     );
 
     this._sendWaveGlowTween = scene.tweens.add({
@@ -212,7 +243,7 @@ export class AbilityBar {
 
     this.sendWaveBg.on("pointerover", () => {
       scene.tweens.add({
-        targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText],
+        targets: [this.sendWaveBg, this.sendWaveText],
         scaleX: 1.08,
         scaleY: 1.08,
         duration: 60,
@@ -220,16 +251,16 @@ export class AbilityBar {
     });
     this.sendWaveBg.on("pointerout", () => {
       scene.tweens.add({
-        targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText],
+        targets: [this.sendWaveBg, this.sendWaveText],
         scaleX: 1,
         scaleY: 1,
         duration: 60,
       });
     });
     this.sendWaveBg.on("pointerdown", () => {
-      scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
+      scene.sound.play("buttonClick", { volume: sfxVol('buttonClick') });
       scene.tweens.add({
-        targets: [this.sendWaveBg, this.sendWaveText, this.sendWaveBonusText],
+        targets: [this.sendWaveBg, this.sendWaveText],
         scaleX: 0.94,
         scaleY: 0.94,
         duration: 50,
@@ -243,6 +274,7 @@ export class AbilityBar {
     this.sendWaveBg.setVisible(visible);
     this.sendWaveText.setVisible(visible);
     this.sendWaveBonusText.setVisible(visible);
+    this.sendWaveBonusBg?.setVisible(visible);
     this.sendWaveGlow.setVisible(visible);
     if (visible) {
       this._sendWaveGlowTween.resume();
@@ -251,39 +283,84 @@ export class AbilityBar {
     }
   }
 
+  _showAbilityTooltip(btn, persistent = false) {
+    const state = btn.onCooldown ? ' (cooldown)' : btn.unlocked ? '' : ' (locked)';
+    btn.tooltip.setText(`${btn.config.label}${state}`);
+    btn.tooltip.setVisible(true);
+    if (!persistent) return;
+    this._openAbilityTooltip = btn;
+  }
+
+  _dismissAbilityTooltips() {
+    this._openAbilityTooltip = null;
+    this.abilityButtons?.forEach((b) => b.tooltip?.setVisible(false));
+  }
+
+  dismissTouchTooltips() {
+    this._dismissAbilityTooltips();
+  }
+
   resetSendWaveLabels() {
     this.sendWaveText.setText("SEND WAVE");
     this.sendWaveBonusText.setText("+10 BONUS");
+    this.sendWaveBonusText.setVisible(true);
+    this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
   }
 
   updateSendWaveCooldown({ seconds, isPrep, manualFirstWave }) {
+    const setBonus = (text) => {
+      this.sendWaveBonusText.setText(text);
+      const show = Boolean(text);
+      this.sendWaveBonusText.setVisible(show);
+      this.sendWaveBonusBg?.setVisible(show && this.sendWaveBg.visible);
+    };
+
     if (!this.sendWaveBg?.visible) {
       if (seconds <= 0) return;
       this.sendWaveBg.setVisible(true);
       this.sendWaveText.setVisible(true);
-      this.sendWaveBonusText.setVisible(true);
       this.sendWaveText.setText(`Next in ${seconds}s`);
-      this.sendWaveBonusText.setText("");
+      setBonus("");
       this._sendWaveGlowTween?.pause();
       return;
     }
 
     if (manualFirstWave && isPrep) {
       this.sendWaveText.setText("SEND WAVE");
-      this.sendWaveBonusText.setText(
-        seconds > 0 ? `${seconds}s prep — tap when ready` : "Tap when ready!",
-      );
+      setBonus(seconds > 0 ? (this._compactPrepText(seconds)) : "Tap when ready!");
       return;
     }
 
     if (seconds > 0) {
-      if (this.sendWaveText.text !== "NEXT WAVE") {
+      const betweenWaves = isNextWaveLabel(this.sendWaveText.text);
+      if (!betweenWaves) {
         this.sendWaveText.setText("SEND WAVE");
       }
-      this.sendWaveBonusText.setText(`Next in ${seconds}s · +10 BONUS`);
+      setBonus(this._compactBonusText(seconds, betweenWaves));
+    } else if (isNextWaveLabel(this.sendWaveText.text)) {
+      this.sendWaveBonusText.setText("+10 BONUS");
+      this.sendWaveBonusText.setVisible(true);
+      this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
     } else {
       this.resetSendWaveLabels();
     }
+  }
+
+  _compactBonusText(seconds, betweenWaves) {
+    const compact = this.scene._uiMetrics?.ui?.compact;
+    if (compact) return `${seconds}s · +10 early`;
+    return `Next in ${seconds}s · +10 bonus if you send early`;
+  }
+
+  _compactPrepText(seconds) {
+    const compact = this.scene._uiMetrics?.ui?.compact;
+    return compact ? `${seconds}s prep` : `${seconds}s prep — tap when ready`;
+  }
+
+  resetSendWaveBonus() {
+    this.sendWaveBonusText.setText("+10 BONUS");
+    this.sendWaveBonusText.setVisible(true);
+    this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
   }
 
   startAbilityCooldown(btn, duration) {
@@ -325,6 +402,33 @@ export class AbilityBar {
     });
   }
 
+  refreshUnlocks() {
+    const scene = this.scene;
+    this.abilityButtons.forEach((btn) => {
+      const unlocked = this._isAbilityUnlocked(btn.config);
+      btn.unlocked = unlocked;
+      const abilityColor = unlocked ? (ABILITY_COLORS[btn.key] || COLORS.accent) : 0x555555;
+      btn.circle.setFillStyle(abilityColor);
+      btn.label.setColor(unlocked ? '#FFFFFF' : '#AAAAAA');
+      btn.circle.setInteractive({ useHandCursor: unlocked });
+    });
+  }
+
+  onAbilityRejected(data) {
+    const btn = this.abilityButtons.find((b) => b.key === data.key);
+    if (!btn) return;
+    btn.pending = false;
+    const scene = this.scene;
+    showToast(scene, data.reason || 'Ability unavailable');
+    scene.tweens.add({
+      targets: [btn.circle, btn.label],
+      x: btn.circle.x + 6,
+      duration: 50,
+      yoyo: true,
+      repeat: 2,
+    });
+  }
+
   onAbilityFired(data) {
     const btn = this.abilityButtons.find((b) => b.key === data.key);
     if (!btn) return;
@@ -334,7 +438,14 @@ export class AbilityBar {
 
   _requestAbility(key, config, btn) {
     const scene = this.scene;
-    if (!this._isAbilityUnlocked(config) || btn.onCooldown) return;
+    if (!this._isAbilityUnlocked(config)) {
+      scene.game.events.emit('ability-rejected', { key, reason: `Unlocks at Hannah Level ${config.unlockLevel}` });
+      return;
+    }
+    if (btn.onCooldown) {
+      scene.game.events.emit('ability-rejected', { key, reason: 'On cooldown' });
+      return;
+    }
 
     scene.tweens.add({
       targets: [btn.circle, btn.label],
@@ -353,9 +464,24 @@ export class AbilityBar {
 
   applyLayout(m, canonical) {
     const sendDelta = m.sendWaveY - canonical.sendWaveY;
+    const sendW = m.ui?.sendWaveWidth ?? 200;
+    const compact = m.ui?.compact;
     this._sendWaveObjects?.forEach((obj) => {
       if (obj?.active) obj.setY(obj.getData("layoutY") + sendDelta);
     });
+    if (this.sendWaveBg?.active) {
+      this.sendWaveBg.setDisplaySize(sendW, 50);
+      this.sendWaveGlow?.setPosition(this.sendWaveBg.x, this.sendWaveBg.y);
+      this.sendWaveGlow?.setRadius(Math.max(sendW * 0.55, 90));
+    }
+    if (this.sendWaveBonusBg?.active && this.sendWaveBg?.active) {
+      this.sendWaveBonusBg.setSize(sendW + 40, 22);
+      this.sendWaveBonusBg.setPosition(this.sendWaveBg.x, this.sendWaveBonusBg.y);
+    }
+    if (compact && this.sendWaveText?.active) {
+      this.sendWaveText.setFontSize('18px');
+      this.sendWaveBonusText?.setFontSize('10px');
+    }
 
     const n = this.abilityButtons?.length ?? 0;
     if (n === 0) return;
@@ -372,6 +498,14 @@ export class AbilityBar {
       btn.circle.setPosition(m.abilityX, btn.circle.getData("layoutY") + deltaY);
       btn.label.setPosition(m.abilityX, btn.label.getData("layoutY") + deltaY);
       btn.tooltip.setPosition(m.abilityX, btn.tooltip.getData("layoutY") + deltaY);
+      if (btn.cooldownGfx?.active) {
+        btn.cooldownGfx.setPosition(m.abilityX, btn.circle.y);
+      }
     });
+  }
+
+  destroy() {
+    this._abilityObjects?.forEach((o) => o?.destroy?.());
+    this._sendWaveObjects?.forEach((o) => o?.destroy?.());
   }
 }

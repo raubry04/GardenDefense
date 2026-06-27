@@ -2,6 +2,10 @@ import { GameConfig } from '../config.js';
 import { formatTowerStats, towerDisplayName } from './towerStats.js';
 import { TILE, COLORS } from './battleConstants.js';
 
+const PANEL_W = 168;
+const PANEL_H = 118;
+const MARGIN = 8;
+
 export class TowerInspect {
   constructor(scene) {
     this.scene = scene;
@@ -15,6 +19,21 @@ export class TowerInspect {
     return this.active;
   }
 
+  _clampPanelPosition(towerX, towerY) {
+    const view = this.scene.cameras.main.worldView;
+    let panelX = towerX;
+    let panelY = towerY - TILE - 36;
+
+    const halfW = PANEL_W / 2;
+    const halfH = PANEL_H / 2;
+    if (panelY - halfH < view.y + MARGIN) {
+      panelY = towerY + TILE + halfH + 12;
+    }
+    panelX = Phaser.Math.Clamp(panelX, view.x + halfW + MARGIN, view.right - halfW - MARGIN);
+    panelY = Phaser.Math.Clamp(panelY, view.y + halfH + MARGIN, view.bottom - halfH - MARGIN);
+    return { panelX, panelY };
+  }
+
   open(tower) {
     if (!tower || tower.hp <= 0) return;
     this.close();
@@ -26,18 +45,18 @@ export class TowerInspect {
       .setStrokeStyle(2, COLORS.primary, 0.45)
       .setDepth(97);
 
-    const panelY = tower.y - TILE - 36;
+    const { panelX, panelY } = this._clampPanelPosition(tower.x, tower.y);
     const refund = Math.floor(tower.cost * GameConfig.sellRefundPercent);
     const stats = formatTowerStats(tower.type, tower);
     const name = towerDisplayName(tower.type);
     const tierStars = tower.tier > 0 ? ' ' + '★'.repeat(Math.min(tower.tier, 3)) : '';
 
-    const bg = s.add.rectangle(tower.x, panelY, 168, 118, 0x000000, 0.88)
+    const bg = s.add.rectangle(panelX, panelY, PANEL_W, PANEL_H, 0x000000, 0.88)
       .setStrokeStyle(2, COLORS.stars)
       .setDepth(210);
     this._objects.push(bg);
 
-    const title = s.add.text(tower.x, panelY - 44, `${name}${tierStars}`, {
+    const title = s.add.text(panelX, panelY - 44, `${name}${tierStars}`, {
       fontFamily: 'Kenney Future',
       fontSize: '13px',
       color: '#FFD700',
@@ -46,7 +65,7 @@ export class TowerInspect {
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(title);
 
-    const statText = s.add.text(tower.x, panelY - 22, stats.join('\n'), {
+    const statText = s.add.text(panelX, panelY - 22, stats.join('\n'), {
       fontFamily: 'Kenney Future',
       fontSize: '10px',
       color: '#FFF9E6',
@@ -55,7 +74,7 @@ export class TowerInspect {
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(statText);
 
-    const note = s.add.text(tower.x, panelY + 28, 'Upgrade after battle', {
+    const note = s.add.text(panelX, panelY + 28, 'Upgrade after battle', {
       fontFamily: 'Kenney Future',
       fontSize: '8px',
       color: '#A8DADC',
@@ -63,22 +82,22 @@ export class TowerInspect {
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(note);
 
-    const sellBtn = s.add.rectangle(tower.x - 38, panelY + 48, 72, 26, COLORS.button)
+    const sellBtn = s.add.rectangle(panelX - 38, panelY + 48, 80, 44, COLORS.button)
       .setStrokeStyle(1, COLORS.outline)
       .setInteractive({ useHandCursor: true })
       .setDepth(211);
-    const sellLabel = s.add.text(tower.x - 38, panelY + 48, `SELL +${refund}☀`, {
+    const sellLabel = s.add.text(panelX - 38, panelY + 48, `SELL +${refund}☀`, {
       fontFamily: 'Kenney Future',
       fontSize: '11px',
       color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(212);
     this._objects.push(sellBtn, sellLabel);
 
-    const closeBtn = s.add.rectangle(tower.x + 38, panelY + 48, 56, 26, 0x444444)
+    const closeBtn = s.add.rectangle(panelX + 38, panelY + 48, 64, 44, 0x444444)
       .setStrokeStyle(1, COLORS.outline)
       .setInteractive({ useHandCursor: true })
       .setDepth(211);
-    const closeLabel = s.add.text(tower.x + 38, panelY + 48, 'CLOSE', {
+    const closeLabel = s.add.text(panelX + 38, panelY + 48, 'CLOSE', {
       fontFamily: 'Kenney Future',
       fontSize: '11px',
       color: '#FFFFFF',

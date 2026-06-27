@@ -8,6 +8,8 @@ const THREAT_BADGE = {
 };
 
 const HUD_DEPTH = 199;
+const MAX_ICONS = 6;
+const ICON_STEP = 22;
 
 export class WavePreview {
   /** @param {import("../scenes/UIScene.js").UIScene} scene */
@@ -17,6 +19,7 @@ export class WavePreview {
     this._icons = [];
     this._label = null;
     this._visible = false;
+    this._lastPreview = null;
   }
 
   create() {
@@ -29,9 +32,18 @@ export class WavePreview {
     }).setOrigin(0.5, 1).setDepth(HUD_DEPTH).setVisible(false);
   }
 
+  applyLayout(m) {
+    if (m.hudRow2Y == null || !this._label?.active) return;
+    const y = m.hudRow2Y - 28;
+    this._label.setY(y);
+    this._previewY = m.hudRow2Y - 14;
+    if (this._lastPreview) this.update(this._lastPreview);
+  }
+
   /** @param {{ wave: number, enemies: Record<string, number>, isBoss?: boolean, bossType?: string } | null} preview */
   update(preview) {
     this.clearIcons();
+    this._lastPreview = preview;
     if (!preview || !Object.keys(preview.enemies).length) {
       this._visible = false;
       this._label?.setVisible(false);
@@ -41,39 +53,57 @@ export class WavePreview {
     this._visible = true;
     this._label?.setVisible(true);
     const entries = Object.entries(preview.enemies);
-    const startX = this.hud.wavePanel.x - (entries.length * 22) / 2;
-    const y = this.hud._hudRow2Y - 14;
+    const overflow = entries.length > MAX_ICONS ? entries.length - MAX_ICONS : 0;
+    const shown = overflow > 0 ? entries.slice(0, MAX_ICONS) : entries;
+    const iconCount = shown.length + (overflow > 0 ? 1 : 0);
+    const startX = this.hud.wavePanel.x - (iconCount * ICON_STEP) / 2;
+    const y = this._previewY ?? this.hud._hudRow2Y - 14;
 
-    entries.forEach(([type, count], i) => {
-      const x = startX + i * 22 + 10;
-      const key = ENEMY_SPRITES[type];
-      if (!this.scene.textures.exists(key)) return;
-      const icon = this.scene.add.image(x, y, key)
-        .setDisplaySize(18, 18)
-        .setDepth(HUD_DEPTH);
-      if (preview.isBoss && type === preview.bossType) {
-        icon.setTint(0xff6666);
-      }
-      const threat = GameConfig.enemyThreatTags?.[type];
-      if (threat && THREAT_BADGE[threat]) {
-        const badge = this.scene.add.text(x + 8, y - 10, THREAT_BADGE[threat], {
-          fontFamily: 'Kenney Future',
-          fontSize: '8px',
-          color: '#FFD700',
-          stroke: '#000000',
-          strokeThickness: 2,
-        }).setOrigin(0.5).setDepth(HUD_DEPTH + 1);
-        this._icons.push(badge);
-      }
-      const countText = this.scene.add.text(x + 10, y + 6, `×${count}`, {
+    shown.forEach(([type, count], i) => {
+      this._spawnIcon(type, count, startX + i * ICON_STEP + 10, y, preview);
+    });
+
+    if (overflow > 0) {
+      const x = startX + shown.length * ICON_STEP + 10;
+      const overflowLabel = this.scene.add.text(x, y, `+${overflow}`, {
         fontFamily: 'Kenney Future',
-        fontSize: '9px',
-        color: '#FFFFFF',
+        fontSize: '11px',
+        color: '#FFD700',
         stroke: '#000000',
         strokeThickness: 2,
-      }).setOrigin(0, 0.5).setDepth(HUD_DEPTH);
-      this._icons.push(icon, countText);
-    });
+      }).setOrigin(0.5).setDepth(HUD_DEPTH);
+      this._icons.push(overflowLabel);
+    }
+  }
+
+  _spawnIcon(type, count, x, y, preview) {
+    const key = ENEMY_SPRITES[type];
+    if (!this.scene.textures.exists(key)) return;
+    const icon = this.scene.add.image(x, y, key)
+      .setDisplaySize(18, 18)
+      .setDepth(HUD_DEPTH);
+    if (preview.isBoss && type === preview.bossType) {
+      icon.setTint(0xff6666);
+    }
+    const threat = GameConfig.enemyThreatTags?.[type];
+    if (threat && THREAT_BADGE[threat]) {
+      const badge = this.scene.add.text(x + 8, y - 10, THREAT_BADGE[threat], {
+        fontFamily: 'Kenney Future',
+        fontSize: '8px',
+        color: '#FFD700',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0.5).setDepth(HUD_DEPTH + 1);
+      this._icons.push(badge);
+    }
+    const countText = this.scene.add.text(x + 10, y + 6, `×${count}`, {
+      fontFamily: 'Kenney Future',
+      fontSize: '9px',
+      color: '#FFFFFF',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0, 0.5).setDepth(HUD_DEPTH);
+    this._icons.push(icon, countText);
   }
 
   setVisible(visible) {

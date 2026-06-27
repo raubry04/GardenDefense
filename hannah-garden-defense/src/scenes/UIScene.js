@@ -10,6 +10,7 @@ import { WavePreview } from "../ui/WavePreview.js";
 export class UIScene extends Phaser.Scene {
   constructor() {
     super({ key: "UIScene" });
+    this._boundHandlers = {};
   }
 
   init(data) {
@@ -52,6 +53,35 @@ export class UIScene extends Phaser.Scene {
     this.time.delayedCall(8000, () => {
       this.tutorial.showHintIfEligible(this.zone, this.battle);
     });
+
+    if (this.sys.game.device.input.touch) {
+      this.input.on('pointerdown', (pointer) => {
+        const pt = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        let overAbility = false;
+        for (const btn of this.abilityBar.abilityButtons || []) {
+          if (!btn.circle?.active) continue;
+          const r = (btn.circle.radius || 32) + 10;
+          const dx = pt.x - btn.circle.x;
+          const dy = pt.y - btn.circle.y;
+          if (dx * dx + dy * dy <= r * r) {
+            overAbility = true;
+            break;
+          }
+        }
+        if (!overAbility) this.abilityBar.dismissTouchTooltips();
+
+        const speedBtn = this.hud.speedBtn;
+        if (speedBtn?.active) {
+          const sr = (speedBtn.radius || 22) + 8;
+          const sdx = pt.x - speedBtn.x;
+          const sdy = pt.y - speedBtn.y;
+          if (sdx * sdx + sdy * sdy > sr * sr) {
+            this.hud._speedTooltipOpen = false;
+            this.hud._speedTooltip?.setVisible(false);
+          }
+        }
+      });
+    }
   }
 
   _setupUILayoutRelayout() {
@@ -69,22 +99,29 @@ export class UIScene extends Phaser.Scene {
       const { width: sw, height: sh } = getLayoutScreenSize(this);
       const m = computeDesignUIMetrics(sw, sh);
       this._uiMetrics = m;
+      this.hud.applyLayout(m);
+      this.wavePreview.applyLayout(m);
       this.tray.applyLayout(m, this._uiLayoutCanonical);
       this.abilityBar.applyLayout(m, this._uiLayoutCanonical);
     };
 
     apply();
-    const onRelayout = () => apply();
-    this.scale.on("resize", onRelayout);
-    this.game.events.on("viewport-relayout", onRelayout);
+    this._onRelayout = () => apply();
+    this.scale.on("resize", this._onRelayout);
+    this.game.events.on("viewport-relayout", this._onRelayout);
     this.events.once("shutdown", () => {
-      this.scale.off("resize", onRelayout);
-      this.game.events.off("viewport-relayout", onRelayout);
+      this.scale.off("resize", this._onRelayout);
+      this.game.events.off("viewport-relayout", this._onRelayout);
     });
   }
 
+  _on(event, handler) {
+    this._boundHandlers[event] = handler;
+    this.game.events.on(event, handler);
+  }
+
   _setupEventListeners() {
-    this.game.events.on("lives-changed", (data) => {
+    this._on("lives-changed", (data) => {
       const prevLives = this.lives;
       this.lives = data.lives;
       if (data.lives < prevLives) {
@@ -102,7 +139,7 @@ export class UIScene extends Phaser.Scene {
       this.hud.startLowHealthPulse();
     });
 
-    this.game.events.on("points-changed", (data) => {
+    this._on("points-changed", (data) => {
       const delta = data.points - this.sunshinePoints;
       this.sunshinePoints = data.points;
       this.hud.pointsText.setText(`${this.sunshinePoints}`);
@@ -110,12 +147,13 @@ export class UIScene extends Phaser.Scene {
       this.tray.updateAffordability();
     });
 
-    this.game.events.on("hannah-level-changed", (data) => {
+    this._on("hannah-level-changed", (data) => {
       this.hannahLevel = data.level ?? this.hannahLevel;
       this.tray.refreshUnlocks();
+      this.abilityBar.refreshUnlocks();
     });
 
-    this.game.events.on("wave-started", (data) => {
+    this._on("wave-started", (data) => {
       this.currentWave = data.wave;
       this.waveActive = true;
       this.betweenWaves = false;
@@ -127,30 +165,32 @@ export class UIScene extends Phaser.Scene {
       this.wavePreview.setVisible(false);
     });
 
-    this.game.events.on("wave-ended", (data) => {
+    this._on("wave-ended", (data) => {
       this.waveActive = false;
       this.betweenWaves = true;
       this.hud.waveBarFill.setSize(this.hud.waveBarWidth, 8);
       if (data.total == null || data.wave < data.total) {
         this.abilityBar.setSendWaveVisible(true);
         this.abilityBar.sendWaveText.setText("NEXT WAVE");
-        this.abilityBar.resetSendWaveLabels();
+        this.abilityBar.sendWaveBonusText.setText("+10 BONUS");
+        this.abilityBar.sendWaveBonusText.setVisible(true);
+        this.abilityBar.sendWaveBonusBg?.setVisible(true);
       }
     });
 
-    this.game.events.on("wave-cooldown-changed", (data) => {
+    this._on("wave-cooldown-changed", (data) => {
       this.abilityBar.updateSendWaveCooldown(data);
     });
 
-    this.game.events.on("battle-speed-changed", (data) => {
+    this._on("battle-speed-changed", (data) => {
       const speed = data.speed ?? 1;
       this.hud._battleSpeed = speed;
       if (this.hud.speedLabel?.active) {
-        this.hud.speedLabel.setText(`${speed}x`);
+        this.hud.speedLabel.setText(`×${speed}`);
       }
     });
 
-    this.game.events.on("wave-preview-changed", (preview) => {
+    this._on("wave-preview-changed", (preview) => {
       this._lastWavePreview = preview;
       if (this._inspectOpen || this.waveActive) {
         this.wavePreview.setVisible(false);
@@ -159,56 +199,61 @@ export class UIScene extends Phaser.Scene {
       this.wavePreview.update(preview);
     });
 
-    this.game.events.on("tower-inspect-open", () => {
+    this._on("tower-inspect-open", () => {
       this._inspectOpen = true;
       this.wavePreview.setVisible(false);
     });
 
-    this.game.events.on("tower-inspect-close", () => {
+    this._on("tower-inspect-close", () => {
       this._inspectOpen = false;
       if (!this.waveActive && this._lastWavePreview) {
         this.wavePreview.update(this._lastWavePreview);
       }
     });
 
-    this.game.events.on("enemy-defeated", () => {
+    this._on("enemy-defeated", () => {
       this.enemiesDefeated++;
       this.hud.updateWaveProgress();
     });
 
-    this.game.events.on("battle-complete", () => {
+    this._on("battle-complete", () => {
       this.abilityBar.setSendWaveVisible(false);
     });
 
-    this.game.events.on("tower-deselected", () => {
+    this._on("tower-deselected", () => {
       this.tray.clearSelection();
     });
 
-    this.game.events.on("placement-rejected", (data) => {
+    this._on("placement-rejected", (data) => {
       if (data?.reason !== "afford") return;
       this.hud.animatePointsRejected();
     });
 
-    this.game.events.on("ability-fired", (data) => {
+    this._on("ability-fired", (data) => {
       this.abilityBar.onAbilityFired(data);
     });
 
+    this._on("ability-rejected", (data) => {
+      this.abilityBar.onAbilityRejected(data);
+    });
+
+    this._on("wave-hud-pulse", () => {
+      this.hud.pulseWavePanel();
+    });
+
+    this._on("replay-tutorial", () => {
+      this.tutorial?.replay();
+    });
+
     this.events.on("shutdown", () => {
-      this.game.events.off("lives-changed");
-      this.game.events.off("points-changed");
-      this.game.events.off("wave-started");
-      this.game.events.off("wave-ended");
-      this.game.events.off("enemy-defeated");
-      this.game.events.off("battle-complete");
-      this.game.events.off("tower-deselected");
-      this.game.events.off("placement-rejected");
-      this.game.events.off("ability-fired");
-      this.game.events.off("wave-preview-changed");
-      this.game.events.off("tower-inspect-open");
-      this.game.events.off("wave-cooldown-changed");
-      this.game.events.off("battle-speed-changed");
+      for (const [event, handler] of Object.entries(this._boundHandlers)) {
+        this.game.events.off(event, handler);
+      }
+      this._boundHandlers = {};
+      this.tutorial?.destroy?.();
       this.wavePreview?.destroy();
       this.tray.destroy();
+      this.abilityBar.destroy();
       this.hud.destroy();
     });
   }

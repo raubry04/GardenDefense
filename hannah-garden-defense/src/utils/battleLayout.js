@@ -336,6 +336,15 @@ export function computeDesignUIMetrics(sw, sh) {
     abilityCenterY = Math.max(ui.pad.top / zoom + 80, abilityCenterY);
   }
 
+  const hudTopInset = screenPxToDesign(sw, sh, ui.pad.top);
+  const hudRow1Y = Math.round(36 + hudTopInset * 0.35);
+  const hudRow2Y = hudRow1Y + (ui.hudRow2Offset ?? 32);
+
+  const controlsInset = screenPxToDesign(sw, sh, ui.compact && !ui.isPortrait ? ui.pad.right + 88 : ui.pad.right);
+  const hudPauseX = DESIGN.width - controlsInset - 22 - 16;
+  const hudSpeedX = hudPauseX - 44 - 8;
+  const hudSunPanelX = hudSpeedX - 22 - 12 - 54;
+
   return {
     ui,
     zoom,
@@ -350,6 +359,13 @@ export function computeDesignUIMetrics(sw, sh) {
     abilityStep,
     abilityCenterY,
     mobile,
+    hudRow1Y,
+    hudRow2Y,
+    hudTopInset,
+    hudPauseX,
+    hudSpeedX,
+    hudSunPanelX,
+    toastY: trayTop - 48,
   };
 }
 

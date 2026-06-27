@@ -48,6 +48,14 @@ export const AssetRegistry = {
 
     buffalo: `${A}/animals/buffalo.png`,
 
+    rhino: `${A}/animals/rhino.png`,
+
+    hippo: `${A}/animals/hippo.png`,
+
+    crocodile: `${A}/animals/crocodile.png`,
+
+    zebra: `${A}/animals/zebra.png`,
+
   },
 
 
@@ -132,7 +140,7 @@ export const AssetRegistry = {
 
       menu: `${A}/audio/music/menu.ogg`,
 
-      battle: `${A}/audio/music/menu.ogg`,
+      battle: `${A}/audio/music/battle.ogg`,
 
       victory: `${A}/audio/music/victory.ogg`,
 
@@ -218,6 +226,14 @@ export const ENEMY_SPRITES = {
 
   BUFFALO: 'buffalo',
 
+  RHINO: 'rhino',
+
+  HIPPO: 'hippo',
+
+  CROCODILE: 'crocodile',
+
+  ZEBRA: 'zebra',
+
 };
 
 
@@ -243,6 +259,14 @@ export const ENEMY_SPRITE_FILES = {
   HORSE: 'horse.png',
 
   BUFFALO: 'buffalo.png',
+
+  RHINO: 'rhino.png',
+
+  HIPPO: 'hippo.png',
+
+  CROCODILE: 'crocodile.png',
+
+  ZEBRA: 'zebra.png',
 
 };
 

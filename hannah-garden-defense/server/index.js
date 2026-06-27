@@ -10,6 +10,8 @@ import leaderboardRoutes from './routes/leaderboard.js';
 
 import progressRoutes from './routes/progress.js';
 
+import assetReviewRoutes from './routes/assetReview.js';
+
 import db from './db.js';
 
 
@@ -55,6 +57,18 @@ app.use(express.static(path.join(projectRoot, 'dist')));
 app.use('/api/leaderboard', leaderboardRoutes);
 
 app.use('/api/progress', progressRoutes);
+
+if (process.env.NODE_ENV !== 'production') {
+
+  app.use('/api/asset-review', assetReviewRoutes);
+
+  app.get('/asset-review', (_req, res) => {
+
+    res.sendFile(path.join(projectRoot, 'asset-review.html'));
+
+  });
+
+}
 
 
 

@@ -74,6 +74,28 @@ Zone pools in `zones[].enemies` control which types `WaveManager` can spawn. Add
 3. `AssetRegistry` + manifest + BootScene load
 4. Optional `enemyIntros.TYPE` toast string
 
+## Threat counter matrix
+
+Use this when tuning waves or choosing towers. Tags map to `GameConfig.enemyThreatTags` and wave-preview badges.
+
+| Tag | Examples | Counters |
+|-----|----------|----------|
+| flying | Parrot | Owl, Chicken (indirect) |
+| fast | Horse, Zebra, Crocodile | Rabbit slow, Dog stun |
+| wallBreaker | Buffalo, Rhino | Pig Wall, high DPS |
+| split | Frog | AoE (Cat, Flower Bomb) |
+| immuneSlow | Gorilla | Damage/stun towers (Dog, Owl) |
+| armored | Elephant, Rhino, Hippo | Owl, non-egg DPS |
+
+**New enemies (Phase 2):**
+
+| Enemy | Tag / trait | Notes |
+|-------|-------------|-------|
+| RHINO | wallBreaker, armored, stun-immune | Pig Wall + Owl/Dog |
+| HIPPO | armored, speed surge every 4s | Slow towers (Rabbit), sustained DPS |
+| CROCODILE | fast (ambush burst) | Early placement, slow fields before gate |
+| ZEBRA | fast (often paired) | AoE or multi-target |
+
 ## Waves — `GameConfig.waves`
 
 | Key | Default | Effect |

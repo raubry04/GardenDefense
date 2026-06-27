@@ -1,4 +1,4 @@
-const HUD_DEPTH = 250;
+import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 export class BossBanner {
   /** @param {import('../scenes/GameScene.js').GameScene} scene */
@@ -39,6 +39,8 @@ export class BossBanner {
     container.add([bg, title, sub]);
     this._active = container;
 
+    SceneMusicManager.duck(scene, 0.3, 2000);
+
     scene.tweens.add({
       targets: container,
       y: 56,
@@ -56,6 +58,7 @@ export class BossBanner {
         onComplete: () => {
           container.destroy();
           if (this._active === container) this._active = null;
+          SceneMusicManager.restore(scene);
         },
       });
     });

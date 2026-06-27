@@ -30,6 +30,19 @@ Place these **one folder above** `hannah-garden-defense/`:
 | `Assets/` | Craftpix tiles, Kenney UI/audio |
 | `Animal Pack Remastered/` | Round animal PNGs |
 
+## Craftpix Simple Summer (hand-curated)
+
+Tiles and props are **curated manually** under `assets/craftpix/` and preserved when running `npm run assets`:
+
+| Folder | Contents |
+|--------|----------|
+| `craftpix/ground/` | Full ground tileset — `Top-Down Simple Summer_Ground 01.png` through `56.png` (grass, path, corners, all autotile variants) |
+| `craftpix/props/` | Map decoration props (trees, rocks, buildings, etc.) |
+
+Autotiling uses tile index `N` → `Top-Down Simple Summer_Ground {NN}.png`.
+
+Registry: [`src/utils/craftpixTiles.js`](../src/utils/craftpixTiles.js) (`CRAFTPIX_PROPS`, path autotiling).
+
 ## Runtime assets
 
 Collected copies live in `hannah-garden-defense/assets/` and are served at `/game-assets/`.

@@ -5,6 +5,8 @@ const BATTLE_VOLUME_MULT = 0.45;
 /** @type {'menu'|'battle'|'victory'|'gameOver'|null} */
 let activeLoop = null;
 let globalUnlockBound = false;
+let duckSavedVolume = null;
+let duckTimer = null;
 
 export function resumeAudioContext(scene) {
   const ctx = scene?.sound?.context;
@@ -93,10 +95,14 @@ export const SceneMusicManager = {
   transition: transitionSceneMusic,
   resumeAudioContext,
   ensureGlobalAudioUnlock,
+  duck: duckSceneMusic,
+  restore: restoreSceneMusic,
   /** Visible for tests */
   _resetForTests() {
     activeLoop = null;
     globalUnlockBound = false;
+    duckSavedVolume = null;
+    duckTimer = null;
   },
   _getActiveLoop() {
     return activeLoop;
@@ -109,4 +115,27 @@ export function applyMusicVolumeToActiveTracks(scene, musicVolume) {
   const battle = scene.sound.get('battle');
   if (menu?.isPlaying) menu.setVolume(musicVolume);
   if (battle?.isPlaying) battle.setVolume(musicVolume * BATTLE_VOLUME_MULT);
+}
+
+/** Briefly lower battle music volume (e.g. boss banner). */
+export function duckSceneMusic(scene, volumeMult = 0.3, ms = 2000) {
+  if (!scene?.sound) return;
+  const battle = scene.sound.get('battle');
+  if (!battle?.isPlaying) return;
+  if (duckSavedVolume == null) duckSavedVolume = battle.volume;
+  battle.setVolume(duckSavedVolume * volumeMult);
+  if (duckTimer?.remove) duckTimer.remove(false);
+  duckTimer = scene.time?.delayedCall(ms, () => restoreSceneMusic(scene));
+}
+
+export function restoreSceneMusic(scene) {
+  if (duckTimer?.remove) {
+    duckTimer.remove(false);
+    duckTimer = null;
+  }
+  const battle = scene?.sound?.get('battle');
+  if (battle?.isPlaying && duckSavedVolume != null) {
+    battle.setVolume(duckSavedVolume);
+  }
+  duckSavedVolume = null;
 }

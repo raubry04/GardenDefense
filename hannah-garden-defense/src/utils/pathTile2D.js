@@ -5,15 +5,20 @@
 
 import {
   ZONE_LAYOUTS,
+  LAYOUT_COOP,
+  LAYOUT_BERRY,
   LAYOUT_ORCHARD,
   buildPathFromCoords,
   pathSetFromSegments,
 } from '../three/pathUtils.js';
 import { pickCraftpixPathTileForSegment } from './craftpixTiles.js';
 
+const ENDLESS_LAYOUTS = [LAYOUT_COOP, LAYOUT_BERRY, LAYOUT_ORCHARD];
+
 export function getZoneLayout(zone) {
   if (zone >= 0 && zone < ZONE_LAYOUTS.length) return ZONE_LAYOUTS[zone];
-  return LAYOUT_ORCHARD;
+  const weekIndex = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+  return ENDLESS_LAYOUTS[weekIndex % ENDLESS_LAYOUTS.length];
 }
 
 export function pathCoordsToWaypoints(coords, tileSize) {

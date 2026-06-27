@@ -113,6 +113,10 @@ export class TowerPlacement {
       }
 
       if (s.towerInspect?.isOpen()) {
+        const uiScene = s.scene.get('UIScene');
+        const world = s.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        if (uiScene?.tray?.isDesignPointOverBlockingUI(world.x, world.y)) return;
+        if (uiScene?.tray?._towerDrag) return;
         s.towerInspect.close();
       }
     });
@@ -229,7 +233,11 @@ export class TowerPlacement {
       gridRow: row,
       gridCol: col,
       x, y,
-      range: config.range ?? baseConfig.range,
+      range: (() => {
+        const baseRange = config.range ?? baseConfig.range;
+        if (baseRange == null) return undefined;
+        return Math.round(baseRange * (s.hannahPassives?.towerRangeMult ?? 1));
+      })(),
       damage: config.damage || 0,
       fireRate: config.fireRate || (config.cooldown || baseConfig.fireRate || baseConfig.cooldown || 1000),
       slowPercent: config.slowPercent || 0,
@@ -261,6 +269,7 @@ export class TowerPlacement {
     });
 
     this.spawnPlacementParticles(x, y);
+    s.battleVfx?.showPlacementRipple(x, y);
     this.showRangeCircle(x, y, tower.range);
   }
 

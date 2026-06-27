@@ -85,14 +85,18 @@ export const GameConfig = {
     COW: { hp: 120, speed: 35, reward: 12, damage: 1 },
     HORSE: { hp: 45, speed: 150, reward: 18, damage: 1, speedBonus: 1.2 },
     BUFFALO: { hp: 220, speed: 55, reward: 45, damage: 3, immuneToStun: true, wallDamageMult: 2.5 },
+    RHINO: { hp: 280, speed: 28, reward: 55, damage: 5, immuneToStun: true, armored: true },
+    HIPPO: { hp: 350, speed: 45, reward: 60, damage: 3 },
+    CROCODILE: { hp: 140, speed: 35, reward: 35, damage: 2, ambushBurstSpeed: 120, ambushAtPathProgress: 0.66 },
+    ZEBRA: { hp: 55, speed: 140, reward: 22, damage: 1, spawnInPairs: true },
   },
 
   zones: [
     { name: 'Sunflower Meadow', battles: 5, enemies: ['SNAKE', 'FROG'] },
     { name: 'Vegetable Garden', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'COW'] },
-    { name: 'Chicken Coop', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'HORSE'] },
-    { name: 'Berry Patch', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR', 'BUFFALO'] },
-    { name: 'Apple Orchard', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR', 'ELEPHANT', 'BUFFALO'] }
+    { name: 'Chicken Coop', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'HORSE', 'CROCODILE'] },
+    { name: 'Berry Patch', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR', 'BUFFALO', 'HIPPO', 'ZEBRA'] },
+    { name: 'Apple Orchard', battles: 5, enemies: ['SNAKE', 'FROG', 'GORILLA', 'PARROT', 'MONKEY', 'BEAR', 'ELEPHANT', 'BUFFALO', 'RHINO', 'CROCODILE', 'ZEBRA'] }
   ],
 
   hannahAbilities: {
@@ -136,6 +140,7 @@ export const GameConfig = {
       },
       2: {
         buffaloFromBattle: 2,
+        crocodileFromBattle: 1,
         gentleWaves: 1,
         maxEnemyIndex: 3,
         primaryWeight: 0.65,
@@ -147,6 +152,13 @@ export const GameConfig = {
     PARROT: 'flying',
     HORSE: 'fast',
     BUFFALO: 'wallBreaker',
+    ZEBRA: 'fast',
+    RHINO: 'wallBreaker',
+    CROCODILE: 'fast',
+    GORILLA: 'immuneSlow',
+    FROG: 'split',
+    ELEPHANT: 'armored',
+    HIPPO: 'armored',
   },
 
   enemyIntros: {
@@ -154,9 +166,59 @@ export const GameConfig = {
     HORSE: 'Horses are blisteringly fast!',
     BUFFALO: 'Buffalo charge through Pig Walls!',
     PARROT: 'Parrots fly over ground towers!',
+    RHINO: 'Rhinos shrug off stuns and hit hard!',
+    HIPPO: 'Hippos soak up tons of damage!',
+    CROCODILE: 'Crocodiles lurk, then sprint at the gate!',
+    ZEBRA: 'Zebras run in pairs — double trouble!',
   },
 
-  audio: { musicVolume: 0.6, sfxVolume: 0.8 },
+  /** Per-zone map decoration prop keys (craftpixTiles CRAFTPIX_PROPS). */
+  zonePropPools: {
+    0: ['treeSmall', 'bushSmall', 'rock1'],
+    1: ['treeMedium', 'bushMedium', 'windmill', 'woodenBarrel'],
+    2: ['treeLarge', 'well', 'campfire', 'tent'],
+    3: ['bushLarge', 'treasureChest', 'flag', 'rock4'],
+    4: ['castleRound', 'watchtowerTall', 'bridgeHorizontal', 'rock5'],
+  },
+
+  /** Replay modifier when battle has fewer than 3 stars. */
+  eliteVariants: {
+    FROG: { label: 'Armored Frog', hpMult: 1.3, tint: 0xaaccff },
+    HORSE: { label: 'Swift Horse', speedMult: 1.15, tint: 0xffeeaa },
+    BUFFALO: { label: 'Iron Buffalo', hpMult: 1.25, tint: 0xcccccc },
+  },
+
+  /** Zone mastery: 3★ every battle in zone unlocks map badge. */
+  zoneMasteryBadges: {
+    0: 'Meadow Keeper',
+    1: 'Garden Guardian',
+    2: 'Coop Captain',
+    3: 'Berry Defender',
+    4: 'Orchard Hero',
+  },
+
+  /** Hannah passive bonuses by level (beyond ability unlocks). */
+  hannahPassives: {
+    8: { towerRangeMult: 1.05, label: '+5% tower range' },
+    10: { towerRangeMult: 1.1, waveBonusPoints: 5, label: '+10% range, +5 wave bonus' },
+  },
+
+  audio: {
+    musicVolume: 0.6,
+    sfxVolume: 0.8,
+    sfxMix: {
+      towerFires: 0.4,
+      enemyHit: 0.3,
+      enemyDies: 0.4,
+      buttonClick: 1,
+    },
+  },
+
+  /** Daily challenge — same map/waves for all players each calendar day. */
+  dailyChallenge: {
+    zone: 2,
+    battle: 1,
+  },
 
   vfx: {
     enabled: true,

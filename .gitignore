@@ -39,3 +39,4 @@ logs/
 # --- Optional local tooling ---
 .cache/
 .vite/
+hannah-garden-defense/.craftpix-backup/

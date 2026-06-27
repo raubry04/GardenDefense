@@ -1,4 +1,5 @@
 import { GameConfig } from '../config.js';
+import { sfxVol } from '../utils/audioMix.js';
 import { TOWER_SPRITES, ENEMY_SPRITES } from '../utils/AssetRegistry.js';
 import { hannahLevelFromXp } from '../utils/hannahProgress.js';
 import { updateEnemyStatusFx } from './EnemyStatusFx.js';
@@ -7,10 +8,49 @@ import { TILE, COLORS } from './battleConstants.js';
 export class TowerCombat {
   constructor(scene) {
     this.scene = scene;
+    this._cellSize = TILE * 2;
+    this._enemyGrid = new Map();
+  }
+
+  _rebuildEnemyGrid() {
+    const grid = new Map();
+    const cs = this._cellSize;
+    for (const enemy of this.scene.enemies) {
+      if (!enemy.alive) continue;
+      const col = Math.floor(enemy.x / cs);
+      const row = Math.floor(enemy.y / cs);
+      const key = `${row},${col}`;
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(enemy);
+    }
+    this._enemyGrid = grid;
+  }
+
+  _getEnemiesInRange(tower, range) {
+    const cs = this._cellSize;
+    const minCol = Math.floor((tower.x - range) / cs);
+    const maxCol = Math.floor((tower.x + range) / cs);
+    const minRow = Math.floor((tower.y - range) / cs);
+    const maxRow = Math.floor((tower.y + range) / cs);
+    const results = [];
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const cell = this._enemyGrid.get(`${row},${col}`);
+        if (!cell) continue;
+        for (const enemy of cell) {
+          if (!enemy.alive) continue;
+          const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
+          if (dist <= range) results.push(enemy);
+        }
+      }
+    }
+    return results;
   }
 
   updateTowers(time, delta) {
     const s = this.scene;
+    this._rebuildEnemyGrid();
+
     for (const tower of s.towers) {
       if (tower.hp <= 0) continue;
       if (tower.damage <= 0 && !tower.slowPercent && !tower.stunMs && !tower.freezeMs) continue;
@@ -20,24 +60,17 @@ export class TowerCombat {
       const isAoE = GameConfig.towers[tower.type]?.aoe;
 
       if (isAoE) {
-        const targets = [];
-        for (const enemy of s.enemies) {
-          if (!enemy.alive) continue;
-          const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
-          if (dist <= tower.range) targets.push(enemy);
-        }
+        const targets = this._getEnemiesInRange(tower, tower.range);
         if (targets.length > 0) {
           tower.lastFired = time;
           this.fireAoETower(tower, targets);
         }
       } else {
         let target = null;
+        const inRange = this._getEnemiesInRange(tower, tower.range);
         if (tower.type === 'OWL') {
           let bestProgress = -1;
-          for (const enemy of s.enemies) {
-            if (!enemy.alive) continue;
-            const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
-            if (dist > tower.range) continue;
+          for (const enemy of inRange) {
             const progress = enemy.waypointIndex ?? 0;
             if (progress > bestProgress) {
               bestProgress = progress;
@@ -46,8 +79,7 @@ export class TowerCombat {
           }
         } else {
           let closestDist = tower.range;
-          for (const enemy of s.enemies) {
-            if (!enemy.alive) continue;
+          for (const enemy of inRange) {
             if (tower.type === 'CHICKEN' && enemy.flies) continue;
             if (tower.type === 'CHICKEN' && enemy.type === 'ELEPHANT') continue;
             const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
@@ -88,11 +120,15 @@ export class TowerCombat {
       }
     }
 
-    s.sound.play('towerFires', { volume: GameConfig.audio.sfxVolume * 0.4 });
+    s.sound.play('towerFires', { volume: sfxVol('towerFires') });
   }
 
   showAoEPulse(tower) {
     const s = this.scene;
+    if (s.battleVfx?.showAoERing) {
+      s.battleVfx.showAoERing(tower.x, tower.y, tower.range);
+      return;
+    }
     const circle = s.add.circle(tower.x, tower.y, tower.range, COLORS.primary, 0.25)
       .setStrokeStyle(2, COLORS.primary, 0.5).setDepth(30);
     s.tweens.add({
@@ -139,7 +175,7 @@ export class TowerCombat {
           this.spawnProjectile(sx, sy, target, tower.damage, pierce, source);
         }
       }
-      s.sound.play('towerFires', { volume: GameConfig.audio.sfxVolume * 0.5 });
+      s.sound.play('towerFires', { volume: sfxVol('towerFires') * 1.25 });
     }
 
     this.towerRecoil(tower);
@@ -236,7 +272,8 @@ export class TowerCombat {
     const s = this.scene;
     if (!enemy.alive) return;
     if (source === 'CHICKEN' && GameConfig.enemies[enemy.type]?.armored) {
-      damage = 0;
+      s.battleVfx?.showBlockedHit(enemy);
+      return;
     }
     if (damage <= 0) return;
 
@@ -246,12 +283,13 @@ export class TowerCombat {
     }
 
     enemy.hp -= damage;
-    s.sound.play('enemyHit', { volume: GameConfig.audio.sfxVolume * 0.3 });
+    s.sound.play('enemyHit', { volume: sfxVol('enemyHit') });
 
     const hpPercent = Math.max(0, enemy.hp / enemy.maxHp);
     enemy.hpBar.setScale(hpPercent, 1);
 
     this.flashEnemyRed(enemy);
+    s.battleVfx?.enemyHitFlash(enemy);
     s.battleVfx?.burstHit(enemy.x, enemy.y);
     s.battleVfx?.squashSprite(enemy.sprite);
     if (s.battleVfx) {
@@ -329,7 +367,7 @@ export class TowerCombat {
     enemy.hpBarBg.destroy();
     s.battleVfx?.destroyEnemyFx(enemy);
     s.battleVfx?.burstDeath(ex, ey);
-    s.sound.play('enemyDies', { volume: GameConfig.audio.sfxVolume });
+    s.sound.play('enemyDies', { volume: sfxVol('enemyDies') });
 
     if (!s.battleVfx) {
       const particleCount = Phaser.Math.Between(4, 6);
@@ -385,7 +423,16 @@ export class TowerCombat {
     let speed = config.speed * (config.speedBonus ?? 1);
     const wm = s.waveManager;
     const isBossType = wm?.isBossBattle && type === wm?.bossType;
-    const isElite = isBossType || (wm?.isBossBattle && (type === 'ELEPHANT' || type === 'BUFFALO'));
+    let isElite = isBossType || (wm?.isBossBattle && (type === 'ELEPHANT' || type === 'BUFFALO'));
+    let eliteTint = null;
+
+    const replayElite = s.useEliteVariants && GameConfig.eliteVariants?.[type];
+    if (replayElite) {
+      isElite = true;
+      hp = Math.round(hp * (replayElite.hpMult ?? 1));
+      speed *= replayElite.speedMult ?? 1;
+      eliteTint = replayElite.tint;
+    }
 
     if (isBossType) {
       const mods = GameConfig.bossModifiers || {};
@@ -396,6 +443,7 @@ export class TowerCombat {
     const sprite = s.add.image(start.x, start.y, spriteKey)
       .setDisplaySize(TILE - 12, TILE - 12)
       .setDepth(20);
+    if (eliteTint != null) sprite.setTint(eliteTint);
 
     const enemy = {
       type,

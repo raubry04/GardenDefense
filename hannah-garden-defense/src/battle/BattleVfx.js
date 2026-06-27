@@ -9,6 +9,7 @@ export class BattleVfx {
     this._textPool = [];
     this._activeBursts = 0;
     this._bobPhase = 0;
+    this._aoeRingPool = [];
   }
 
   _cfg() {
@@ -66,6 +67,68 @@ export class BattleVfx {
 
   burstGate(x, y) {
     this.burst('gate', x, y, 8);
+  }
+
+  _ensureAoERingPool() {
+    const s = this.scene;
+    while (this._aoeRingPool.length < 4) {
+      const ring = s.add.circle(0, 0, 1, COLORS.primary, 0.25)
+        .setStrokeStyle(2, COLORS.primary, 0.5)
+        .setDepth(30)
+        .setActive(false)
+        .setVisible(false);
+      ring.setData('inUse', false);
+      this._aoeRingPool.push(ring);
+    }
+  }
+
+  showAoERing(x, y, r) {
+    this._ensureAoERingPool();
+    let ring = this._aoeRingPool.find((c) => !c.getData('inUse'));
+    if (!ring) ring = this._aoeRingPool[0];
+
+    ring.setData('inUse', true);
+    ring.setPosition(x, y);
+    ring.setRadius(r);
+    ring.setScale(1);
+    ring.setAlpha(0.25);
+    ring.setActive(true).setVisible(true);
+    this.scene.tweens.killTweensOf(ring);
+    this.scene.tweens.add({
+      targets: ring,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => {
+        ring.setActive(false).setVisible(false).setScale(1);
+        ring.setData('inUse', false);
+      },
+    });
+  }
+
+  enemyHitFlash(enemy) {
+    if (!enemy?.sprite?.active) return;
+    const spr = enemy.sprite;
+    spr.setTintFill(0xffffff);
+    this.scene.tweens.killTweensOf(spr);
+    this.scene.time.delayedCall(80, () => {
+      if (enemy.alive && spr.active) spr.clearTint();
+    });
+  }
+
+  showPlacementRipple(x, y) {
+    const ripple = this.scene.add.circle(x, y, 10, COLORS.primary, 0.1)
+      .setStrokeStyle(1, COLORS.primary, 0.2)
+      .setDepth(50);
+    this.scene.tweens.add({
+      targets: ripple,
+      scaleX: 2.5,
+      scaleY: 2.5,
+      alpha: 0,
+      duration: 200,
+      onComplete: () => ripple.destroy(),
+    });
   }
 
   burstAbility(key, x, y, radius = TILE * 2) {
@@ -160,6 +223,16 @@ export class BattleVfx {
     });
   }
 
+  showBlockedHit(enemy) {
+    if (!enemy?.sprite?.active) return;
+    const s = this.scene;
+    this.showFloatingText(enemy.x, enemy.y - TILE / 2, 'blocked', '#B0C4DE');
+    enemy.sprite.setTint(0x88aaff);
+    s.time.delayedCall(120, () => {
+      if (enemy.alive && enemy.sprite?.active) enemy.sprite.clearTint();
+    });
+  }
+
   squashSprite(sprite) {
     if (!sprite?.active) return;
     this.scene.tweens.add({
@@ -222,5 +295,7 @@ export class BattleVfx {
     this._emitters = {};
     for (const t of this._textPool) t?.destroy();
     this._textPool = [];
+    for (const r of this._aoeRingPool) r?.destroy();
+    this._aoeRingPool = [];
   }
 }

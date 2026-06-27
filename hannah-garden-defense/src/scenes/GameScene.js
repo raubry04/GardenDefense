@@ -1,11 +1,12 @@
 import { GameConfig } from '../config.js';
+import { dailyChallengeParams } from '../utils/dailyChallenge.js';
 import { craftpixGroundKey } from '../utils/craftpixTiles.js';
 import { WaveManager } from '../systems/WaveManager.js';
 import { setupBattleCamera, refillSceneGrass } from '../utils/responsiveCamera.js';
 import { applyMobileLayout } from '../utils/mobileViewport.js';
 import { buildCanvasMapData } from '../utils/pathTile2D.js';
 import { loadLocalProgress, hannahLevelFromXp } from '../utils/hannahProgress.js';
-import { TILE, COLORS, GRASS_TILES, BUSH_KEYS, TREE_KEYS, ROCK_KEYS } from '../battle/battleConstants.js';
+import { TILE, COLORS, GRASS_TILES, BUSH_KEYS, TREE_KEYS, ROCK_KEYS, DECOR_KEYS } from '../battle/battleConstants.js';
 import { TowerCombat } from '../battle/TowerCombat.js';
 import { EnemyBehavior } from '../battle/EnemyBehavior.js';
 import { TowerPlacement } from '../battle/TowerPlacement.js';
@@ -14,6 +15,10 @@ import { TowerInspect } from '../battle/TowerInspect.js';
 import { BattleVfx } from '../battle/BattleVfx.js';
 import { BossBanner } from '../ui/BossBanner.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
+import {
+  battleTimeScaleWhenPaused,
+  battleTimeScaleWhenRunning,
+} from '../battle/battlePause.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -21,8 +26,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.zone = data.zone ?? 0;
-    this.battle = data.battle ?? 0;
+    this.mode = data.mode ?? 'campaign';
+    if (this.mode === 'daily') {
+      const daily = dailyChallengeParams();
+      this.zone = daily.zone;
+      this.battle = daily.battle;
+      this._waveSeed = daily.seed;
+      this._dailyDateKey = daily.dateKey;
+    } else {
+      this.zone = data.zone ?? 0;
+      this.battle = data.battle ?? 0;
+    }
     this.playerName = data.playerName || 'Player';
 
     const progress = loadLocalProgress(this.playerName);
@@ -33,6 +47,9 @@ export class GameScene extends Phaser.Scene {
     if (this.zone === 0 && this.battle === 0) {
       this.towerUpgrades = {};
     }
+    this.priorStars = progress.battleStars?.[this.zone]?.[this.battle] ?? 0;
+    this.useEliteVariants = this.priorStars > 0 && this.priorStars < 3;
+    this.hannahPassives = this._computeHannahPassives(this.hannahLevel);
     this.abilityLastUsed = {};
     for (const key of Object.keys(GameConfig.hannahAbilities)) {
       this.abilityLastUsed[key] = -Infinity;
@@ -61,6 +78,7 @@ export class GameScene extends Phaser.Scene {
     this._livesWarningTimer = 0;
     this._warningEdges = null;
     this._swayDecor = [];
+    this._mapDecor = [];
 
     const mapData = this._buildMapData();
     this.waypoints = mapData.waypoints;
@@ -83,7 +101,7 @@ export class GameScene extends Phaser.Scene {
     applyCamera();
 
     this.waveManager = new WaveManager(this);
-    this.waveManager.startBattle(this.zone, this.battle);
+    this.waveManager.startBattle(this.zone, this.battle, { waveSeed: this._waveSeed });
 
     this.towerCombat = new TowerCombat(this);
     this.enemyBehavior = new EnemyBehavior(this);
@@ -138,6 +156,23 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  _computeHannahPassives(level) {
+    const passives = { towerRangeMult: 1, waveBonusPoints: 0 };
+    for (const [lv, bonus] of Object.entries(GameConfig.hannahPassives || {})) {
+      if (level >= Number(lv)) {
+        if (bonus.towerRangeMult) passives.towerRangeMult = bonus.towerRangeMult;
+        if (bonus.waveBonusPoints) passives.waveBonusPoints = bonus.waveBonusPoints;
+      }
+    }
+    return passives;
+  }
+
+  _zoneDecorKeys() {
+    const keys = GameConfig.zonePropPools?.[this.zone];
+    if (!keys?.length) return DECOR_KEYS;
+    return keys.map((k) => `cp_${k}`);
+  }
+
   _view() {
     return this.cameras.main.worldView;
   }
@@ -169,14 +204,23 @@ export class GameScene extends Phaser.Scene {
         if (type !== 'grass') continue;
 
         const roll = rng.frac();
-        if (roll < 0.16) {
+        // Grass exists only in a narrow ring around the path — skip large trees on
+        // path-adjacent tiles only; other props fill the lawn normally.
+        if (roll < 0.10 && !this._isAdjacentToPath(r, c)) {
           this._drawTreeDecoration(cx, cy, rng);
-        } else if (roll < 0.34) {
+        } else if (roll < 0.23) {
           this._drawBushDecoration(cx, cy, rng);
-        } else if (roll < 0.46) {
+        } else if (roll < 0.36) {
           this._drawRockDecoration(cx, cy, rng);
+        } else if (roll < 0.44) {
+          this._drawDecorProp(cx, cy, rng);
         }
       }
+    }
+
+    if (this._mapDecor.length === 0) {
+      const hasProps = TREE_KEYS.some((k) => this.textures.exists(k));
+      console.warn(`[GameScene] No map decor spawned (prop textures loaded: ${hasProps})`);
     }
   }
 
@@ -184,23 +228,55 @@ export class GameScene extends Phaser.Scene {
     refillSceneGrass(this, view, -10);
   }
 
+  _pickPropKey(pool) {
+    const available = pool.filter((k) => this.textures.exists(k));
+    if (!available.length) {
+      if (!this._warnedPropPools) this._warnedPropPools = new Set();
+      const tag = pool[0] ?? 'props';
+      if (!this._warnedPropPools.has(tag)) {
+        this._warnedPropPools.add(tag);
+        console.warn(`[GameScene] Prop textures missing for pool starting with ${tag}`);
+      }
+      return null;
+    }
+    return available[Phaser.Math.Between(0, available.length - 1)];
+  }
+
+  _isAdjacentToPath(r, c) {
+    const rows = this.tileGrid.length;
+    const cols = this.tileGrid[0].length;
+    const dirs4 = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+    for (const [dr, dc] of dirs4) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && this.tileGrid[nr][nc] === 'path') {
+        return true;
+      }
+    }
+    return false;
+  }
+
   _drawTreeDecoration(cx, cy, rng) {
-    const key = TREE_KEYS[rng.between(0, TREE_KEYS.length - 1)];
+    const key = this._pickPropKey(TREE_KEYS);
+    if (!key) return null;
     const size = rng.between(48, 72);
     const img = this.add.image(cx + rng.between(-4, 4), cy + rng.between(-8, 4), key)
       .setDisplaySize(size, size)
       .setDepth(2);
     this._addPropSway(img);
+    this._mapDecor.push(img);
     return img;
   }
 
   _drawBushDecoration(cx, cy, rng) {
-    const key = BUSH_KEYS[rng.between(0, BUSH_KEYS.length - 1)];
+    const key = this._pickPropKey(BUSH_KEYS);
+    if (!key) return null;
     const size = rng.between(28, 44);
     const img = this.add.image(cx + rng.between(-6, 6), cy + rng.between(-4, 6), key)
       .setDisplaySize(size, size)
       .setDepth(2);
     this._addPropSway(img);
+    this._mapDecor.push(img);
     return img;
   }
 
@@ -220,11 +296,26 @@ export class GameScene extends Phaser.Scene {
   }
 
   _drawRockDecoration(cx, cy, rng) {
-    const key = ROCK_KEYS[rng.between(0, ROCK_KEYS.length - 1)];
+    const key = this._pickPropKey(ROCK_KEYS);
+    if (!key) return null;
     const size = rng.between(20, 32);
-    return this.add.image(cx + rng.between(-8, 8), cy + rng.between(-4, 8), key)
+    const img = this.add.image(cx + rng.between(-8, 8), cy + rng.between(-4, 8), key)
       .setDisplaySize(size, size)
       .setDepth(2);
+    this._mapDecor.push(img);
+    return img;
+  }
+
+  _drawDecorProp(cx, cy, rng) {
+    const key = this._pickPropKey(this._zoneDecorKeys());
+    if (!key) return null;
+    const size = rng.between(28, 48);
+    const img = this.add.image(cx + rng.between(-6, 6), cy + rng.between(-4, 6), key)
+      .setDisplaySize(size, size)
+      .setDepth(2);
+    if (key.includes('flag') || key.includes('fence')) this._addPropSway(img);
+    this._mapDecor.push(img);
+    return img;
   }
 
   /* ─── Garden gate ─── */
@@ -304,11 +395,21 @@ export class GameScene extends Phaser.Scene {
   _setupEvents() {
     this.events.on('enemy-spawn', (data) => {
       this.towerCombat.spawnEnemy(data.type);
+      const cfg = GameConfig.enemies[data.type];
+      if (cfg?.spawnInPairs && !data._paired) {
+        this.time.delayedCall(400, () => {
+          if (this.scene.isActive('GameScene')) {
+            this.towerCombat.spawnEnemy(data.type);
+          }
+        });
+      }
     });
 
     this.events.on('wave-start', (data) => {
       this.game.events.emit('wave-started', data);
       this._showWaveBanner(data.wave, data.total);
+      this.game.events.emit('wave-hud-pulse');
+      this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume * 0.5 });
       const wm = this.waveManager;
       const total = data.total ?? wm.getTotalWaves();
       if (wm.isBossBattle && wm.bossType && total) {
@@ -321,8 +422,9 @@ export class GameScene extends Phaser.Scene {
 
     this.events.on('wave-complete', (data) => {
       this.game.events.emit('wave-ended', data);
-      this.sunshinePoints += GameConfig.waveCompletionBonus;
-      this.battleSunshineEarned += GameConfig.waveCompletionBonus;
+      const waveBonus = GameConfig.waveCompletionBonus + (this.hannahPassives?.waveBonusPoints ?? 0);
+      this.sunshinePoints += waveBonus;
+      this.battleSunshineEarned += waveBonus;
       this.game.events.emit('points-changed', { points: this.sunshinePoints });
     });
 
@@ -331,6 +433,7 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(1500, () => {
         this.scene.stop('UIScene');
         const towerData = this.towers.map(t => ({ type: t.type, tier: t.tier || 0 }));
+        this.scene.stop('GameScene');
         this.scene.start('VictoryScene', {
           livesRemaining: this.lives,
           zone: this.zone,
@@ -340,6 +443,8 @@ export class GameScene extends Phaser.Scene {
           towers: towerData,
           hannahXp: this.battleXpStart + (this.hannahXp || 0),
           hannahLevel: this.hannahLevel,
+          mode: this.mode,
+          dailyDateKey: this._dailyDateKey,
         });
       });
     });
@@ -398,7 +503,14 @@ export class GameScene extends Phaser.Scene {
 
     this.game.events.on('battle-speed-changed', (data) => {
       this._battleSpeed = data.speed ?? 1;
-      this.time.timeScale = this._battleSpeed;
+      if (!this.paused) {
+        this.time.timeScale = this._battleSpeed;
+      }
+    });
+
+    this.game.events.on('hannah-level-changed', (data) => {
+      this.hannahLevel = data.level ?? this.hannahLevel;
+      this.hannahPassives = this._computeHannahPassives(this.hannahLevel);
     });
   }
 
@@ -545,7 +657,8 @@ export class GameScene extends Phaser.Scene {
 
     if (this.paused) {
       this.paused = false;
-      this.time.timeScale = this._battleSpeed;
+      this.time.timeScale = battleTimeScaleWhenRunning(this._battleSpeed);
+      this.waveManager?.setPaused(false);
       if (this.pauseOverlay) {
         this.pauseOverlay.forEach(obj => obj.destroy());
         this.pauseOverlay = null;
@@ -554,20 +667,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.paused = true;
-    this.time.timeScale = 1;
-    this._battleSpeed = 1;
-    this.game.events.emit('battle-speed-changed', { speed: 1 });
+    this.waveManager?.setPaused(true);
+    this.time.timeScale = battleTimeScaleWhenPaused();
     const objects = [];
 
     const overlay = this.add.rectangle(centerX, centerY, width * 2, height * 2, 0x000000, 0.7)
       .setDepth(200).setInteractive();
     objects.push(overlay);
 
-    const panel = this.add.rectangle(centerX, centerY, 320, 340, COLORS.uiPanel)
+    const panel = this.add.rectangle(centerX, centerY, 320, 420, COLORS.uiPanel)
       .setStrokeStyle(3, COLORS.outline).setDepth(201);
     objects.push(panel);
 
-    const title = this.add.text(centerX, centerY - 130, 'PAUSED', {
+    const title = this.add.text(centerX, centerY - 170, 'PAUSED', {
       fontFamily: 'Kenney Pixel',
       fontSize: '36px',
       color: '#3D5A1F',
@@ -576,12 +688,14 @@ export class GameScene extends Phaser.Scene {
 
     const buttons = [
       { label: 'RESUME', action: () => this._togglePause() },
+      { label: 'HOW TO PLAY', action: () => this.game.events.emit('replay-tutorial') },
+      { label: 'SETTINGS', action: () => this._openPauseSettings() },
       { label: 'RESTART', action: () => { this.scene.stop('UIScene'); this.scene.restart(); } },
-      { label: 'BACK TO MAP', action: () => { this.scene.stop('UIScene'); this.scene.start('WorldMapScene', { playerName: this.playerName }); } },
+      { label: 'BACK TO MAP', action: () => { this.scene.stop('UIScene'); this.scene.stop('GameScene'); this.scene.start('WorldMapScene', { playerName: this.playerName }); } },
     ];
 
     buttons.forEach((btn, idx) => {
-      const by = centerY - 50 + idx * 70;
+      const by = centerY - 80 + idx * 58;
       const bg = this.add.rectangle(centerX, by, 220, 50, COLORS.button)
         .setInteractive({ useHandCursor: true }).setStrokeStyle(2, COLORS.outline).setDepth(202);
       const text = this.add.text(centerX, by, btn.label, {
@@ -598,6 +712,12 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.pauseOverlay = objects;
+  }
+
+  _openPauseSettings() {
+    import('../ui/SettingsPanel.js').then(({ createSettingsPanel }) => {
+      createSettingsPanel(this, { depth: 210 });
+    });
   }
 
   /* ─── Cleanup ─── */

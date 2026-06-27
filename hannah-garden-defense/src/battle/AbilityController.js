@@ -34,7 +34,19 @@ export class AbilityController {
 
   useAbility(key) {
     const s = this.scene;
-    if (!this.canUseAbility(key)) return false;
+    if (!this.canUseAbility(key)) {
+      const ability = GameConfig.hannahAbilities[key];
+      let reason = 'Ability unavailable';
+      if (ability?.unlockLevel && s.hannahLevel < ability.unlockLevel) {
+        reason = `Unlocks at Hannah Level ${ability.unlockLevel}`;
+      } else if (s._flowerBombAiming) {
+        reason = 'Finish placing Flower Bomb';
+      } else {
+        reason = 'On cooldown';
+      }
+      s.game.events.emit('ability-rejected', { key, reason });
+      return false;
+    }
 
     const ability = GameConfig.hannahAbilities[key];
     s.abilityLastUsed[key] = s.time.now;

@@ -179,6 +179,15 @@ export class WorldMapScene extends Phaser.Scene {
               color: '#FFE135',
               alpha: 0.85,
             }).setOrigin(0, 0.5);
+        } else {
+          const badge = GameConfig.zoneMasteryBadges?.[i];
+          if (badge) {
+            this.add.text(width / 2 - zoneWidth / 2 + 50, y + 32, `🏅 ${badge}`, {
+              fontFamily: 'Kenney Future',
+              fontSize: '12px',
+              color: '#FFD700',
+            }).setOrigin(0, 0.5);
+          }
         }
 
         zoneBg.on('pointerover', () => {
@@ -232,6 +241,25 @@ export class WorldMapScene extends Phaser.Scene {
       endlessBg.on('pointerdown', () => {
         this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
         this.scene.start('GameScene', { zone: 5, battle: 0, playerName: this.playerName });
+      });
+    }
+
+    const dailyY = endlessY + zoneHeight + 10;
+    const dailyBg = this.add.rectangle(width / 2, dailyY, zoneWidth, zoneHeight - 8,
+      endlessUnlocked ? 0x1565C0 : 0x555555)
+      .setStrokeStyle(3, endlessUnlocked ? 0x42A5F5 : 0x444444)
+      .setInteractive({ useHandCursor: endlessUnlocked });
+
+    this.add.text(width / 2, dailyY, endlessUnlocked ? '📅 Daily Challenge' : '📅 Daily Challenge 🔒', {
+      fontFamily: 'Kenney Pixel',
+      fontSize: '20px',
+      color: endlessUnlocked ? '#FFF9E6' : '#888888',
+    }).setOrigin(0.5);
+
+    if (endlessUnlocked) {
+      dailyBg.on('pointerdown', () => {
+        this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+        this.scene.start('GameScene', { mode: 'daily', playerName: this.playerName });
       });
     }
   }

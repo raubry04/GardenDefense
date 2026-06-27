@@ -21,7 +21,7 @@ export class WaveManager {
     this._manualFirstWave = false;
   }
 
-  initBattle(zone, battle) {
+  initBattle(zone, battle, options = {}) {
     this.zone = zone;
     this.battle = battle;
     this.currentWaveIndex = -1;
@@ -34,6 +34,9 @@ export class WaveManager {
     this._prepPhaseActive = false;
     this.isEndless = zone >= GameConfig.zones.length;
     this._manualFirstWave = this._computeManualFirstWave(zone, battle);
+    this._rng = options.waveSeed
+      ? new Phaser.Math.RandomDataGenerator([String(options.waveSeed)])
+      : null;
     this.waves = this._generateWaves(zone, battle);
     this.isBossBattle = this._computeIsBoss(zone, battle);
     this.bossType = this._computeBossType(zone);
@@ -48,9 +51,13 @@ export class WaveManager {
     this._emitPreview();
   }
 
-  startBattle(zone, battle) {
-    this.initBattle(zone, battle);
+  startBattle(zone, battle, options = {}) {
+    this.initBattle(zone, battle, options);
     this.beginPrepPhase();
+  }
+
+  _rand() {
+    return this._rng ? this._rng.frac() : Math.random();
   }
 
   setPaused(paused) {
@@ -316,22 +323,26 @@ export class WaveManager {
       pool = enemyPool.filter((e) => e !== 'BUFFALO');
       if (pool.length === 0) pool = enemyPool;
     }
+    if (intro?.crocodileFromBattle != null && battle < intro.crocodileFromBattle) {
+      pool = enemyPool.filter((e) => e !== 'CROCODILE');
+      if (pool.length === 0) pool = enemyPool;
+    }
 
     if (intro && waveIndex < (intro.gentleWaves ?? 0)) {
       const maxIdx = Math.min(intro.maxEnemyIndex ?? 0, pool.length - 1);
-      return Math.random() < (intro.primaryWeight ?? 0.7)
+      return this._rand() < (intro.primaryWeight ?? 0.7)
         ? pool[0]
         : pool[maxIdx];
     }
 
     if (zoneIndex === 0 && battle === 0 && waveIndex >= 2 && pool.length > 1) {
       const frogWeight = intro?.lateFrogWeight ?? 0.4;
-      return Math.random() < frogWeight ? pool[1] : pool[0];
+      return this._rand() < frogWeight ? pool[1] : pool[0];
     }
 
     if (zoneIndex === 0) {
       const maxIdx = waveIndex < 2 ? 0 : Math.min(1, pool.length - 1);
-      return Math.random() < 0.7 ? pool[0] : pool[maxIdx];
+      return this._rand() < 0.7 ? pool[0] : pool[maxIdx];
     }
 
     if (intro?.maxEnemyIndex != null) {
@@ -339,11 +350,11 @@ export class WaveManager {
         intro.maxEnemyIndex + Math.floor(waveIndex / 3),
         pool.length - 1,
       );
-      return pool[Math.floor(Math.random() * (maxIdx + 1))];
+      return pool[Math.floor(this._rand() * (maxIdx + 1))];
     }
 
     const maxIdx = Math.min(
-      Math.floor(Math.random() * Math.min(pool.length, 1 + Math.floor(waveIndex / 2))),
+      Math.floor(this._rand() * Math.min(pool.length, 1 + Math.floor(waveIndex / 2))),
       pool.length - 1,
     );
     return pool[maxIdx];
@@ -366,7 +377,7 @@ export class WaveManager {
       );
 
       for (let j = 0; j < waveCount; j++) {
-        const idx = Math.floor(Math.random() * (maxEnemyIndex + 1));
+        const idx = Math.floor(this._rand() * (maxEnemyIndex + 1));
         wave.push(allEnemies[idx]);
       }
 

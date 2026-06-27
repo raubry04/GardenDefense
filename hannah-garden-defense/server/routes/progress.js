@@ -3,6 +3,17 @@ import db from '../db.js';
 
 const router = Router();
 
+const PLAYER_NAME_RE = /^[a-zA-Z0-9 ]{1,32}$/;
+
+export function validatePlayerName(name) {
+  return typeof name === 'string' && PLAYER_NAME_RE.test(name);
+}
+
+export function validateNonNegativeInt(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && Number.isInteger(n) && n >= 0;
+}
+
 /**
  * GET /:name — Return the player_progress row for the given player name.
  * @param {string} req.params.name - Player name
@@ -51,6 +62,25 @@ router.post('/', (req, res) => {
 
     if (!player_name) {
       return res.status(400).json({ error: 'player_name is required' });
+    }
+
+    if (!validatePlayerName(player_name)) {
+      return res.status(400).json({
+        error: 'player_name must be 1–32 alphanumeric characters or spaces',
+      });
+    }
+
+    const numericFields = {
+      hannah_level,
+      hannah_xp,
+      garden_level,
+      sunshine_points,
+      unlocked_zone,
+    };
+    for (const [field, value] of Object.entries(numericFields)) {
+      if (!validateNonNegativeInt(value)) {
+        return res.status(400).json({ error: `${field} must be a non-negative integer` });
+      }
     }
 
     const stmt = db.prepare(`

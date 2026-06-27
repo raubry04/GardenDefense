@@ -25,6 +25,7 @@ db.exec(`
     stars_earned INTEGER NOT NULL,
     zone INTEGER NOT NULL,
     battle INTEGER NOT NULL,
+    mode TEXT DEFAULT 'campaign',
     played_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -57,6 +58,13 @@ for (const [name, definition] of progressColumns) {
   if (!exists) {
     db.exec(`ALTER TABLE player_progress ADD COLUMN ${name} ${definition}`);
   }
+}
+
+const leaderboardModeCol = db.prepare(
+  `SELECT 1 FROM pragma_table_info('leaderboard') WHERE name = 'mode'`,
+).get();
+if (!leaderboardModeCol) {
+  db.exec(`ALTER TABLE leaderboard ADD COLUMN mode TEXT DEFAULT 'campaign'`);
 }
 
 export default db;

@@ -9,7 +9,7 @@ import {
   serverRowToProgress,
 } from '../src/utils/hannahProgress.js';
 
-const TEST_PLAYER = '__vitest_sync_player__';
+const TEST_PLAYER = 'VitestSyncPlayer';
 
 function createApp() {
   const app = express();

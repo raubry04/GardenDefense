@@ -48,6 +48,15 @@ export class EnemyBehavior {
         enemy.slowTimer -= delta;
       }
 
+      const crocCfg = GameConfig.enemies.CROCODILE;
+      if (enemy.type === 'CROCODILE' && crocCfg?.ambushAtPathProgress != null) {
+        const totalSegs = Math.max(1, s.waypoints.length - 1);
+        const progress = enemy.waypointIndex / totalSegs;
+        if (progress >= crocCfg.ambushAtPathProgress) {
+          speed = crocCfg.ambushBurstSpeed ?? speed * 2.5;
+        }
+      }
+
       if (enemy.type === 'ELEPHANT') {
         enemy.stompTimer = (enemy.stompTimer || 0) + delta;
         if (enemy.stompTimer >= 5000) {
@@ -68,6 +77,18 @@ export class EnemyBehavior {
           if (stomped) {
             s.abilityController.showAbilityPulse({ x: enemy.x, y: enemy.y }, 0x888888, stompRange);
           }
+        }
+      }
+
+      if (enemy.type === 'HIPPO') {
+        enemy.surgeCooldownMs = (enemy.surgeCooldownMs || 0) + delta;
+        if (enemy.surgeCooldownMs >= 4000) {
+          enemy.surgeCooldownMs = 0;
+          enemy.surgeActiveMs = 800;
+        }
+        if ((enemy.surgeActiveMs || 0) > 0) {
+          enemy.surgeActiveMs -= delta;
+          speed *= 1.5;
         }
       }
 
@@ -177,6 +198,7 @@ export class EnemyBehavior {
     if (s.lives <= 0) {
       s.lives = 0;
       s.scene.stop('UIScene');
+      s.scene.stop('GameScene');
       s.scene.start('GameOverScene', {
         waveReached: s.waveManager.getCurrentWave(),
         zone: s.zone,

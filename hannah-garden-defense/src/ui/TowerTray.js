@@ -1,4 +1,6 @@
-import { GameConfig } from "../config.js";
+import { GameConfig } from '../config.js';
+import { sfxVol } from '../utils/audioMix.js';
+import { showToast } from './Toast.js';
 import { TOWER_SPRITES } from "../utils/AssetRegistry.js";
 
 const COLORS = GameConfig.colors;
@@ -185,7 +187,14 @@ export class TowerTray {
 
       const hoverTargets = [cardBg, nameText, costText, greyOverlay];
       const onCardDown = (pointer) => {
-        if (!this._canUseTowerCard(config)) return;
+        if (!unlocked) {
+          this.showLockedToast(config);
+          return;
+        }
+        if (!affordable) {
+          showToast(this.scene, 'Not enough sunshine!');
+          return;
+        }
         this._startTowerDrag(type, card, pointer);
       };
 
@@ -279,11 +288,7 @@ export class TowerTray {
   _setTowerCardInteractive(card, unlocked, affordable) {
     const zone = card.hitZone;
     if (!zone) return;
-    if (unlocked && affordable) {
-      zone.setInteractive({ useHandCursor: true });
-    } else {
-      zone.disableInteractive();
-    }
+    zone.setInteractive({ useHandCursor: true });
   }
 
   updateAffordability() {
@@ -309,7 +314,7 @@ export class TowerTray {
     const scene = this.scene;
     if (this._towerDrag) this.cancelDrag(false);
 
-    scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
+    scene.sound.play("buttonClick", { volume: sfxVol('buttonClick') });
     this.towerCards.forEach((c) => this._resetTowerCard(c));
     this.selectedTowerType = type;
     this._towerTapMode = false;
@@ -419,8 +424,8 @@ export class TowerTray {
 
     const sendWaveBg = this.abilityBar.sendWaveBg;
     if (sendWaveBg?.visible && sendWaveBg.active) {
-      const halfH = (sendWaveBg.displayHeight || 50) / 2 + 14;
-      const halfW = (sendWaveBg.displayWidth || 200) / 2 + 24;
+      const halfH = (sendWaveBg.displayHeight || 50) / 2 + 36;
+      const halfW = Math.max(sendWaveBg.displayWidth || 200, 280) / 2 + 24;
       if (
         Math.abs(x - sendWaveBg.x) <= halfW
         && Math.abs(y - sendWaveBg.y) <= halfH
@@ -450,6 +455,56 @@ export class TowerTray {
     this._trayObjects?.forEach((obj) => {
       if (obj?.active) obj.setY(obj.getData("layoutY") + trayDelta);
     });
+
+    const ui = m.ui;
+    if (!ui?.cardScale || !this.towerCards?.length) return;
+    const scale = ui.cardScale;
+    const step = ui.cardStep ?? CARD_W + 12;
+    const towers = this.towerCards;
+    const width = GameConfig.canvas.width;
+    const twoRows = ui.trayRows === 2;
+    const row0Count = twoRows ? 4 : towers.length;
+    const row1Count = twoRows ? towers.length - row0Count : 0;
+    const rowGap = twoRows ? (ui.trayHeight / 2 - CARD_H * scale * 0.55) : 0;
+    const baseCenterY = m.trayCenterY;
+
+    const layoutRow = (cards, rowIdx, count) => {
+      const totalWidth = count * step - (step - CARD_W * scale);
+      const startX = (width - totalWidth) / 2;
+      const rowY = twoRows
+        ? baseCenterY - rowGap / 2 + rowIdx * rowGap
+        : baseCenterY;
+      cards.forEach((card, idx) => {
+        const x = startX + idx * step + (CARD_W * scale) / 2;
+        const parts = [card.cardBg, card.hitZone, card.sprite, card.nameText, card.costText, card.coinIcon, card.greyOverlay, card.selectionGlow, card.lockText].filter(Boolean);
+        parts.forEach((p) => {
+          p.setPosition(x, rowY);
+          p.setScale(scale);
+        });
+        card.sprite.setDisplaySize(44 * scale, 44 * scale);
+        card.coinIcon.setDisplaySize(12 * scale, 12 * scale);
+      });
+    };
+
+    if (twoRows) {
+      layoutRow(towers.slice(0, row0Count), 0, row0Count);
+      layoutRow(towers.slice(row0Count), 1, row1Count);
+    } else {
+      layoutRow(towers, 0, towers.length);
+    }
+
+    if (ui.trayHeight && this.trayBgOuter?.active) {
+      this.trayBgOuter.setSize(width - 40, ui.trayHeight);
+      this.trayBgInner?.setSize(width - 48, ui.trayHeight - 8);
+    }
+  }
+
+  showLockedToast(config) {
+    const unlock = config.unlock;
+    let msg = 'Tower locked';
+    if (unlock?.type === 'level') msg = `Unlocks at Hannah Level ${unlock.value}`;
+    else if (unlock?.type === 'zone') msg = `Unlocks in Garden Level ${unlock.value}`;
+    showToast(this.scene, msg);
   }
 
   destroy() {
