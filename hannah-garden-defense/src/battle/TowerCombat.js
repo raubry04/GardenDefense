@@ -410,6 +410,7 @@ export class TowerCombat {
       for (let i = 0; i < splitCount; i++) {
         this.spawnSplitEnemy('SNAKE', enemy.x, enemy.y, enemy.waypointIndex);
       }
+      s.game.events.emit('wave-enemies-added', { count: splitCount });
     }
   }
 
@@ -438,6 +439,14 @@ export class TowerCombat {
       const mods = GameConfig.bossModifiers || {};
       hp = Math.round(hp * (mods.hpMult ?? 1));
       speed *= mods.speedMult ?? 1;
+    }
+
+    const zone = s.zone;
+    if (zone < GameConfig.zones.length) {
+      const scale = GameConfig.campaignHpScale;
+      const zoneMult = scale?.perZone?.[zone] ?? 1;
+      const battleMult = 1 + (s.battle ?? 0) * (scale?.perBattleInZone ?? 0);
+      hp = Math.round(hp * zoneMult * battleMult);
     }
 
     const sprite = s.add.image(start.x, start.y, spriteKey)

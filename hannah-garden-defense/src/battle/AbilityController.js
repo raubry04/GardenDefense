@@ -11,10 +11,11 @@ export class AbilityController {
 
   setupAbilities() {
     const s = this.scene;
-    s.game.events.on('ability-used', (data) => {
+    this._onAbilityUsed = (data) => {
       const key = typeof data === 'string' ? data : data?.key;
       if (key) this.useAbility(key);
-    });
+    };
+    s.game.events.on('ability-used', this._onAbilityUsed);
   }
 
   abilityCooldownMs(key) {
@@ -49,7 +50,9 @@ export class AbilityController {
     }
 
     const ability = GameConfig.hannahAbilities[key];
-    s.abilityLastUsed[key] = s.time.now;
+    if (key !== 'FLOWER_BOMB') {
+      s.abilityLastUsed[key] = s.time.now;
+    }
 
     switch (key) {
       case 'SUNSHINE_BURST': {
@@ -127,8 +130,11 @@ export class AbilityController {
       hint.setPosition(ptr.worldX, ptr.worldY - rangePx - 12);
     };
 
+    this._flowerBombAutoTimer = null;
+
     const detonateAt = (x, y) => {
       this._clearFlowerBombAim();
+      s.abilityLastUsed.FLOWER_BOMB = s.time.now;
       for (const enemy of s.enemies) {
         if (!enemy.alive) continue;
         if (Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y) <= rangePx) {
@@ -161,15 +167,32 @@ export class AbilityController {
       if (s._flowerBombAiming) s.input.once('pointerdown', onTap);
     });
 
-    s.time.delayedCall(5000, () => {
+    this._flowerBombAutoTimer = s.time.delayedCall(5000, () => {
       if (!s._flowerBombAiming) return;
       const fallback = s.waypoints[Math.floor(s.waypoints.length / 2)];
       detonateAt(fallback.x, fallback.y);
     });
   }
 
+  destroy() {
+    const s = this.scene;
+    this._clearFlowerBombAim();
+    if (this._flowerBombAutoTimer?.remove) {
+      this._flowerBombAutoTimer.remove(false);
+      this._flowerBombAutoTimer = null;
+    }
+    if (this._onAbilityUsed) {
+      s.game.events.off('ability-used', this._onAbilityUsed);
+      this._onAbilityUsed = null;
+    }
+  }
+
   _clearFlowerBombAim() {
     const s = this.scene;
+    if (this._flowerBombAutoTimer?.remove) {
+      this._flowerBombAutoTimer.remove(false);
+      this._flowerBombAutoTimer = null;
+    }
     s._flowerBombAiming = false;
     this._flowerBombCleanup?.();
     this._flowerBombCleanup = null;

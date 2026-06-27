@@ -10,6 +10,7 @@ export class LeaderboardScene extends Phaser.Scene {
 
   init(data) {
     this.playerName = data.playerName || localStorage.getItem('hannahGarden_playerName') || 'Player';
+    this._leaderboardMode = data.mode ?? 'campaign';
   }
 
   create() {
@@ -26,6 +27,8 @@ export class LeaderboardScene extends Phaser.Scene {
       stroke: '#1A1A2E',
       strokeThickness: 4,
     }).setOrigin(0.5);
+
+    this._createModeTabs(width);
 
     this.loadingText = this.add.text(width / 2, height / 2, 'Loading scores...', {
       fontFamily: 'Kenney Future',
@@ -46,6 +49,39 @@ export class LeaderboardScene extends Phaser.Scene {
     this._createButton(width / 2, height - 50, '← BACK', () => {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
       this.scene.start('MainMenuScene');
+    });
+  }
+
+  _createModeTabs(width) {
+    const modes = [
+      { id: 'campaign', label: 'Campaign' },
+      { id: 'endless', label: 'Endless' },
+      { id: 'daily', label: 'Daily' },
+    ];
+    const tabW = 120;
+    const gap = 8;
+    const totalW = modes.length * tabW + (modes.length - 1) * gap;
+    const startX = width / 2 - totalW / 2 + tabW / 2;
+    const tabY = 72;
+
+    modes.forEach((mode, i) => {
+      const x = startX + i * (tabW + gap);
+      const active = this._leaderboardMode === mode.id;
+      const bg = this.add.rectangle(x, tabY, tabW, 32, active ? COLORS.primary : 0x2A2A4E, active ? 1 : 0.7)
+        .setStrokeStyle(2, active ? COLORS.outline : 0x444466)
+        .setInteractive({ useHandCursor: true });
+
+      const label = this.add.text(x, tabY, mode.label, {
+        fontFamily: 'Kenney Future',
+        fontSize: '14px',
+        color: active ? '#4A2C0A' : '#FFF9E6',
+      }).setOrigin(0.5);
+
+      bg.on('pointerdown', () => {
+        if (this._leaderboardMode === mode.id) return;
+        this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+        this.scene.restart({ playerName: this.playerName, mode: mode.id });
+      });
     });
   }
 
@@ -80,7 +116,7 @@ export class LeaderboardScene extends Phaser.Scene {
     const { width, height } = DESIGN;
 
     try {
-      const response = await fetch('/api/leaderboard');
+      const response = await fetch(`/api/leaderboard?mode=${encodeURIComponent(this._leaderboardMode)}`);
       const data = await response.json();
       this.loadingText.destroy();
       this._displayTable(data, width, height);
@@ -91,7 +127,7 @@ export class LeaderboardScene extends Phaser.Scene {
   }
 
   _displayTable(entries, width, height) {
-    const startY = 80;
+    const startY = 108;
     const rowHeight = 38;
     const tableWidth = width * 0.88;
     const tableX = (width - tableWidth) / 2;

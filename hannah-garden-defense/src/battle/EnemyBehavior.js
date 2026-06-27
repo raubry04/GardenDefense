@@ -196,6 +196,8 @@ export class EnemyBehavior {
     s.game.events.emit('lives-changed', { lives: s.lives });
 
     if (s.lives <= 0) {
+      if (s._defeatHandled) return;
+      s._defeatHandled = true;
       s.lives = 0;
       s.scene.stop('UIScene');
       s.scene.stop('GameScene');

@@ -1,5 +1,6 @@
 import { GameConfig } from "../config.js";
 import { sfxVol } from "../utils/audioMix.js";
+import { setTouchFriendlyCircleHit } from "../utils/battleInput.js";
 import { showToast } from "./Toast.js";
 
 const COLORS = GameConfig.colors;
@@ -69,10 +70,15 @@ export class AbilityBar {
       const circle = trackY(
         scene.add
           .circle(x, y, btnRadius, abilityColor)
-          .setStrokeStyle(3, COLORS.outline)
-          .setInteractive({ useHandCursor: unlocked }),
+          .setStrokeStyle(3, COLORS.outline),
         y,
       );
+      if (this._touchMode) {
+        setTouchFriendlyCircleHit(circle, 16);
+        circle.input.cursor = unlocked ? 'pointer' : 'default';
+      } else {
+        circle.setInteractive({ useHandCursor: unlocked });
+      }
 
       const icon = ABILITY_LABELS[key] || config.label.charAt(0);
       const label = trackY(
@@ -94,7 +100,7 @@ export class AbilityBar {
       );
 
       const tooltipText = unlocked
-        ? config.label
+        ? `${config.label}\n${config.description || ''}`
         : `${config.label} (Lv.${config.unlockLevel})`;
       const tooltip = trackY(
         scene.add
@@ -104,9 +110,11 @@ export class AbilityBar {
             color: "#FFFFFF",
             backgroundColor: "#000000aa",
             padding: { x: 4, y: 2 },
+            align: 'center',
+            wordWrap: { width: 120 },
           })
           .setOrigin(0.5, 0)
-          .setVisible(false),
+          .setVisible(this._touchMode),
         y + btnRadius + 8,
       );
 
@@ -151,17 +159,11 @@ export class AbilityBar {
       });
       circle.on("pointerdown", () => {
         if (!unlocked) return;
-        if (this._touchMode) {
-          if (this._openAbilityTooltip === btn) {
-            this._dismissAbilityTooltips();
-            this._requestAbility(key, config, btn);
-          } else {
-            this._dismissAbilityTooltips();
-            this._openAbilityTooltip = btn;
-            this._showAbilityTooltip(btn, true);
-          }
-          return;
-        }
+        this._requestAbility(key, config, btn);
+      });
+      label.setInteractive({ useHandCursor: unlocked });
+      label.on("pointerdown", () => {
+        if (!unlocked) return;
         this._requestAbility(key, config, btn);
       });
 
@@ -285,7 +287,8 @@ export class AbilityBar {
 
   _showAbilityTooltip(btn, persistent = false) {
     const state = btn.onCooldown ? ' (cooldown)' : btn.unlocked ? '' : ' (locked)';
-    btn.tooltip.setText(`${btn.config.label}${state}`);
+    const desc = btn.config.description ? `\n${btn.config.description}` : '';
+    btn.tooltip.setText(`${btn.config.label}${state}${desc}`);
     btn.tooltip.setVisible(true);
     if (!persistent) return;
     this._openAbilityTooltip = btn;
@@ -410,7 +413,12 @@ export class AbilityBar {
       const abilityColor = unlocked ? (ABILITY_COLORS[btn.key] || COLORS.accent) : 0x555555;
       btn.circle.setFillStyle(abilityColor);
       btn.label.setColor(unlocked ? '#FFFFFF' : '#AAAAAA');
-      btn.circle.setInteractive({ useHandCursor: unlocked });
+      if (this._touchMode) {
+        setTouchFriendlyCircleHit(btn.circle, 16);
+        btn.circle.input.cursor = unlocked ? 'pointer' : 'default';
+      } else {
+        btn.circle.setInteractive({ useHandCursor: unlocked });
+      }
     });
   }
 
@@ -456,6 +464,9 @@ export class AbilityBar {
     });
 
     scene.game.events.emit("ability-used", { key, config });
+    if (config.description) {
+      showToast(scene, config.description, 2200);
+    }
     btn.pending = true;
     scene.time.delayedCall(50, () => {
       if (btn.pending) btn.pending = false;
@@ -505,6 +516,8 @@ export class AbilityBar {
   }
 
   destroy() {
+    this._sendWaveGlowTween?.stop();
+    this._sendWaveGlowTween = null;
     this._abilityObjects?.forEach((o) => o?.destroy?.());
     this._sendWaveObjects?.forEach((o) => o?.destroy?.());
   }

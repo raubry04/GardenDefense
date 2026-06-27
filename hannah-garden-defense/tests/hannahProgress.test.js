@@ -8,12 +8,13 @@ import {
   sumZoneStars,
   progressToServerPayload,
   serverRowToProgress,
+  mergeProgressRecords,
   DEFAULT_PROGRESS,
 } from '../src/utils/hannahProgress.js';
 
 describe('battleSunshineToMetaBank', () => {
-  it('deposits 20% of battle earnings', () => {
-    expect(battleSunshineToMetaBank(510)).toBe(102);
+  it('deposits 16% of battle earnings', () => {
+    expect(battleSunshineToMetaBank(510)).toBe(81);
     expect(battleSunshineToMetaBank(0)).toBe(0);
   });
 });
@@ -52,7 +53,7 @@ describe('applyTowerTierStats', () => {
     expect(tier0.damage).toBe(10);
 
     const tier2 = applyTowerTierStats('CHICKEN', 2);
-    expect(tier2.damage).toBe(30);
+    expect(tier2.damage).toBe(26);
     expect(tier2.eggs).toBe(3);
     expect(tier2.pierce).toBe(1);
   });
@@ -78,6 +79,42 @@ describe('progressToServerPayload', () => {
     expect(payload.unlocked_zone).toBe(2);
     expect(JSON.parse(payload.tower_upgrades)).toEqual({ CHICKEN: 1 });
   });
+
+  it('serializes nested battleStars shape used in production', () => {
+    const payload = progressToServerPayload({
+      playerName: 'Alice',
+      battleStars: { 0: { 0: 3, 1: 2 }, 1: { 0: 1 } },
+    });
+    expect(JSON.parse(payload.battle_stars)).toEqual({
+      0: { 0: 3, 1: 2 },
+      1: { 0: 1 },
+    });
+  });
+});
+
+describe('mergeProgressRecords', () => {
+  it('keeps best stars, upgrades, and sunshine from both records', () => {
+    const local = normalizeProgress({
+      playerName: 'Alice',
+      sunshinePoints: 200,
+      unlockedZone: 1,
+      battleStars: { 0: { 0: 2 } },
+      towerUpgrades: { CHICKEN: 1 },
+    });
+    const remote = normalizeProgress({
+      playerName: 'Alice',
+      sunshinePoints: 150,
+      unlockedZone: 2,
+      battleStars: { 0: { 0: 3, 1: 1 } },
+      towerUpgrades: { RABBIT: 2 },
+    });
+    const merged = mergeProgressRecords(local, remote);
+    expect(merged.sunshinePoints).toBe(200);
+    expect(merged.unlockedZone).toBe(2);
+    expect(merged.battleStars[0][0]).toBe(3);
+    expect(merged.towerUpgrades.CHICKEN).toBe(1);
+    expect(merged.towerUpgrades.RABBIT).toBe(2);
+  });
 });
 
 describe('serverRowToProgress', () => {
@@ -97,5 +134,21 @@ describe('serverRowToProgress', () => {
     expect(progress.unlockedZone).toBe(1);
     expect(progress.towerUpgrades.RABBIT).toBe(2);
     expect(progress.battleStars['0-0']).toBe(3);
+  });
+
+  it('restores nested battleStars from server JSON', () => {
+    const progress = serverRowToProgress({
+      player_name: 'Bob',
+      hannah_level: 2,
+      hannah_xp: 0,
+      garden_level: 1,
+      sunshine_points: 0,
+      battle_stars: JSON.stringify({ 0: { 0: 3, 1: 1 } }),
+      unlocked_zone: 0,
+      zone_battles: '{}',
+      tower_upgrades: '{}',
+    }, 'Bob');
+    expect(progress.battleStars[0][0]).toBe(3);
+    expect(progress.battleStars[0][1]).toBe(1);
   });
 });

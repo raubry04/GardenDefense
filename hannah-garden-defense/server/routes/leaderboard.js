@@ -18,6 +18,21 @@ export function validateLeaderboardMode(mode) {
   return mode == null || mode === 'campaign' || mode === 'daily' || mode === 'endless';
 }
 
+export function validateLeaderboardStars(stars) {
+  const n = Number(stars);
+  return Number.isFinite(n) && Number.isInteger(n) && n >= 0 && n <= 3;
+}
+
+export function validateLeaderboardZone(zone) {
+  const n = Number(zone);
+  return Number.isFinite(n) && Number.isInteger(n) && n >= 0 && n <= 5;
+}
+
+export function validateLeaderboardBattle(battle) {
+  const n = Number(battle);
+  return Number.isFinite(n) && Number.isInteger(n) && n >= 0 && n <= 9;
+}
+
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 10;
 const rateLimitByIp = new Map();
@@ -90,6 +105,18 @@ router.post('/', rateLimitMiddleware, (req, res) => {
 
     if (!validateLeaderboardScore(score)) {
       return res.status(400).json({ error: 'score must be a non-negative integer' });
+    }
+
+    if (!validateLeaderboardStars(stars_earned)) {
+      return res.status(400).json({ error: 'stars_earned must be an integer from 0 to 3' });
+    }
+
+    if (!validateLeaderboardZone(zone)) {
+      return res.status(400).json({ error: 'zone must be an integer from 0 to 5' });
+    }
+
+    if (!validateLeaderboardBattle(battle)) {
+      return res.status(400).json({ error: 'battle must be an integer from 0 to 9' });
     }
 
     const entryMode = mode ?? 'campaign';

@@ -6,6 +6,10 @@ function makeTray(overrides = {}) {
   tray.hud = {
     waveBarBg: { y: 80 },
     _hudRow2Y: 80,
+    pauseBtn: { active: true, x: 1180, y: 40, radius: 22 },
+    speedBtn: { active: true, x: 1240, y: 40, radius: 22 },
+    sunPanel: { active: true, x: 1080, y: 40, width: 108, height: 34 },
+    _sunPanelW: 108,
     ...overrides.hud,
   };
   tray.abilityBar = {
@@ -27,6 +31,9 @@ function makeTray(overrides = {}) {
     y: 640,
     height: 94,
     ...overrides.trayBgOuter,
+  };
+  tray.scene = {
+    sys: { game: { device: { input: { touch: false } } } },
   };
   return tray;
 }
@@ -51,6 +58,22 @@ describe('TowerTray.isDesignPointOverBlockingUI', () => {
   it('blocks points over ability buttons', () => {
     const tray = makeTray();
     expect(tray.isDesignPointOverBlockingUI(1200, 360)).toBe(true);
+  });
+
+  it('blocks points over pause, speed, and sunshine panel controls', () => {
+    const tray = makeTray({
+      hud: {
+        waveBarBg: { y: 10 },
+        _hudRow2Y: 10,
+        pauseBtn: { active: true, x: 400, y: 200, radius: 22 },
+        speedBtn: { active: true, x: 460, y: 200, radius: 22 },
+        sunPanel: { active: true, x: 300, y: 200, width: 108, height: 34 },
+        _sunPanelW: 108,
+      },
+    });
+    expect(tray.isDesignPointOverBlockingUI(400, 200)).toBe(true);
+    expect(tray.isDesignPointOverBlockingUI(460, 200)).toBe(true);
+    expect(tray.isDesignPointOverBlockingUI(300, 200)).toBe(true);
   });
 
   it('allows board taps away from HUD, tray, send wave, and abilities', () => {

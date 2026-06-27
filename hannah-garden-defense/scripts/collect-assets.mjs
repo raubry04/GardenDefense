@@ -6,7 +6,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildAssetCopyList } from './assetCopyManifest.mjs';
+import { buildAssetCopyList, listRuntimeAssetDestPaths } from './assetCopyManifest.mjs';
+import { listCraftpixRuntimePaths } from '../src/utils/craftpixTiles.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -57,6 +58,33 @@ console.log(`Copied ${copied} used asset files to ${destRoot}`);
 if (craftpixBackup || fs.existsSync(craftpixDest)) {
   console.log('Preserved hand-curated craftpix/ folder');
 }
+
+const craftpixRequired = listCraftpixRuntimePaths();
+const craftpixMissing = craftpixRequired.filter(
+  (rel) => !fs.existsSync(path.join(destRoot, rel)),
+);
+if (craftpixMissing.length) {
+  console.error(
+    `Craftpix folder is incomplete after collect (${craftpixMissing.length} missing props/tiles).`,
+  );
+  console.error('Map decorations will not appear until craftpix/ is restored from git:');
+  craftpixMissing.slice(0, 8).forEach((m) => console.error('  ', m));
+  if (craftpixMissing.length > 8) {
+    console.error(`  ... and ${craftpixMissing.length - 8} more`);
+  }
+  console.error('Fix: git checkout -- assets/craftpix  (or re-copy props from the Simple Summer pack)');
+  process.exit(1);
+}
+
+const manifestMissing = listRuntimeAssetDestPaths().filter(
+  (rel) => !rel.startsWith('craftpix/') && !fs.existsSync(path.join(destRoot, rel)),
+);
+if (manifestMissing.length) {
+  console.error(`Missing ${manifestMissing.length} non-craftpix runtime assets after collect:`);
+  manifestMissing.forEach((m) => console.error('  ', m));
+  process.exit(1);
+}
+
 if (missing.length) {
   console.error(`Missing ${missing.length} source files:`);
   missing.forEach((m) => console.error('  ', m));

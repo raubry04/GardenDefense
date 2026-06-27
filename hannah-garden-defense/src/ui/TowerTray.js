@@ -1,6 +1,8 @@
 import { GameConfig } from '../config.js';
 import { sfxVol } from '../utils/audioMix.js';
+import { battleHudButtonHitRadius } from '../utils/battleInput.js';
 import { showToast } from './Toast.js';
+import { towerPlacementCost } from '../utils/battleEconomy.js';
 import { TOWER_SPRITES } from "../utils/AssetRegistry.js";
 
 const COLORS = GameConfig.colors;
@@ -187,11 +189,14 @@ export class TowerTray {
 
       const hoverTargets = [cardBg, nameText, costText, greyOverlay];
       const onCardDown = (pointer) => {
-        if (!unlocked) {
+        const liveUnlocked = this._isTowerUnlocked(config);
+        const liveCost = this._placementCost(type);
+        const liveAffordable = liveUnlocked && this.scene.sunshinePoints >= liveCost;
+        if (!liveUnlocked) {
           this.showLockedToast(config);
           return;
         }
-        if (!affordable) {
+        if (!liveAffordable) {
           showToast(this.scene, 'Not enough sunshine!');
           return;
         }
@@ -199,7 +204,7 @@ export class TowerTray {
       };
 
       hitZone.on("pointerover", () => {
-        if (!this._canUseTowerCard(config)) return;
+        if (!this._canUseTowerCard(config, type)) return;
         scene.tweens.add({
           targets: hoverTargets,
           scaleX: 1.08,
@@ -249,6 +254,13 @@ export class TowerTray {
     this.towerCards?.forEach((card) => this._resetTowerCard(card));
   }
 
+  _placementCost(type) {
+    const game = this.scene.game.scene.getScene('GameScene');
+    if (game?.towerPlacement) return game.towerPlacement.placementCostFor(type);
+    const count = game?.towers?.filter((t) => t.type === type && t.hp > 0).length ?? 0;
+    return towerPlacementCost(type, count);
+  }
+
   _isTowerUnlocked(config) {
     const scene = this.scene;
     const unlock = config.unlock;
@@ -281,8 +293,9 @@ export class TowerTray {
     });
   }
 
-  _canUseTowerCard(config) {
-    return this._isTowerUnlocked(config) && this.scene.sunshinePoints >= config.cost;
+  _canUseTowerCard(config, type) {
+    const cost = this._placementCost(type);
+    return this._isTowerUnlocked(config) && this.scene.sunshinePoints >= cost;
   }
 
   _setTowerCardInteractive(card, unlocked, affordable) {
@@ -296,7 +309,9 @@ export class TowerTray {
     this.towerCards.forEach((card) => {
       const unlocked = this._isTowerUnlocked(card.config);
       card.unlocked = unlocked;
-      const affordable = unlocked && scene.sunshinePoints >= card.config.cost;
+      const cost = this._placementCost(card.type);
+      card.costText.setText(`${cost}`);
+      const affordable = unlocked && scene.sunshinePoints >= cost;
       card.cardBg.setStrokeStyle(2, affordable ? 0x6c6f85 : 0x444444);
       card.nameText.setColor(unlocked && affordable ? "#CCCCCC" : "#666666");
       card.costText.setColor(unlocked && affordable ? "#FFD700" : "#666666");
@@ -394,6 +409,22 @@ export class TowerTray {
   onBoardTap(pointer) {
     if (this._towerDrag || !this.selectedTowerType || !this._towerTapMode) return;
     if (this.isPointerOverBlockingUI(pointer)) return;
+
+    const gameScene = this.scene.game.scene.getScene('GameScene');
+    if (gameScene?.towerPlacement && gameScene.towerInspect) {
+      const { col, row } = gameScene.towerPlacement.placementTileFromPointer(pointer);
+      const tower = gameScene.towerInspect.towerAt(col, row);
+      if (tower) {
+        if (gameScene.towerInspect.isOpen() && gameScene.towerInspect.tower === tower) {
+          gameScene.towerInspect.close();
+        } else {
+          gameScene.towerInspect.open(tower);
+        }
+        this.clearSelection();
+        return;
+      }
+    }
+
     this.scene.game.events.emit("tower-place-request", pointer);
     this.clearSelection();
   }
@@ -414,8 +445,27 @@ export class TowerTray {
 
   /** UI hit-test using live widget positions (stays correct after layout relayout). */
   isDesignPointOverBlockingUI(x, y) {
+    const touch = Boolean(this.scene?.sys?.game?.device?.input?.touch);
     const hudBottom = (this.hud.waveBarBg?.y ?? this.hud._hudRow2Y) + 20;
     if (y <= hudBottom) return true;
+
+    for (const btnKey of ['pauseBtn', 'speedBtn']) {
+      const btn = this.hud[btnKey];
+      if (!btn?.active) continue;
+      const r = battleHudButtonHitRadius(btn.radius || 22, touch);
+      const dx = x - btn.x;
+      const dy = y - btn.y;
+      if (dx * dx + dy * dy <= r * r) return true;
+    }
+
+    const sunPanel = this.hud.sunPanel;
+    if (sunPanel?.active) {
+      const halfW = (this.hud._sunPanelW || sunPanel.width || 108) / 2 + 8;
+      const halfH = (sunPanel.height || 34) / 2 + 8;
+      if (Math.abs(x - sunPanel.x) <= halfW && Math.abs(y - sunPanel.y) <= halfH) {
+        return true;
+      }
+    }
 
     if (this.trayBgOuter?.active) {
       const trayTop = this.trayBgOuter.y - this.trayBgOuter.height / 2 - 6;
@@ -436,7 +486,7 @@ export class TowerTray {
 
     for (const btn of this.abilityBar.abilityButtons || []) {
       if (!btn.circle?.active) continue;
-      const r = (btn.circle.radius || 32) + 10;
+      const r = (btn.circle.radius || 32) + (touch ? 26 : 10);
       const dx = x - btn.circle.x;
       const dy = y - btn.circle.y;
       if (dx * dx + dy * dy <= r * r) return true;

@@ -16,13 +16,25 @@ Avoid scattering magic numbers in scene files; battle modules read from `GameCon
 | Key | Default | Effect |
 |-----|---------|--------|
 | `startingSunshinePoints` | zone1: 150 … zone5: 250 | In-battle placement budget at battle start |
-| `metaSunshineBankRate` | `0.2` | Fraction of `(battle earnings + star bonuses)` deposited on victory |
+| `metaSunshineBankRate` | `0.15` | Fraction of `(battle earnings + star bonuses)` deposited on victory |
+| `duplicateTowerCostStep` | `0.15` | Each additional tower of the same type costs +15% |
+| `campaignHpScale` | per-zone + per-battle | Gentler early zones; ramps mid/late campaign |
 | `earlyWaveBonusPoints` | `10` | Reward for Send Wave early |
 | `waveCompletionBonus` | `25` | Per-wave completion (in-battle) |
 | `twoStarBonus` / `threeStarBonus` | `25` / `75` | Added to earnings before meta bank rate |
 | `sellRefundPercent` | `0.5` | Sell tower refund |
 
-**Design note:** At 20% meta rate, zone 0 battle 1 yields roughly 102–132 bank points from a typical run — enough for one tier-1 upgrade, not instant max power.
+**Design note:** At 15% meta rate, zone 0 battle 1 yields roughly 75–95 bank points — one tier-1 upgrade every 1–2 wins without maxing a whole tree.
+
+## How other tower defense games handle economy (and what we do)
+
+| Pattern | Examples | Hannah Garden Defense |
+|---------|----------|------------------------|
+| **Dual currency** | Bloons (cash in-round vs MM) | In-battle sunshine vs upgrade-bank sunshine |
+| **Duplicate tax** | Bloons, Kingdom Rush (slot limits) | +22% cost per same-type tower placed |
+| **Counter triangles** | Kingdom Rush, Gemcraft | Flying/armored/fast tags + tower immunities |
+| **Upgrade pacing** | Plants vs Zombies (world gates) | Tier 2 meta upgrades gated by zone/level |
+| **Wave scaling** | All major TDs | Zone + battle HP multipliers on enemies |
 
 ## Lives and stars
 
@@ -113,7 +125,7 @@ Zone 0 battle 1 (tutorial) tuning:
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| `startingSunshinePoints.zone1` | 150 | Rabbit (50) + one Chicken (75); second Chicken needs early kills |
+| `startingSunshinePoints.zone1` | 140 | Rabbit (50) + Chicken (78) at start; small buffer for wave 1 |
 | Rabbit / Chicken tier-0 range | 112 / 210 px | ~1.75 / ~3.25 tiles; upgrade tiers unchanged relative to new bases |
 | `zoneIntro[0].manualFirstWave` | true | Wave 1 only starts when player taps Send Wave |
 | `zoneIntro[0].battle0MaxCount` | `[3,3,4,5,6]` | Per-wave enemy caps for battle 1 |

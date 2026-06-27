@@ -1,6 +1,23 @@
 import { GameConfig } from '../config.js';
 
 /**
+ * Whether the player may purchase the next meta upgrade tier (0→1 or 1→2).
+ * Tier 2 is gated behind campaign progress so early wins cannot max one tower.
+ */
+export function canPurchaseUpgradeTier(towerType, currentTier, progress) {
+  if (currentTier >= 2) return false;
+  const unlock = GameConfig.towers[towerType]?.unlock;
+  if (currentTier === 0) return true;
+  if (unlock?.type === 'zone') {
+    return (progress.unlockedZone ?? 0) >= unlock.value + 1;
+  }
+  if (unlock?.type === 'level') {
+    return (progress.hannahLevel ?? 1) >= unlock.value + 3;
+  }
+  return true;
+}
+
+/**
  * All tower types available for meta upgrades, with types used in the last battle listed first.
  * @param {Array<{ type: string }>} placedTowers
  * @returns {string[]}

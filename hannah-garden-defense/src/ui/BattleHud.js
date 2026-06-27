@@ -1,4 +1,5 @@
 import { GameConfig } from "../config.js";
+import { setTouchFriendlyCircleHit } from "../utils/battleInput.js";
 
 const COLORS = GameConfig.colors;
 const HUD_DEPTH = 200;
@@ -34,6 +35,7 @@ export class BattleHud {
         .image(startX + i * heartSpacing, row1Y, "heartIcon")
         .setDisplaySize(22, 22)
         .setDepth(hudDepth);
+      heart.setData('layoutY', row1Y);
       this.heartIcons.push(heart);
     }
 
@@ -82,6 +84,15 @@ export class BattleHud {
     this._canonicalRow1Y = row1Y;
     this._canonicalRow2Y = row2Y;
     this._trackHudY(this.livesText, row1Y - 10);
+    this._trackHudY(this.pauseBtn, row1Y);
+    this._trackHudY(this.pauseLabel, row1Y);
+    this._trackHudY(this.pauseHint, row1Y + 24);
+    this._trackHudY(this.speedBtn, row1Y);
+    this._trackHudY(this.speedLabel, row1Y);
+    this._trackHudY(this.speedHint, row1Y + 24);
+    this._trackHudY(this.sunPanel, row1Y);
+    this._trackHudY(this._hudStarIcon, row1Y);
+    this._trackHudY(this.pointsText, row1Y - 10);
     this._trackHudY(this.wavePanel, row2Y);
     this._trackHudY(this.waveText, row2Y - 16);
     this._trackHudY(this.waveBarBg, row2Y + 12);
@@ -97,7 +108,9 @@ export class BattleHud {
     const row1Delta = m.hudRow1Y - this._canonicalRow1Y;
     const row2Delta = m.hudRow2Y - this._canonicalRow2Y;
 
-    this.heartIcons.forEach((h) => h.setY(h.y + row1Delta));
+    this.heartIcons.forEach((h) => {
+      if (h?.active) h.setY(h.getData('layoutY') + row1Delta);
+    });
     if (this.livesText?.active) this.livesText.setY(this.livesText.getData('layoutY') + row1Delta);
     if (this.wavePanel?.active) this.wavePanel.setY(this.wavePanel.getData('layoutY') + row2Delta);
     if (this.waveText?.active) this.waveText.setY(this.waveText.getData('layoutY') + row2Delta);
@@ -106,7 +119,9 @@ export class BattleHud {
 
     for (const key of ['pauseBtn', 'pauseLabel', 'pauseHint', 'speedBtn', 'speedLabel', 'speedHint', 'sunPanel', '_hudStarIcon', 'pointsText']) {
       const obj = this[key];
-      if (obj?.active) obj.setY(obj.getData('layoutY') != null ? obj.getData('layoutY') + row1Delta : obj.y + row1Delta);
+      if (obj?.active && obj.getData('layoutY') != null) {
+        obj.setY(obj.getData('layoutY') + row1Delta);
+      }
     }
 
     if (m.hudPauseX != null) {
@@ -139,11 +154,19 @@ export class BattleHud {
     const pauseX = width - rightMargin - btnR;
     const speedX = pauseX - btnR * 2 - btnGap;
 
+    const touch = scene.sys.game.device.input.touch;
+    this._touchMode = touch;
+
     this.pauseBtn = scene.add
       .circle(pauseX, row1Y, btnR, COLORS.button)
       .setStrokeStyle(2, COLORS.outline)
-      .setInteractive({ useHandCursor: true })
       .setDepth(hudDepth);
+    if (touch) {
+      setTouchFriendlyCircleHit(this.pauseBtn, 16);
+      this.pauseBtn.input.cursor = 'pointer';
+    } else {
+      this.pauseBtn.setInteractive({ useHandCursor: true });
+    }
     this.pauseLabel = scene.add
       .text(pauseX, row1Y, "⏸", {
         fontFamily: "Kenney Future",
@@ -165,8 +188,13 @@ export class BattleHud {
     this.speedBtn = scene.add
       .circle(speedX, row1Y, btnR, COLORS.button)
       .setStrokeStyle(2, COLORS.outline)
-      .setInteractive({ useHandCursor: true })
       .setDepth(hudDepth);
+    if (touch) {
+      setTouchFriendlyCircleHit(this.speedBtn, 16);
+      this.speedBtn.input.cursor = 'pointer';
+    } else {
+      this.speedBtn.setInteractive({ useHandCursor: true });
+    }
     this.speedLabel = scene.add
       .text(speedX, row1Y, "×1", {
         fontFamily: "Kenney Future",
@@ -209,7 +237,7 @@ export class BattleHud {
       .setDepth(hudDepth);
 
     const speedTooltip = scene.add
-      .text(speedX, row1Y - btnR - 6, "Toggle game speed", {
+      .text(speedX, row1Y - btnR - 6, "Toggle 1× / 2× speed", {
         fontFamily: "Kenney Future",
         fontSize: "10px",
         color: "#FFFFFF",
@@ -220,43 +248,36 @@ export class BattleHud {
       .setVisible(false)
       .setDepth(hudDepth + 1);
 
-    const touch = scene.sys.game.device.input.touch;
-    if (!touch) {
-      this.speedBtn.on("pointerover", () => speedTooltip.setVisible(true));
-      this.speedBtn.on("pointerout", () => speedTooltip.setVisible(false));
-    }
-    this.speedBtn.on("pointerdown", () => {
-      if (touch) {
-        if (this._speedTooltipOpen) {
-          this._battleSpeed = this._battleSpeed === 1 ? 2 : 1;
-          this.speedLabel.setText(`×${this._battleSpeed}`);
-          scene.game.events.emit("battle-speed-changed", { speed: this._battleSpeed });
-          scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
-          this._speedTooltipOpen = false;
-          speedTooltip.setVisible(false);
-        } else {
-          this._speedTooltipOpen = true;
-          speedTooltip.setText('Tap again to toggle 1× / 2× speed');
-          speedTooltip.setVisible(true);
-        }
-        return;
-      }
+    const toggleSpeed = () => {
       this._battleSpeed = this._battleSpeed === 1 ? 2 : 1;
       this.speedLabel.setText(`×${this._battleSpeed}`);
       scene.game.events.emit("battle-speed-changed", { speed: this._battleSpeed });
       scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume });
-    });
+    };
 
-    this.pauseBtn.on("pointerdown", () => {
+    const togglePause = () => {
       scene.game.events.emit("toggle-pause");
-    });
+      scene.sound.play("buttonClick", { volume: GameConfig.audio.sfxVolume * 0.8 });
+    };
+
+    if (!touch) {
+      this.speedBtn.on("pointerover", () => speedTooltip.setVisible(true));
+      this.speedBtn.on("pointerout", () => speedTooltip.setVisible(false));
+    }
+    this.speedBtn.on("pointerdown", toggleSpeed);
+
+    this.pauseBtn.on("pointerdown", togglePause);
+    // Labels sit on top of circles — wire them so taps on the icon text still work.
+    for (const label of [this.pauseLabel, this.pauseHint, this.speedLabel, this.speedHint]) {
+      label.setInteractive({ useHandCursor: true });
+      label.on("pointerdown", label === this.speedLabel || label === this.speedHint ? toggleSpeed : togglePause);
+    }
 
     this._canonicalPauseX = pauseX;
     this._canonicalSpeedX = speedX;
     this._canonicalSunPanelX = sunPanelX;
     this._sunPanelW = sunPanelW;
     this._speedTooltip = speedTooltip;
-    this._speedTooltipOpen = false;
   }
 
   _repositionTopRight(row1Y, pauseX, speedX, sunPanelX) {

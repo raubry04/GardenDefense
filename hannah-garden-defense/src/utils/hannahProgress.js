@@ -155,18 +155,70 @@ export function serverRowToProgress(row, playerName) {
       : (row.tower_upgrades || {});
   } catch { /* ignore */ }
 
-  const local = loadLocalProgress(playerName);
   return normalizeProgress({
-    ...local,
-    playerName: row.player_name || playerName || local.playerName,
-    hannahLevel: row.hannah_level ?? local.hannahLevel,
-    hannahXp: row.hannah_xp ?? local.hannahXp,
-    gardenLevel: row.garden_level ?? local.gardenLevel,
-    sunshinePoints: row.sunshine_points ?? local.sunshinePoints,
-    unlockedZone: row.unlocked_zone ?? local.unlockedZone,
+    playerName: row.player_name || playerName || '',
+    hannahLevel: row.hannah_level,
+    hannahXp: row.hannah_xp,
+    gardenLevel: row.garden_level,
+    sunshinePoints: row.sunshine_points,
+    unlockedZone: row.unlocked_zone,
     battleStars,
     zoneStars,
     zoneBattles,
+    towerUpgrades,
+  });
+}
+
+function mergeNestedBattleStars(a = {}, b = {}) {
+  const out = { ...a };
+  for (const [zone, battles] of Object.entries(b)) {
+    if (!out[zone]) out[zone] = { ...battles };
+    else {
+      for (const [battle, stars] of Object.entries(battles || {})) {
+        out[zone][battle] = Math.max(out[zone][battle] || 0, stars || 0);
+      }
+    }
+  }
+  return out;
+}
+
+function mergeNumericRecord(a = {}, b = {}) {
+  const out = { ...a };
+  for (const [key, value] of Object.entries(b)) {
+    out[key] = Math.max(out[key] || 0, value || 0);
+  }
+  return out;
+}
+
+/**
+ * Merge local and remote progress, keeping best progress per field.
+ * @param {object} local
+ * @param {object} remote
+ * @returns {object}
+ */
+export function mergeProgressRecords(local, remote) {
+  const a = normalizeProgress(local);
+  const b = normalizeProgress(remote);
+  const battleStars = mergeNestedBattleStars(a.battleStars, b.battleStars);
+  const zoneBattles = mergeNumericRecord(a.zoneBattles, b.zoneBattles);
+  const towerUpgrades = mergeNumericRecord(a.towerUpgrades, b.towerUpgrades);
+
+  const zoneStars = mergeNumericRecord(a.zoneStars, b.zoneStars);
+  for (const zone of new Set([...Object.keys(battleStars), ...Object.keys(zoneStars)])) {
+    const fromBattles = sumZoneStars(battleStars[zone]);
+    zoneStars[zone] = Math.max(zoneStars[zone] || 0, fromBattles);
+  }
+
+  return normalizeProgress({
+    playerName: a.playerName || b.playerName,
+    hannahXp: Math.max(a.hannahXp, b.hannahXp),
+    hannahLevel: Math.max(a.hannahLevel, b.hannahLevel, hannahLevelFromXp(Math.max(a.hannahXp, b.hannahXp))),
+    gardenLevel: Math.max(a.gardenLevel, b.gardenLevel),
+    sunshinePoints: Math.max(a.sunshinePoints, b.sunshinePoints),
+    unlockedZone: Math.max(a.unlockedZone ?? 0, b.unlockedZone ?? 0),
+    battleStars,
+    zoneBattles,
+    zoneStars,
     towerUpgrades,
   });
 }
@@ -207,7 +259,9 @@ export async function loadProgress(playerName) {
     }
     if (res.ok) {
       const row = await res.json();
-      const merged = serverRowToProgress(row, playerName);
+      const remote = serverRowToProgress(row, playerName);
+      const local = loadLocalProgress(playerName);
+      const merged = mergeProgressRecords(local, remote);
       saveLocalProgress(merged);
       return merged;
     }

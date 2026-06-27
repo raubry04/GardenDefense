@@ -111,6 +111,8 @@ export class GameOverScene extends Phaser.Scene {
     if (this.zone >= GameConfig.zones.length) {
       this._postEndlessScore();
     }
+
+    this.events.once('shutdown', () => this._clearTypewriter());
   }
 
   async _postEndlessScore() {
@@ -120,6 +122,7 @@ export class GameOverScene extends Phaser.Scene {
       stars_earned: 0,
       zone: GameConfig.zones.length + 1,
       battle: this.battle + 1,
+      mode: 'endless',
     };
 
     try {
@@ -227,17 +230,30 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   _typewriterEffect(textObj, message, charDelay, startDelay) {
+    this._clearTypewriter();
     let index = 0;
-    this.time.delayedCall(startDelay || 0, () => {
-      this.time.addEvent({
+    this._typewriterStartTimer = this.time.delayedCall(startDelay || 0, () => {
+      this._typewriterStartTimer = null;
+      this._typewriterEvent = this.time.addEvent({
         delay: charDelay || 40,
         repeat: message.length - 1,
         callback: () => {
           index++;
-          textObj.setText(message.substring(0, index));
+          if (textObj?.active) textObj.setText(message.substring(0, index));
         },
       });
     });
+  }
+
+  _clearTypewriter() {
+    if (this._typewriterStartTimer?.remove) {
+      this._typewriterStartTimer.remove(false);
+      this._typewriterStartTimer = null;
+    }
+    if (this._typewriterEvent?.remove) {
+      this._typewriterEvent.remove(false);
+      this._typewriterEvent = null;
+    }
   }
 
   _createButtons(width, height) {

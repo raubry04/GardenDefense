@@ -114,7 +114,7 @@ export class WaveManager {
   }
 
   sendWaveEarly() {
-    if (!this.inCooldown) return;
+    if (!this.inCooldown) return false;
 
     this.inCooldown = false;
     this.cooldownTimer = 0;
@@ -129,6 +129,7 @@ export class WaveManager {
     }
 
     this.startNextWave();
+    return true;
   }
 
   update(time, delta) {

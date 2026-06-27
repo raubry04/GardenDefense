@@ -397,6 +397,15 @@ export function fitDesignInScreenRect(cam, sw, sh, rect) {
   return { zoom, scrollX: cam.scrollX, scrollY: cam.scrollY, playW: rw, playH: rh };
 }
 
+/** Shift the board away from bottom/right chrome bands without changing zoom. */
+export function nudgeBattleCameraForChrome(cam, sw, sh, zoom) {
+  const chrome = computeBattleChrome(sw, sh);
+  const nudgePx = chrome.isPortrait ? chrome.bottom * 0.2 : Math.max(chrome.bottom, chrome.right) * 0.12;
+  if (nudgePx > 0 && zoom > 0) {
+    cam.scrollY += nudgePx / zoom;
+  }
+}
+
 
 
 /** Fit board into the playable band between UI chrome. */

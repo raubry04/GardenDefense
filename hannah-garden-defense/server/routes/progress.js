@@ -47,18 +47,7 @@ router.get('/:name', (req, res) => {
  */
 router.post('/', (req, res) => {
   try {
-    const {
-      player_name,
-      hannah_level = 1,
-      hannah_xp = 0,
-      garden_level = 1,
-      sunshine_points = 0,
-      battle_stars = '{}',
-      unlocked_zone = 0,
-      zone_stars = '{}',
-      zone_battles = '{}',
-      tower_upgrades = '{}',
-    } = req.body;
+    const { player_name } = req.body;
 
     if (!player_name) {
       return res.status(400).json({ error: 'player_name is required' });
@@ -70,17 +59,38 @@ router.post('/', (req, res) => {
       });
     }
 
+    const existing = db.prepare(
+      'SELECT * FROM player_progress WHERE player_name = ?',
+    ).get(player_name);
+
+    const merged = {
+      hannah_level: req.body.hannah_level ?? existing?.hannah_level ?? 1,
+      hannah_xp: req.body.hannah_xp ?? existing?.hannah_xp ?? 0,
+      garden_level: req.body.garden_level ?? existing?.garden_level ?? 1,
+      sunshine_points: req.body.sunshine_points ?? existing?.sunshine_points ?? 0,
+      battle_stars: req.body.battle_stars ?? existing?.battle_stars ?? '{}',
+      unlocked_zone: req.body.unlocked_zone ?? existing?.unlocked_zone ?? 0,
+      zone_stars: req.body.zone_stars ?? existing?.zone_stars ?? '{}',
+      zone_battles: req.body.zone_battles ?? existing?.zone_battles ?? '{}',
+      tower_upgrades: req.body.tower_upgrades ?? existing?.tower_upgrades ?? '{}',
+    };
+
     const numericFields = {
-      hannah_level,
-      hannah_xp,
-      garden_level,
-      sunshine_points,
-      unlocked_zone,
+      hannah_level: merged.hannah_level,
+      hannah_xp: merged.hannah_xp,
+      garden_level: merged.garden_level,
+      sunshine_points: merged.sunshine_points,
+      unlocked_zone: merged.unlocked_zone,
     };
     for (const [field, value] of Object.entries(numericFields)) {
       if (!validateNonNegativeInt(value)) {
         return res.status(400).json({ error: `${field} must be a non-negative integer` });
       }
+    }
+
+    const maxZone = 5;
+    if (merged.unlocked_zone > maxZone) {
+      return res.status(400).json({ error: `unlocked_zone must be at most ${maxZone}` });
     }
 
     const stmt = db.prepare(`
@@ -91,15 +101,15 @@ router.post('/', (req, res) => {
     `);
     stmt.run(
       player_name,
-      hannah_level,
-      hannah_xp,
-      garden_level,
-      sunshine_points,
-      battle_stars,
-      unlocked_zone,
-      zone_stars,
-      zone_battles,
-      tower_upgrades,
+      merged.hannah_level,
+      merged.hannah_xp,
+      merged.garden_level,
+      merged.sunshine_points,
+      merged.battle_stars,
+      merged.unlocked_zone,
+      merged.zone_stars,
+      merged.zone_battles,
+      merged.tower_upgrades,
     );
 
     const row = db.prepare(
@@ -118,6 +128,9 @@ router.post('/', (req, res) => {
  * @returns {object} { deleted: true }
  */
 router.delete('/:name', (req, res) => {
+  if (process.env.ALLOW_PROGRESS_DELETE !== 'true') {
+    return res.status(403).json({ error: 'Progress DELETE is disabled' });
+  }
   try {
     const info = db.prepare(
       'DELETE FROM player_progress WHERE player_name = ?'

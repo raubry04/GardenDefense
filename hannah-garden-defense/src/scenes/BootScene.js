@@ -28,6 +28,8 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
 
+    this._loadFailed = false;
+
     const { width, height } = this.cameras.main;
 
     const barWidth = width * 0.6;
@@ -69,6 +71,7 @@ export class BootScene extends Phaser.Scene {
     });
 
     this.load.on('loaderror', (file) => {
+      this._loadFailed = true;
       loadingText.setText('Failed to load assets');
       loadingText.setColor('#E63946');
       const msg = this.add.text(width / 2, barY + 48, `${file.key}\nRefresh the page to retry.`, {
@@ -169,6 +172,8 @@ export class BootScene extends Phaser.Scene {
 
 
   create() {
+
+    if (this._loadFailed) return;
 
     this._generateHeartTexture();
 

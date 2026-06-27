@@ -30,7 +30,11 @@ const PORT = 5050;
 
 
 
-app.use(cors());
+app.use(cors(
+  process.env.CORS_ORIGIN
+    ? { origin: process.env.CORS_ORIGIN.split(',').map((s) => s.trim()) }
+    : {},
+));
 
 app.use(express.json());
 

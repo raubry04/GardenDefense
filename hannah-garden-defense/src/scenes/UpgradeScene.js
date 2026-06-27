@@ -7,7 +7,7 @@ import {
   hannahLevelFromXp,
 } from '../utils/hannahProgress.js';
 import { LevelUpBanner } from '../ui/LevelUpBanner.js';
-import { getUpgradeableTowerTypes, paginateTowerTypes } from '../utils/upgradeTowers.js';
+import { getUpgradeableTowerTypes, paginateTowerTypes, canPurchaseUpgradeTier } from '../utils/upgradeTowers.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 const COLORS = GameConfig.colors;
@@ -308,8 +308,24 @@ export class UpgradeScene extends Phaser.Scene {
       if (tier < 2 && config && config.upgrades && config.upgrades[tier]) {
         const upgrade = config.upgrades[tier];
         const upgCost = upgrade.cost;
-        const canAfford = this.sunshinePoints >= upgCost;
+        const tierAllowed = canPurchaseUpgradeTier(type, tier, {
+          unlockedZone: this.unlockedZone,
+          hannahLevel: this.hannahLevel,
+        });
+        const canAfford = tierAllowed && this.sunshinePoints >= upgCost;
         const btnColor = canAfford ? COLORS.button : 0x888888;
+
+        if (!tierAllowed) {
+          const gateHint = tier === 1 && config.unlock?.type === 'zone'
+            ? `Beat zone ${config.unlock.value + 1} for max tier`
+            : 'Reach higher Hannah level for max tier';
+          this.add.text(textLeft, y + cardHeight / 2 - 8, gateHint, {
+            fontFamily: 'Kenney Future',
+            fontSize: '10px',
+            color: '#A8AADC',
+            wordWrap: { width: textMaxW },
+          }).setOrigin(0, 0.5);
+        } else {
 
         const upgBtnX = width / 2 + cardW / 2 - btnAreaW / 2;
         const upgBtnY = y + cardHeight / 2;
@@ -372,6 +388,7 @@ export class UpgradeScene extends Phaser.Scene {
               });
             });
           });
+        }
         }
       } else {
         const maxX = width / 2 + cardW / 2 - 70;

@@ -125,7 +125,14 @@ export function duckSceneMusic(scene, volumeMult = 0.3, ms = 2000) {
   if (duckSavedVolume == null) duckSavedVolume = battle.volume;
   battle.setVolume(duckSavedVolume * volumeMult);
   if (duckTimer?.remove) duckTimer.remove(false);
-  duckTimer = scene.time?.delayedCall(ms, () => restoreSceneMusic(scene));
+  duckTimer = scene.time?.delayedCall(ms, () => {
+    duckTimer = null;
+    if (scene?.sys?.isActive?.()) {
+      restoreSceneMusic(scene);
+    } else {
+      duckSavedVolume = null;
+    }
+  });
 }
 
 export function restoreSceneMusic(scene) {

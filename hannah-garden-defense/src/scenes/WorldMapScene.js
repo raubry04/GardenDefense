@@ -18,13 +18,6 @@ export class WorldMapScene extends Phaser.Scene {
 
   create() {
     const { width, height } = DESIGN;
-    const progress = this.progress;
-
-    loadProgress(this.playerName).then((synced) => {
-      if (!this.scene.isActive('WorldMapScene')) return;
-      this.progress = synced;
-      this._refreshHeaderSunshine(synced.sunshinePoints);
-    }).catch(() => { /* local fallback already loaded */ });
 
     setupResponsiveCamera(this);
     this.cameras.main.fadeIn(300);
@@ -32,15 +25,44 @@ export class WorldMapScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#5A9A38');
 
     this._drawBackground(width, height);
-    this._drawHeader(width, progress);
-    this._drawZones(width, height, progress);
-    this._drawChickCompanion(width, height, progress);
+    this._rebuildProgressUi(width, height);
     this._drawDecorativeAnimals(width, height);
 
     this._createButton(100, height - 50, 'BACK', () => {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
       this.scene.start('MainMenuScene');
     });
+
+    loadProgress(this.playerName).then((synced) => {
+      if (!this.scene.isActive('WorldMapScene')) return;
+      this.progress = synced;
+      this._rebuildProgressUi(width, height);
+    }).catch(() => { /* local fallback already loaded */ });
+  }
+
+  _markProgressUi(fromIndex) {
+    const list = this.children.list;
+    for (let i = fromIndex; i < list.length; i++) {
+      list[i].setData?.('progressUi', true);
+    }
+  }
+
+  _clearProgressUi() {
+    [...this.children.list].forEach((c) => {
+      if (c.getData?.('progressUi')) c.destroy();
+    });
+    if (this._chickTween) {
+      this._chickTween.stop();
+      this._chickTween = null;
+    }
+    this._chickSprite = null;
+  }
+
+  _rebuildProgressUi(width, height) {
+    this._clearProgressUi();
+    this._drawHeader(width, this.progress);
+    this._drawZones(width, height, this.progress);
+    this._drawChickCompanion(width, height, this.progress);
   }
 
   _drawBackground(width, height) {
@@ -62,6 +84,7 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   _drawHeader(width, progress) {
+    const startIdx = this.children.list.length;
     const headerY = getSafeTop() + 32;
     const headerBg = this.add.rectangle(width / 2, headerY, width - 40, 52, 0x000000, 0.4)
       .setStrokeStyle(2, 0x3D5A1F);
@@ -89,6 +112,7 @@ export class WorldMapScene extends Phaser.Scene {
       fontSize: '22px',
       color: '#FFD700',
     }).setOrigin(0, 0.5).setName('sunshineText');
+    this._markProgressUi(startIdx);
   }
 
   _refreshHeaderSunshine(points) {
@@ -97,6 +121,7 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   _drawZones(width, height, progress) {
+    const startIdx = this.children.list.length;
     const zoneHeight = 64;
     const startY = getSafeTop() + 88;
     const zoneWidth = width * 0.75;
@@ -262,9 +287,11 @@ export class WorldMapScene extends Phaser.Scene {
         this.scene.start('GameScene', { mode: 'daily', playerName: this.playerName });
       });
     }
+    this._markProgressUi(startIdx);
   }
 
   _drawChickCompanion(width, height, progress) {
+    const startIdx = this.children.list.length;
     if (!this.textures.exists('chick')) return;
     const zonePos = this._zonePositions?.[progress.unlockedZone];
     const startX = zonePos ? zonePos.x + width * 0.75 / 2 + 30 : width - 80;
@@ -273,7 +300,7 @@ export class WorldMapScene extends Phaser.Scene {
     this._chickSprite = this.add.image(startX, startY, 'chick')
       .setDisplaySize(32, 32);
 
-    this.tweens.add({
+    this._chickTween = this.tweens.add({
       targets: this._chickSprite,
       y: startY - 6,
       duration: 500,
@@ -281,6 +308,7 @@ export class WorldMapScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+    this._markProgressUi(startIdx);
   }
 
   _showBattlePanel(zoneIndex, progress, width, height) {

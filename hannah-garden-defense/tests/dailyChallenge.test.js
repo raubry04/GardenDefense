@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { dailyChallengeDateKey, dailyChallengeSeed } from '../src/utils/dailyChallenge.js';
 
 describe('dailyChallenge', () => {
-  it('uses YYYY-MM-DD date key', () => {
-    const key = dailyChallengeDateKey(new Date('2026-06-25T12:00:00.000Z'));
+  it('uses local YYYY-MM-DD date key', () => {
+    const key = dailyChallengeDateKey(new Date(2026, 5, 25, 12, 0, 0));
     expect(key).toBe('2026-06-25');
   });
 

@@ -6,6 +6,7 @@ import { BattleHud, formatWaveHudLabel } from "../ui/BattleHud.js";
 import { TowerTray } from "../ui/TowerTray.js";
 import { AbilityBar } from "../ui/AbilityBar.js";
 import { WavePreview } from "../ui/WavePreview.js";
+import { showToast, clearToastQueue } from "../ui/Toast.js";
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -55,7 +56,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     if (this.sys.game.device.input.touch) {
-      this.input.on('pointerdown', (pointer) => {
+      this._onTouchDismiss = (pointer) => {
         const pt = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
         let overAbility = false;
         for (const btn of this.abilityBar.abilityButtons || []) {
@@ -69,18 +70,8 @@ export class UIScene extends Phaser.Scene {
           }
         }
         if (!overAbility) this.abilityBar.dismissTouchTooltips();
-
-        const speedBtn = this.hud.speedBtn;
-        if (speedBtn?.active) {
-          const sr = (speedBtn.radius || 22) + 8;
-          const sdx = pt.x - speedBtn.x;
-          const sdy = pt.y - speedBtn.y;
-          if (sdx * sdx + sdy * sdy > sr * sr) {
-            this.hud._speedTooltipOpen = false;
-            this.hud._speedTooltip?.setVisible(false);
-          }
-        }
-      });
+      };
+      this.input.on('pointerdown', this._onTouchDismiss);
     }
   }
 
@@ -216,6 +207,11 @@ export class UIScene extends Phaser.Scene {
       this.hud.updateWaveProgress();
     });
 
+    this._on("wave-enemies-added", (data) => {
+      this.enemiesInWave += data?.count || 0;
+      this.hud.updateWaveProgress();
+    });
+
     this._on("battle-complete", () => {
       this.abilityBar.setSendWaveVisible(false);
     });
@@ -227,6 +223,10 @@ export class UIScene extends Phaser.Scene {
     this._on("placement-rejected", (data) => {
       if (data?.reason !== "afford") return;
       this.hud.animatePointsRejected();
+    });
+
+    this._on("wave-send-rejected", () => {
+      showToast(this, "Wait for the wave timer!");
     });
 
     this._on("ability-fired", (data) => {
@@ -246,6 +246,11 @@ export class UIScene extends Phaser.Scene {
     });
 
     this.events.on("shutdown", () => {
+      if (this._onTouchDismiss) {
+        this.input.off('pointerdown', this._onTouchDismiss);
+        this._onTouchDismiss = null;
+      }
+      clearToastQueue(this);
       for (const [event, handler] of Object.entries(this._boundHandlers)) {
         this.game.events.off(event, handler);
       }

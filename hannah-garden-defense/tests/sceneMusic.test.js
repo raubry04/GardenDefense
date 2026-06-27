@@ -67,4 +67,21 @@ describe('SceneMusicManager', () => {
     expect(SceneMusicManager._getActiveLoop()).toBeNull();
     expect(scene.sound.get('battle').isPlaying).toBe(false);
   });
+
+  it('does not restore duck volume after scene has shut down', () => {
+    const scene = mockScene();
+    scene.sys = { isActive: () => false };
+    scene.time = {
+      delayedCall: (_ms, fn) => {
+        fn();
+        return { remove: vi.fn() };
+      },
+    };
+    transitionSceneMusic(scene, 'battle');
+    const battle = scene.sound.get('battle');
+    battle.volume = 0.27;
+    SceneMusicManager.duck(scene, 0.3, 100);
+    expect(battle.volume).toBeCloseTo(0.27 * 0.3);
+    expect(battle.volume).not.toBeCloseTo(0.27);
+  });
 });

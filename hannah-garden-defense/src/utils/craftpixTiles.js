@@ -11,9 +11,14 @@ const PATH_FILENAME = (id) => `Top-Down Simple Summer_Ground ${id}.png`;
 
 const OPPOSITE = { N: 'S', S: 'N', E: 'W', W: 'E' };
 
+function assetUrl(base, filename) {
+  const segment = filename.split('/').map(encodeURIComponent).join('/');
+  return `${base}/${segment}`;
+}
+
 export function craftpixGroundPath(num) {
   const id = String(num).padStart(2, '0');
-  return `${CRAFTPIX_GROUND_TILE_DIR}/${PATH_FILENAME(id)}`;
+  return assetUrl(CRAFTPIX_GROUND_TILE_DIR, PATH_FILENAME(id));
 }
 
 export function craftpixGroundKey(num) {
@@ -21,7 +26,7 @@ export function craftpixGroundKey(num) {
 }
 
 export function craftpixPropPath(filename) {
-  return `${CRAFTPIX_PROPS_DIR}/${filename}`;
+  return assetUrl(CRAFTPIX_PROPS_DIR, filename);
 }
 
 /** Logical key → filename in assets/craftpix/props/ */

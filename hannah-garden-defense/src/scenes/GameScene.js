@@ -15,6 +15,7 @@ import { TowerInspect } from '../battle/TowerInspect.js';
 import { BattleVfx } from '../battle/BattleVfx.js';
 import { BossBanner } from '../ui/BossBanner.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
+import { startingSunshineForZone } from '../utils/battleEconomy.js';
 import {
   battleTimeScaleWhenPaused,
   battleTimeScaleWhenRunning,
@@ -62,7 +63,8 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.fadeIn(300);
     SceneMusicManager.transition(this, 'battle');
     this.lives = GameConfig.startingLives;
-    this.sunshinePoints = GameConfig.startingSunshinePoints[`zone${this.zone + 1}`] || 150;
+    this._defeatHandled = false;
+    this.sunshinePoints = startingSunshineForZone(this.zone);
     this.battleSunshineEarned = 0;
     this.towers = [];
     this.enemies = [];
@@ -218,14 +220,14 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    if (this._mapDecor.length === 0) {
+    if (import.meta.env.DEV && this._mapDecor.length === 0) {
       const hasProps = TREE_KEYS.some((k) => this.textures.exists(k));
       console.warn(`[GameScene] No map decor spawned (prop textures loaded: ${hasProps})`);
     }
   }
 
   _fillScenery(view) {
-    refillSceneGrass(this, view, -10);
+    refillSceneGrass(this, view, -10, { clipToDesign: true });
   }
 
   _pickPropKey(pool) {
@@ -233,7 +235,7 @@ export class GameScene extends Phaser.Scene {
     if (!available.length) {
       if (!this._warnedPropPools) this._warnedPropPools = new Set();
       const tag = pool[0] ?? 'props';
-      if (!this._warnedPropPools.has(tag)) {
+      if (import.meta.env.DEV && !this._warnedPropPools.has(tag)) {
         this._warnedPropPools.add(tag);
         console.warn(`[GameScene] Prop textures missing for pool starting with ${tag}`);
       }
@@ -487,14 +489,11 @@ export class GameScene extends Phaser.Scene {
       if (placed) this.towerPlacement.clearTowerSelection();
     });
 
-    this.game.events.on('send-next-wave', () => {
-      if (this.waveManager.isWaveActive()) return;
-      if (this.waveManager.isBattleComplete()) return;
-      this.waveManager.startNextWave();
-    });
-
     this.game.events.on('send-wave-early', () => {
-      this.waveManager.sendWaveEarly();
+      const sent = this.waveManager.sendWaveEarly();
+      if (!sent) {
+        this.game.events.emit('wave-send-rejected', { reason: 'not-ready' });
+      }
     });
 
     this.game.events.on('tutorial-state-changed', (data) => {
@@ -508,11 +507,13 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.game.events.on('hannah-level-changed', (data) => {
-      this.hannahLevel = data.level ?? this.hannahLevel;
-      this.hannahPassives = this._computeHannahPassives(this.hannahLevel);
-    });
+    this.game.events.on('hannah-level-changed', this._onHannahLevelChanged);
   }
+
+  _onHannahLevelChanged = (data) => {
+    this.hannahLevel = data.level ?? this.hannahLevel;
+    this.hannahPassives = this._computeHannahPassives(this.hannahLevel);
+  };
 
   _emitWaveCooldownIfChanged() {
     const wm = this.waveManager;
@@ -723,9 +724,15 @@ export class GameScene extends Phaser.Scene {
   /* ─── Cleanup ─── */
 
   shutdown() {
+    SceneMusicManager.restore(this);
+    this.abilityController?.destroy();
+    this.battleVfx?.destroy();
     this.towerInspect?.close();
     if (this.selectedTower) {
       this.game.events.emit('tower-deselected');
+    }
+    if (this._onHannahLevelChanged) {
+      this.game.events.off('hannah-level-changed', this._onHannahLevelChanged);
     }
     this.game.events.off('tower-selected');
     this.game.events.off('tower-deselected');
@@ -734,7 +741,6 @@ export class GameScene extends Phaser.Scene {
     this.game.events.off('tower-drag-end');
     this.game.events.off('tower-drag-cancel');
     this.game.events.off('tower-place-request');
-    this.game.events.off('send-next-wave');
     this.game.events.off('send-wave-early');
     this.game.events.off('ability-used');
     this.game.events.off('toggle-pause');

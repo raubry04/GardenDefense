@@ -4,12 +4,17 @@ export const GameConfig = {
 
   startingLives: 20,
   // In-battle placement budget per zone (unchanged by meta economy tuning).
-  startingSunshinePoints: { zone1: 150, zone2: 175, zone3: 200, zone4: 225, zone5: 250, endless: 250 },
+  startingSunshinePoints: { zone1: 150, zone2: 168, zone3: 192, zone4: 216, zone5: 240, endless: 250 },
   // Fraction of in-battle sunshine earned that deposits into the upgrade bank on victory.
-  // Zone 0 battle 1 (5 waves, ~510 gross + up to 100 star bonus):
-  //   before: 200 seed + 100% deposit ≈ 810–860 bank ("god mode")
-  //   after:  0 seed + 20% deposit ≈ 102–132 bank (one tier-1 upgrade)
-  metaSunshineBankRate: 0.2,
+  // At 16% meta rate, zone 0 battle 1 yields ~80–100 bank — steady but not instant maxing.
+  metaSunshineBankRate: 0.16,
+  // Each additional tower of the same type costs +12% (soft anti-spam).
+  duplicateTowerCostStep: 0.12,
+  // Campaign enemy HP multipliers — gentler early zones, ramps mid/late campaign.
+  campaignHpScale: {
+    perZone: [1, 1.08, 1.2, 1.38, 1.58],
+    perBattleInZone: 0.04,
+  },
   waveCooldownSeconds: 15,
   prepPhaseSeconds: 30,
   earlyWaveBonusPoints: 10,
@@ -26,56 +31,56 @@ export const GameConfig = {
     RABBIT: {
       cost: 50, slowPercent: 0.5, range: 112, aoe: true, unlock: { type: 'level', value: 1 },
       upgrades: [
-        { slowPercent: 0.6, range: 160, cost: 75 },
-        { slowPercent: 0.75, range: 192, cost: 150 }
+        { slowPercent: 0.6, range: 160, cost: 120 },
+        { slowPercent: 0.75, range: 192, cost: 280 }
       ]
     },
     CHICKEN: {
-      cost: 75, damage: 10, range: 210, fireRate: 800, unlock: { type: 'level', value: 1 },
+      cost: 75, damage: 10, range: 198, fireRate: 800, unlock: { type: 'level', value: 1 },
       upgrades: [
-        { damage: 20, range: 300, fireRate: 700, eggs: 2, cost: 100 },
-        { damage: 30, range: 340, fireRate: 600, eggs: 3, pierce: 1, cost: 200 }
+        { damage: 17, range: 260, fireRate: 740, eggs: 2, cost: 150 },
+        { damage: 26, range: 300, fireRate: 650, eggs: 3, pierce: 1, cost: 340 }
       ]
     },
     DOG: {
       cost: 100, stunMs: 600, slowPercent: 0.35, range: 192, aoe: true, unlock: { type: 'level', value: 2 },
       upgrades: [
-        { stunMs: 900, slowPercent: 0.45, range: 230, cost: 125 },
-        { stunMs: 1200, slowPercent: 0.55, range: 270, cost: 200 }
+        { stunMs: 900, slowPercent: 0.45, range: 230, cost: 160 },
+        { stunMs: 1200, slowPercent: 0.55, range: 270, cost: 320 }
       ]
     },
     OWL: {
       cost: 125, damage: 40, range: 450, fireRate: 2000, unlock: { type: 'zone', value: 2 },
       upgrades: [
-        { damage: 70, range: 525, fireRate: 1800, cost: 150 },
-        { damage: 110, range: 600, fireRate: 1500, cost: 250 }
+        { damage: 70, range: 525, fireRate: 1800, cost: 210 },
+        { damage: 110, range: 600, fireRate: 1500, cost: 440 }
       ]
     },
     DUCK: {
       cost: 150, slowPercent: 0.5, range: 220, aoe: true, unlock: { type: 'zone', value: 2 },
       upgrades: [
-        { slowPercent: 0.6, range: 275, cost: 125 },
-        { slowPercent: 0.75, range: 330, cost: 200 }
+        { slowPercent: 0.6, range: 275, cost: 170 },
+        { slowPercent: 0.75, range: 330, cost: 340 }
       ]
     },
     PENGUIN: {
       cost: 175, freezeMs: 1500, range: 200, cooldown: 8000, aoe: true, unlock: { type: 'zone', value: 3 },
       upgrades: [
-        { freezeMs: 2000, range: 240, cooldown: 7000, cost: 175 },
-        { freezeMs: 2500, range: 280, cooldown: 5500, cost: 275 }
+        { freezeMs: 2000, range: 240, cooldown: 7000, cost: 240 },
+        { freezeMs: 2500, range: 280, cooldown: 5500, cost: 420 }
       ]
     },
     PIG_WALL: {
-      cost: 200, hp: 300, unlock: { type: 'zone', value: 3 },
+      cost: 200, hp: 300, range: 0, unlock: { type: 'zone', value: 3 },
       upgrades: [
-        { hp: 500, cost: 150 },
-        { hp: 800, thorns: 5, cost: 250 }
+        { hp: 500, cost: 200 },
+        { hp: 800, thorns: 5, cost: 380 }
       ]
     }
   },
 
   enemies: {
-    SNAKE: { hp: 40, speed: 60, reward: 10, damage: 1 },
+    SNAKE: { hp: 40, speed: 60, reward: 12, damage: 1 },
     FROG: { hp: 60, speed: 40, reward: 15, damage: 1, splitsInto: 2 },
     GORILLA: { hp: 80, speed: 130, reward: 20, damage: 1, immuneToSlow: true },
     PARROT: { hp: 80, speed: 100, reward: 25, damage: 2, flies: true },
@@ -100,10 +105,31 @@ export const GameConfig = {
   ],
 
   hannahAbilities: {
-    SUNSHINE_BURST: { cooldown: 30000, damage: 25, label: 'Sunshine Burst' },
-    GARDEN_RAIN: { cooldown: 45000, label: 'Garden Rain' },
-    RAINBOW_SHIELD: { cooldown: 60000, duration: 8000, label: 'Rainbow Shield' },
-    FLOWER_BOMB: { cooldown: 90000, damage: 50, range: 120, label: 'Flower Bomb', unlockLevel: 6 }
+    SUNSHINE_BURST: {
+      cooldown: 30000,
+      damage: 25,
+      label: 'Sunshine Burst',
+      description: 'Zaps all ground enemies on the path for damage.',
+    },
+    GARDEN_RAIN: {
+      cooldown: 45000,
+      label: 'Garden Rain',
+      description: 'Fully repairs every tower on the map.',
+    },
+    RAINBOW_SHIELD: {
+      cooldown: 60000,
+      duration: 8000,
+      label: 'Rainbow Shield',
+      description: 'Shields all towers from damage for 8 seconds.',
+    },
+    FLOWER_BOMB: {
+      cooldown: 90000,
+      damage: 50,
+      range: 120,
+      label: 'Flower Bomb',
+      unlockLevel: 6,
+      description: 'Tap the map to drop a big explosion (Lv.6).',
+    },
   },
 
   sellRefundPercent: 0.5,

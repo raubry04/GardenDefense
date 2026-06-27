@@ -115,7 +115,7 @@ export class VictoryScene extends Phaser.Scene {
       });
     }
 
-    if (stars < 3) {
+    if (stars < 3 && this.mode !== 'daily') {
       const need = GameConfig.starThresholds.three;
       const replayHint = this.add.text(width / 2, starY + (delta > 0 ? 78 : 50),
         `Replay from the map to chase 3★ (need ${need} lives left)`,

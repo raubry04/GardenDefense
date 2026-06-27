@@ -1,7 +1,9 @@
 import { GameConfig } from '../config.js';
 import { TOWER_SPRITES } from '../utils/AssetRegistry.js';
 import { applyTowerTierStats } from '../utils/hannahProgress.js';
+import { towerPlacementCost } from '../utils/battleEconomy.js';
 import { TILE, COLORS } from './battleConstants.js';
+import { isPointerOverBattleUI } from '../utils/battleInput.js';
 
 export class TowerPlacement {
   constructor(scene) {
@@ -20,8 +22,13 @@ export class TowerPlacement {
   canAffordSelectedTower() {
     const s = this.scene;
     if (!s.selectedTower) return false;
-    const towerConfig = GameConfig.towers[s.selectedTower];
-    return towerConfig && s.sunshinePoints >= towerConfig.cost;
+    return s.sunshinePoints >= this.placementCostFor(s.selectedTower);
+  }
+
+  placementCostFor(type) {
+    const s = this.scene;
+    const count = s.towers.filter((t) => t.type === type && t.hp > 0).length;
+    return towerPlacementCost(type, count);
   }
 
   updateGhostAt(col, row) {
@@ -56,6 +63,7 @@ export class TowerPlacement {
 
   handleTowerPlacement(pointer) {
     const s = this.scene;
+    if (s.paused) return false;
     const { col, row } = this.placementTileFromPointer(pointer);
 
     this.ensureGhostPreview();
@@ -68,13 +76,14 @@ export class TowerPlacement {
     }
 
     const towerConfig = GameConfig.towers[s.selectedTower];
-    if (s.sunshinePoints < towerConfig.cost) {
+    const cost = this.placementCostFor(s.selectedTower);
+    if (s.sunshinePoints < cost) {
       s.sound.play('invalidAction', { volume: GameConfig.audio.sfxVolume });
       s.game.events.emit('placement-rejected', { reason: 'afford' });
       return false;
     }
 
-    s.sunshinePoints -= towerConfig.cost;
+    s.sunshinePoints -= cost;
     s.game.events.emit('points-changed', { points: s.sunshinePoints });
 
     this.placeTower(s.selectedTower, row, col);
@@ -85,6 +94,8 @@ export class TowerPlacement {
   setupInput() {
     const s = this.scene;
     s.input.on('pointermove', (pointer) => {
+      if (s.paused) return;
+      if (isPointerOverBattleUI(s.game, pointer)) return;
       if (!s.selectedTower) return;
       this.ensureGhostPreview();
       const { col, row } = this.placementTileFromPointer(pointer);
@@ -92,6 +103,8 @@ export class TowerPlacement {
     });
 
     s.input.on('pointerdown', (pointer) => {
+      if (s.paused) return;
+      if (isPointerOverBattleUI(s.game, pointer)) return;
       const { col, row } = this.placementTileFromPointer(pointer);
 
       if (pointer.rightButtonDown()) {
@@ -161,13 +174,17 @@ export class TowerPlacement {
 
     if (valid && s.selectedTower) {
       const range = GameConfig.towers[s.selectedTower].range;
-      if (!s.hoverRangeCircle) {
-        s.hoverRangeCircle = s.add.circle(cx, cy, range, COLORS.primary, 0.08)
-          .setStrokeStyle(1, COLORS.primary, 0.25).setDepth(98);
+      if (range > 0) {
+        if (!s.hoverRangeCircle) {
+          s.hoverRangeCircle = s.add.circle(cx, cy, range, COLORS.primary, 0.08)
+            .setStrokeStyle(1, COLORS.primary, 0.25).setDepth(98);
+        }
+        s.hoverRangeCircle.setPosition(cx, cy);
+        s.hoverRangeCircle.setRadius(range);
+        s.hoverRangeCircle.setVisible(true);
+      } else if (s.hoverRangeCircle) {
+        s.hoverRangeCircle.setVisible(false);
       }
-      s.hoverRangeCircle.setPosition(cx, cy);
-      s.hoverRangeCircle.setRadius(range);
-      s.hoverRangeCircle.setVisible(true);
     } else if (s.hoverRangeCircle) {
       s.hoverRangeCircle.setVisible(false);
     }
@@ -248,7 +265,7 @@ export class TowerPlacement {
       hp: towerHp,
       maxHp: towerHp,
       shielded: false,
-      cost: baseConfig.cost,
+      cost: this.placementCostFor(type),
       onPath: s.tileGrid[row][col] === 'path',
       eggs: config.eggs || 1,
       pierce: config.pierce || 0,

@@ -57,6 +57,31 @@ describe('WaveManager', () => {
     expect(wm.waves.length).toBeGreaterThan(GameConfig.waves.endlessPreGenerate);
   });
 
+  it('same waveSeed produces identical wave layouts', () => {
+    const seed = 'daily-2025-06-25';
+    const a = new WaveManager(mockScene());
+    a.initBattle(0, 0, { waveSeed: seed });
+    const b = new WaveManager(mockScene());
+    b.initBattle(0, 0, { waveSeed: seed });
+    expect(a.waves).toEqual(b.waves);
+  });
+
+  it('sendWaveEarly returns false when not in cooldown', () => {
+    const wm = new WaveManager(mockScene());
+    wm.initBattle(0, 0);
+    wm.inCooldown = false;
+    expect(wm.sendWaveEarly()).toBe(false);
+  });
+
+  it('sendWaveEarly returns true during cooldown', () => {
+    const wm = new WaveManager(mockScene());
+    wm.initBattle(0, 0);
+    wm.inCooldown = true;
+    wm.cooldownTimer = 5000;
+    expect(wm.sendWaveEarly()).toBe(true);
+    expect(wm.inCooldown).toBe(false);
+  });
+
   it('returns next wave preview during prep and cooldown', () => {
     const wm = new WaveManager(mockScene());
     wm.initBattle(0, 0);
@@ -130,7 +155,7 @@ describe('WaveManager', () => {
 
   it('tier-0 rabbit and chicken ranges match config bases', () => {
     expect(GameConfig.towers.RABBIT.range).toBe(112);
-    expect(GameConfig.towers.CHICKEN.range).toBe(210);
+    expect(GameConfig.towers.CHICKEN.range).toBe(198);
   });
 
   it('zone 1 battle 0 wave counts respect battle0MaxCount caps', () => {
