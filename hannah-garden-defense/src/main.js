@@ -51,6 +51,21 @@ async function startGame() {
 
   const game = new Phaser.Game(config);
   setupMobileViewport(game);
+
+  // iOS Safari suspends the WebAudio context when the app is backgrounded and does
+  // not reliably resume it on return. Re-unlock/resume on foreground so battle audio
+  // doesn't stay silent after switching apps or locking the screen.
+  const resumeAudio = () => {
+    try {
+      game.sound?.unlock?.();
+      const ctx = game.sound?.context;
+      if (ctx?.state === 'suspended') ctx.resume?.().catch(() => {});
+    } catch { /* ignore */ }
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') resumeAudio();
+  });
+  window.addEventListener('pageshow', resumeAudio);
 }
 
 startGame();

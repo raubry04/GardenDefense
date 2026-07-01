@@ -29,7 +29,8 @@ export function isMobileViewport() {
 
 /**
  * Visible size in CSS px — width/height only, never position offsets.
- * Prefer #game-container client box so safe-area padding is excluded from the canvas.
+ * Uses the #game-container client box (which fills the full viewport; the bottom
+ * safe area is reserved in design-space layout math, not via container padding).
  */
 export function getViewportSize() {
   const container = document.getElementById('game-container');
@@ -70,7 +71,10 @@ export function applyMobileLayout() {
   container.style.paddingLeft = '0';
   container.style.paddingRight = '0';
   container.style.paddingTop = '0';
-  container.style.paddingBottom = 'max(env(safe-area-inset-bottom, 0px), 0px)';
+  // Single owner of the bottom safe area is the design-space layout math
+  // (battleLayout.computeDesignUIMetrics). Keep this 0 so the canvas fills the
+  // full viewport and the inset is applied exactly once (not double-counted).
+  container.style.paddingBottom = '0px';
 
   if (scale.width !== width || scale.height !== height) {
     scale.resize(width, height);

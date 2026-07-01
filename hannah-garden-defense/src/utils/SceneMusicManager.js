@@ -25,6 +25,10 @@ function stopLoop(scene, key) {
 function stopAllLoops(scene) {
   stopLoop(scene, 'menu');
   stopLoop(scene, 'battle');
+  // Also stop one-shot stingers so they don't overlap the next track when a
+  // transition happens before they finish (e.g. Victory -> Map).
+  stopLoop(scene, 'victory');
+  stopLoop(scene, 'gameOver');
   activeLoop = null;
 }
 

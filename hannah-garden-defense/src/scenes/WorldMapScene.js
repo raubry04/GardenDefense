@@ -1,6 +1,6 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN, getSafeTop } from '../utils/responsiveCamera.js';
-import { loadLocalProgress, loadProgress } from '../utils/hannahProgress.js';
+import { loadLocalProgress, loadProgress, loadPlayerName, availableMetaBank } from '../utils/hannahProgress.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
 const COLORS = GameConfig.colors;
@@ -12,7 +12,7 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.playerName = data.playerName || localStorage.getItem('hannahGarden_playerName') || '';
+    this.playerName = data.playerName || loadPlayerName() || '';
     this.progress = loadLocalProgress(this.playerName);
   }
 
@@ -107,7 +107,7 @@ export class WorldMapScene extends Phaser.Scene {
 
     this.add.circle(width - 130, headerY, 12, COLORS.stars)
       .setStrokeStyle(2, COLORS.outline);
-    this.add.text(width - 110, headerY, `${progress.sunshinePoints}`, {
+    this.add.text(width - 110, headerY, `${availableMetaBank(progress)}`, {
       fontFamily: 'Kenney Future',
       fontSize: '22px',
       color: '#FFD700',

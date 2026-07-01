@@ -446,6 +446,9 @@ export class AbilityBar {
 
   _requestAbility(key, config, btn) {
     const scene = this.scene;
+    // Guard against touch double-fire: a second tap before cooldown is recorded
+    // (common on iOS) would otherwise emit ability-used twice.
+    if (btn.pending) return;
     if (!this._isAbilityUnlocked(config)) {
       scene.game.events.emit('ability-rejected', { key, reason: `Unlocks at Hannah Level ${config.unlockLevel}` });
       return;
@@ -455,6 +458,7 @@ export class AbilityBar {
       return;
     }
 
+    btn.pending = true;
     scene.tweens.add({
       targets: [btn.circle, btn.label],
       scaleX: 0.9,
@@ -467,8 +471,7 @@ export class AbilityBar {
     if (config.description) {
       showToast(scene, config.description, 2200);
     }
-    btn.pending = true;
-    scene.time.delayedCall(50, () => {
+    scene.time.delayedCall(400, () => {
       if (btn.pending) btn.pending = false;
     });
   }

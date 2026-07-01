@@ -1,11 +1,31 @@
 import { ENEMY_SPRITES } from '../utils/AssetRegistry.js';
 import { GameConfig } from '../config.js';
 
-const THREAT_BADGE = {
+/**
+ * Colour-blind-safe symbol badges for enemy threat tags. Keys match
+ * GameConfig.enemyThreatTags values; aliases cover the raw enemy-config prop
+ * spellings (splitsInto / immuneToSlow) so either naming resolves to a glyph.
+ */
+export const THREAT_BADGE = {
   flying: '✈',
   fast: '⚡',
   wallBreaker: '🧱',
+  armored: '🛡',
+  split: '✂',
+  splitsInto: '✂',
+  immuneSlow: '💨',
+  immuneToSlow: '💨',
 };
+
+/**
+ * Pure tag→badge lookup for a single threat tag.
+ * @param {string} [tag]
+ * @returns {string | null} the badge glyph, or null when unmapped/missing
+ */
+export function threatBadgeForTag(tag) {
+  if (!tag) return null;
+  return THREAT_BADGE[tag] ?? null;
+}
 
 const HUD_DEPTH = 199;
 const MAX_ICONS = 6;
@@ -86,8 +106,9 @@ export class WavePreview {
       icon.setTint(0xff6666);
     }
     const threat = GameConfig.enemyThreatTags?.[type];
-    if (threat && THREAT_BADGE[threat]) {
-      const badge = this.scene.add.text(x + 8, y - 10, THREAT_BADGE[threat], {
+    const badgeGlyph = threatBadgeForTag(threat);
+    if (badgeGlyph) {
+      const badge = this.scene.add.text(x + 8, y - 10, badgeGlyph, {
         fontFamily: 'Kenney Future',
         fontSize: '8px',
         color: '#FFD700',

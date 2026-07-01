@@ -274,7 +274,9 @@ export class VictoryScene extends Phaser.Scene {
       const progress = normalizeProgress(loadLocalProgress(this.playerName));
       progress.playerName = this.playerName;
 
-      progress.sunshinePoints = (progress.sunshinePoints || 0) + this._metaPointsEarned(stars);
+      // Deposit into the meta bank by growing the monotonic earned total; the
+      // spendable balance (progress.sunshinePoints) is derived on save/normalize.
+      progress.metaSunshineEarned = (progress.metaSunshineEarned || 0) + this._metaPointsEarned(stars);
 
       if (!progress.battleStars[this.zone]) progress.battleStars[this.zone] = {};
       progress.battleStars[this.zone][this.battle] = Math.max(
@@ -297,8 +299,9 @@ export class VictoryScene extends Phaser.Scene {
 
       let totalXp = this.hannahXp + GameConfig.hannahXpRewards.battleComplete;
       if (stars >= 3) totalXp += GameConfig.hannahXpRewards.threeStarBonus;
-      progress.hannahXp = totalXp;
-      progress.hannahLevel = hannahLevelFromXp(totalXp);
+      // Never regress XP below what's already stored (e.g. a concurrent save).
+      progress.hannahXp = Math.max(progress.hannahXp || 0, totalXp);
+      progress.hannahLevel = hannahLevelFromXp(progress.hannahXp);
       progress.gardenLevel = Math.max(1, (progress.unlockedZone ?? 0) + 1);
 
       this.savedProgress = progress;

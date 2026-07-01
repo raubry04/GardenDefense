@@ -202,6 +202,7 @@ export class TowerCombat {
   towerRecoil(tower) {
     const s = this.scene;
     const spr = tower.sprite;
+    if (!spr?.width || !spr?.height) return;
     const baseX = (TILE - 8) / spr.width;
     const baseY = (TILE - 8) / spr.height;
     s.tweens.add({
@@ -285,7 +286,7 @@ export class TowerCombat {
     enemy.hp -= damage;
     s.sound.play('enemyHit', { volume: sfxVol('enemyHit') });
 
-    const hpPercent = Math.max(0, enemy.hp / enemy.maxHp);
+    const hpPercent = enemy.maxHp > 0 ? Math.max(0, enemy.hp / enemy.maxHp) : 0;
     enemy.hpBar.setScale(hpPercent, 1);
 
     this.flashEnemyRed(enemy);
@@ -418,7 +419,12 @@ export class TowerCombat {
     const s = this.scene;
     const config = GameConfig.enemies[type];
     const spriteKey = ENEMY_SPRITES[type];
-    const start = s.waypoints[0];
+    const start = s.waypoints?.[0];
+
+    if (!config || !spriteKey || !start) {
+      console.warn(`[TowerCombat] Cannot spawn enemy "${type}": missing config/sprite/waypoints.`);
+      return;
+    }
 
     let hp = config.hp;
     let speed = config.speed * (config.speedBonus ?? 1);

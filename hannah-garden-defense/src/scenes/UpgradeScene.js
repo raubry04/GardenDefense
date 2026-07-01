@@ -5,6 +5,7 @@ import {
   loadLocalProgress,
   saveProgressWithSync,
   hannahLevelFromXp,
+  availableMetaBank,
 } from '../utils/hannahProgress.js';
 import { LevelUpBanner } from '../ui/LevelUpBanner.js';
 import { getUpgradeableTowerTypes, paginateTowerTypes, canPurchaseUpgradeTier } from '../utils/upgradeTowers.js';
@@ -24,9 +25,15 @@ export class UpgradeScene extends Phaser.Scene {
     this.battle = data.battle ?? 0;
     this.prevHannahLevel = data.prevHannahLevel ?? data.hannahLevel ?? 1;
     this._upgradePage = data.upgradePage ?? 0;
+    // Reset the double-spend guard on every (re)entry, including scene.restart.
+    this._upgrading = false;
 
     const progress = loadLocalProgress(this.playerName);
-    this.sunshinePoints = progress.sunshinePoints ?? 0;
+    // Spendable balance is derived from earned/spent. Track `spent` so purchases
+    // increment it (never write a raw lower balance); `sunshinePoints` is the
+    // local display/affordability mirror of the available bank.
+    this.metaSunshineSpent = progress.metaSunshineSpent ?? 0;
+    this.sunshinePoints = availableMetaBank(progress);
     this.hannahXp = progress.hannahXp ?? 0;
     this.hannahLevel = progress.hannahLevel ?? hannahLevelFromXp(this.hannahXp);
     this.unlockedZone = progress.unlockedZone ?? 0;
@@ -60,7 +67,9 @@ export class UpgradeScene extends Phaser.Scene {
   _persistProgress() {
     const progress = loadLocalProgress(this.playerName);
     progress.playerName = this.playerName;
-    progress.sunshinePoints = this.sunshinePoints;
+    // Persist spending as a monotonic total (never regress) so it survives merges
+    // across tabs/devices. The derived available balance is recomputed on save.
+    progress.metaSunshineSpent = Math.max(progress.metaSunshineSpent ?? 0, this.metaSunshineSpent);
     progress.hannahXp = this.hannahXp;
     progress.hannahLevel = this.hannahLevel;
     progress.towerUpgrades = { ...this.towerUpgrades };
@@ -360,7 +369,13 @@ export class UpgradeScene extends Phaser.Scene {
             this.tweens.add({ targets: [upgradeBtn, btnText], scaleX: 1, scaleY: 1, duration: 60 });
           });
           upgradeBtn.on('pointerdown', () => {
+            // Guard against a rapid double-tap spending twice before the ~400ms
+            // restart. First tap latches; the button stops accepting input.
+            if (this._upgrading) return;
+            this._upgrading = true;
+            upgradeBtn.disableInteractive();
             this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+            this.metaSunshineSpent += upgCost;
             this.sunshinePoints -= upgCost;
             const newTier = tier + 1;
             this.towerUpgrades[type] = newTier;

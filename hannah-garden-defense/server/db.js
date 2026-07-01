@@ -36,6 +36,8 @@ db.exec(`
     hannah_xp INTEGER DEFAULT 0,
     garden_level INTEGER DEFAULT 1,
     sunshine_points INTEGER DEFAULT 150,
+    meta_sunshine_earned INTEGER DEFAULT 0,
+    meta_sunshine_spent INTEGER DEFAULT 0,
     battle_stars TEXT DEFAULT '{}',
     unlocked_zone INTEGER DEFAULT 0,
     zone_stars TEXT DEFAULT '{}',
@@ -58,6 +60,26 @@ for (const [name, definition] of progressColumns) {
   if (!exists) {
     db.exec(`ALTER TABLE player_progress ADD COLUMN ${name} ${definition}`);
   }
+}
+
+// Meta-bank earned/spent columns (earned-vs-spent model). The available balance
+// is derived as max(0, earned - spent); `sunshine_points` is kept as that derived
+// value for backward compatibility.
+const earnedExists = db.prepare(
+  `SELECT 1 FROM pragma_table_info('player_progress') WHERE name = 'meta_sunshine_earned'`,
+).get();
+if (!earnedExists) {
+  db.exec(`ALTER TABLE player_progress ADD COLUMN meta_sunshine_earned INTEGER DEFAULT 0`);
+  // Backfill: existing players' current spendable balance becomes their earned
+  // total (spent stays 0), so available = earned - 0 exactly preserves the bank.
+  db.exec(`UPDATE player_progress SET meta_sunshine_earned = sunshine_points`);
+}
+
+const spentExists = db.prepare(
+  `SELECT 1 FROM pragma_table_info('player_progress') WHERE name = 'meta_sunshine_spent'`,
+).get();
+if (!spentExists) {
+  db.exec(`ALTER TABLE player_progress ADD COLUMN meta_sunshine_spent INTEGER DEFAULT 0`);
 }
 
 const leaderboardModeCol = db.prepare(

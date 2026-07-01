@@ -1,5 +1,6 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
+import { loadPlayerName } from '../utils/hannahProgress.js';
 
 const COLORS = GameConfig.colors;
 
@@ -9,7 +10,7 @@ export class LeaderboardScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.playerName = data.playerName || localStorage.getItem('hannahGarden_playerName') || 'Player';
+    this.playerName = data.playerName || loadPlayerName() || 'Player';
     this._leaderboardMode = data.mode ?? 'campaign';
   }
 
@@ -117,6 +118,7 @@ export class LeaderboardScene extends Phaser.Scene {
 
     try {
       const response = await fetch(`/api/leaderboard?mode=${encodeURIComponent(this._leaderboardMode)}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       this.loadingText.destroy();
       this._displayTable(data, width, height);

@@ -64,6 +64,7 @@ export class GameScene extends Phaser.Scene {
     SceneMusicManager.transition(this, 'battle');
     this.lives = GameConfig.startingLives;
     this._defeatHandled = false;
+    this._battleEnded = false;
     this.sunshinePoints = startingSunshineForZone(this.zone);
     this.battleSunshineEarned = 0;
     this.towers = [];
@@ -99,6 +100,7 @@ export class GameScene extends Phaser.Scene {
     this._drawPathEdgeDecals();
     this._drawZoneMoodOverlay();
     this._drawGardenGate();
+    this._drawEnemySpawnMarker();
     this._createLivesWarningOverlay();
     applyCamera();
 
@@ -136,6 +138,9 @@ export class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.paused) return;
+    // Battle decided (victory queued): freeze combat/enemy movement during the
+    // transition delay so a last-frame gate leak can't flip a win into a loss.
+    if (this._battleEnded) return;
 
     this.waveManager.update(time, delta);
     this._emitWaveCooldownIfChanged();
@@ -392,6 +397,43 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /** Friendly "critters start here" marker at the first waypoint (enemy spawn). */
+  _drawEnemySpawnMarker() {
+    const start = this.waypoints?.[0];
+    if (!start) return;
+    const sx = start.x;
+    const sy = start.y;
+
+    // Soft green pulse (mirrors the gold gate glow, colour-coded start vs. end).
+    const glow = this.add.circle(sx, sy, TILE * 0.55, 0x7ec850, 0.10).setDepth(4);
+
+    // Small arrow pointing the way critters travel so the entry reads clearly.
+    const next = this.waypoints[1] ?? start;
+    const angle = Math.atan2(next.y - sy, next.x - sx);
+    const arrow = this.add.triangle(sx, sy, 0, -6, 0, 6, 11, 0, 0x7ec850, 0.9)
+      .setRotation(angle)
+      .setDepth(6);
+
+    this._spawnMarkerGlowTween = this.tweens.add({
+      targets: glow,
+      alpha: { from: 0.10, to: 0.20 },
+      scaleX: { from: 1, to: 1.12 },
+      scaleY: { from: 1, to: 1.12 },
+      duration: 1600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    this._spawnMarkerArrowTween = this.tweens.add({
+      targets: arrow,
+      alpha: { from: 0.5, to: 0.95 },
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
   /* ─── Events ─── */
 
   _setupEvents() {
@@ -431,8 +473,11 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.events.on('battle-complete', () => {
+      if (this._battleEnded) return;
+      this._battleEnded = true;
       this.game.events.emit('battle-complete');
       this.time.delayedCall(1500, () => {
+        if (!this.sys?.isActive?.()) return;
         this.scene.stop('UIScene');
         const towerData = this.towers.map(t => ({ type: t.type, tier: t.tier || 0 }));
         this.scene.stop('GameScene');
@@ -727,6 +772,7 @@ export class GameScene extends Phaser.Scene {
     SceneMusicManager.restore(this);
     this.abilityController?.destroy();
     this.battleVfx?.destroy();
+    this.bossBanner?.destroy();
     this.towerInspect?.close();
     if (this.selectedTower) {
       this.game.events.emit('tower-deselected');
@@ -734,6 +780,13 @@ export class GameScene extends Phaser.Scene {
     if (this._onHannahLevelChanged) {
       this.game.events.off('hannah-level-changed', this._onHannahLevelChanged);
     }
+    // Scene-local events are NOT auto-cleared by Phaser on shutdown (only on destroy).
+    // The scene instance is reused across battles, so these must be removed or they
+    // duplicate on replay (double enemy spawns, double wave bonuses, etc.).
+    this.events.off('enemy-spawn');
+    this.events.off('wave-start');
+    this.events.off('wave-complete');
+    this.events.off('battle-complete');
     this.game.events.off('tower-selected');
     this.game.events.off('tower-deselected');
     this.game.events.off('tower-drag-start');
@@ -746,6 +799,10 @@ export class GameScene extends Phaser.Scene {
     this.game.events.off('toggle-pause');
     this.game.events.off('tutorial-state-changed');
     this.game.events.off('battle-speed-changed');
+    this._spawnMarkerGlowTween?.remove();
+    this._spawnMarkerArrowTween?.remove();
+    this._spawnMarkerGlowTween = null;
+    this._spawnMarkerArrowTween = null;
     this.time.timeScale = 1;
     this.selectedTower = null;
     this.enemies = [];

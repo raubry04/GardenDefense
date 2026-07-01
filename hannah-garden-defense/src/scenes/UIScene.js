@@ -7,6 +7,7 @@ import { TowerTray } from "../ui/TowerTray.js";
 import { AbilityBar } from "../ui/AbilityBar.js";
 import { WavePreview } from "../ui/WavePreview.js";
 import { showToast, clearToastQueue } from "../ui/Toast.js";
+import { levelUpUnlockMessage, unlocksAtLevel } from "../utils/hannahProgress.js";
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -111,6 +112,35 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on(event, handler);
   }
 
+  _celebrateLevelUp(level) {
+    const unlock = levelUpUnlockMessage(level);
+    const message = unlock
+      ? `⭐ Level Up! ${unlock}`
+      : `⭐ Level Up! Hannah is Level ${level}`;
+    showToast(this, message, 2600);
+    this.sound.play("pointsEarned", { volume: GameConfig.audio.sfxVolume });
+
+    const star = this.hud?._hudStarIcon;
+    if (star?.active) {
+      const baseX = star.scaleX;
+      const baseY = star.scaleY;
+      this.tweens.add({
+        targets: star,
+        scaleX: baseX * 1.5,
+        scaleY: baseY * 1.5,
+        duration: 180,
+        yoyo: true,
+        repeat: 1,
+        ease: "Back.easeOut",
+        onComplete: () => star.setScale(baseX, baseY),
+      });
+    }
+
+    // Spotlight any tower card unlocked at this level for extra positive feedback.
+    const { towers } = unlocksAtLevel(level);
+    towers?.forEach((type) => this.tray?.spotlightTower?.(type));
+  }
+
   _setupEventListeners() {
     this._on("lives-changed", (data) => {
       const prevLives = this.lives;
@@ -139,9 +169,13 @@ export class UIScene extends Phaser.Scene {
     });
 
     this._on("hannah-level-changed", (data) => {
+      const prevLevel = this.hannahLevel;
       this.hannahLevel = data.level ?? this.hannahLevel;
       this.tray.refreshUnlocks();
       this.abilityBar.refreshUnlocks();
+      if (this.hannahLevel > prevLevel) {
+        this._celebrateLevelUp(this.hannahLevel);
+      }
     });
 
     this._on("wave-started", (data) => {

@@ -4,6 +4,8 @@ import { getFullGuideSteps } from '../data/tutorialContent.js';
 import { applyAudioSettings } from '../utils/audioSettings.js';
 import { createSettingsPanel } from '../ui/SettingsPanel.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
+import { loadPlayerName, savePlayerName } from '../utils/hannahProgress.js';
+import { isValidPlayerName } from '../utils/playerName.js';
 
 const COLORS = GameConfig.colors;
 
@@ -145,7 +147,7 @@ export class MainMenuScene extends Phaser.Scene {
   /* ── Name entry ──────────────────────────────────────── */
 
   _createNameEntry(width) {
-    const savedName = localStorage.getItem('hannahGarden_playerName') || '';
+    const savedName = loadPlayerName();
     this.playerName = savedName;
 
     const panelY = 210;
@@ -449,8 +451,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const saveName = () => {
       const trimmed = (nameInput.value || '').substring(0, 12).trim();
-      if (!trimmed) {
-        errorText.setText(required ? 'Please enter a name to continue.' : 'Name cannot be empty.');
+      const shake = () => {
         this.tweens.add({
           targets: inputBg,
           x: width / 2 - 6,
@@ -459,10 +460,21 @@ export class MainMenuScene extends Phaser.Scene {
           repeat: 3,
           onComplete: () => inputBg.setX(width / 2),
         });
+      };
+      if (!trimmed) {
+        errorText.setText(required ? 'Please enter a name to continue.' : 'Name cannot be empty.');
+        shake();
+        return;
+      }
+      // Match the server rule (letters, numbers, spaces) so leaderboard/progress
+      // syncs don't silently 400 on punctuation/emoji names.
+      if (!isValidPlayerName(trimmed)) {
+        errorText.setText('Please use letters and numbers only.');
+        shake();
         return;
       }
       this.playerName = trimmed;
-      localStorage.setItem('hannahGarden_playerName', this.playerName);
+      savePlayerName(this.playerName);
       if (this.nameDisplay) {
         this.nameDisplay.setText(this.playerName);
         this.nameDisplay.setColor('#4A2C0A');

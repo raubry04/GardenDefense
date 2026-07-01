@@ -181,6 +181,16 @@ export class EnemyBehavior {
 
   enemyReachedGate(enemy) {
     const s = this.scene;
+    // Ignore late leaks once the battle is decided (victory queued or defeat handled),
+    // so lives can't go negative and victory can't be overridden by a game-over.
+    if (s._defeatHandled || s._battleEnded) {
+      enemy.alive = false;
+      s.battleVfx?.destroyEnemyFx(enemy);
+      enemy.sprite?.destroy?.();
+      enemy.hpBar?.destroy?.();
+      enemy.hpBarBg?.destroy?.();
+      return;
+    }
     enemy.alive = false;
     s.battleVfx?.destroyEnemyFx(enemy);
     enemy.sprite.destroy();
@@ -192,7 +202,10 @@ export class EnemyBehavior {
     const last = s.waypoints[s.waypoints.length - 1];
     s.battleVfx?.burstGate(last.x, last.y);
 
-    s.lives -= enemy.damage;
+    const cap = GameConfig.maxLifeLossPerLeak ?? Infinity;
+    const lifeLoss = Math.min(enemy.damage, cap);
+    s.lives -= lifeLoss;
+    this._showGateLeakFeedback(last, lifeLoss);
     s.game.events.emit('lives-changed', { lives: s.lives });
 
     if (s.lives <= 0) {
@@ -207,6 +220,14 @@ export class EnemyBehavior {
         battle: s.battle,
         playerName: s.playerName,
       });
+    }
+  }
+
+  _showGateLeakFeedback(gate, lifeLoss) {
+    const s = this.scene;
+    const label = lifeLoss > 1 ? `An animal got in! -${lifeLoss}` : 'An animal got in! -1';
+    if (s.towerPlacement?.showFloatingText) {
+      s.towerPlacement.showFloatingText(gate.x, gate.y - TILE * 0.9, label, '#E63946');
     }
   }
 

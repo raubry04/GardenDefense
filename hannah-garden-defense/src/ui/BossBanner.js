@@ -1,5 +1,7 @@
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 
+const HUD_DEPTH = 200;
+
 export class BossBanner {
   /** @param {import('../scenes/GameScene.js').GameScene} scene */
   constructor(scene) {

@@ -325,6 +325,51 @@ export class TowerTray {
     this.updateAffordability();
   }
 
+  /**
+   * Briefly spotlight a newly-unlocked tower's tray card (scale pulse + glow
+   * flash) as positive reinforcement on level-up. No-op for missing/locked cards.
+   * @param {string} type
+   */
+  spotlightTower(type) {
+    const card = this.towerCards?.find((c) => c.type === type);
+    if (!card || !card.unlocked) return;
+    const scene = this.scene;
+
+    const pulseTargets = [card.cardBg, card.sprite, card.nameText, card.costText, card.greyOverlay];
+    scene.tweens.killTweensOf(pulseTargets);
+    card._spotlightPulse = scene.tweens.add({
+      targets: pulseTargets,
+      scaleX: '*=1.15',
+      scaleY: '*=1.15',
+      duration: 220,
+      yoyo: true,
+      repeat: 2,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Reuse the selection glow as a gold flash — but only when this card isn't
+    // the actively-selected one (that has its own persistent glow tween).
+    const glow = card.selectionGlow;
+    if (glow?.active && card.type !== this.selectedTowerType) {
+      glow.setVisible(true).setAlpha(0);
+      card._spotlightGlow = scene.tweens.add({
+        targets: glow,
+        alpha: { from: 0, to: 1 },
+        duration: 300,
+        yoyo: true,
+        repeat: 2,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          if (card.type !== this.selectedTowerType) {
+            glow.setVisible(false);
+            glow.setAlpha(1);
+          }
+          card._spotlightGlow = null;
+        },
+      });
+    }
+  }
+
   _startTowerDrag(type, card, pointer) {
     const scene = this.scene;
     if (this._towerDrag) this.cancelDrag(false);
@@ -358,6 +403,9 @@ export class TowerTray {
     scene.input.on("pointermove", this._onTowerDragMove, this);
     scene.input.on("pointerup", this._onTowerDragEnd, this);
     scene.input.on("pointerupoutside", this._onTowerDragEnd, this);
+    // iOS Safari fires pointercancel (not pointerup) when a system gesture
+    // interrupts the touch — abort the drag so board input can't get stuck.
+    scene.input.on("pointercancel", this._onTowerDragCancel, this);
   }
 
   _unbindTowerDragInput() {
@@ -365,6 +413,13 @@ export class TowerTray {
     scene.input.off("pointermove", this._onTowerDragMove, this);
     scene.input.off("pointerup", this._onTowerDragEnd, this);
     scene.input.off("pointerupoutside", this._onTowerDragEnd, this);
+    scene.input.off("pointercancel", this._onTowerDragCancel, this);
+  }
+
+  _onTowerDragCancel(pointer) {
+    if (!this._towerDrag) return;
+    if (pointer && pointer.id !== this._towerDrag.pointerId) return;
+    this.cancelDrag(true);
   }
 
   _onTowerDragMove(pointer) {
@@ -559,6 +614,12 @@ export class TowerTray {
 
   destroy() {
     this.scene.input.off("pointerdown", this._onBoardTap);
+    this.towerCards?.forEach((card) => {
+      card._spotlightPulse?.remove();
+      card._spotlightGlow?.remove();
+      card._spotlightPulse = null;
+      card._spotlightGlow = null;
+    });
     this.cancelDrag(false);
   }
 }

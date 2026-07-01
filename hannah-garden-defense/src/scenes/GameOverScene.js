@@ -1,6 +1,7 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
+import { loadPlayerName } from '../utils/hannahProgress.js';
 
 const COLORS = GameConfig.colors;
 
@@ -25,7 +26,7 @@ export class GameOverScene extends Phaser.Scene {
     this.zone = data.zone ?? 0;
     this.battle = data.battle ?? 0;
     this.playerName = data.playerName
-      || localStorage.getItem('hannahGarden_playerName')
+      || loadPlayerName()
       || 'Player';
   }
 

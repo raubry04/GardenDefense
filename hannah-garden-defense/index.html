@@ -130,8 +130,11 @@
       touch-action: none;
       -webkit-tap-highlight-color: transparent;
       background: #5A9A38;
-      /* Keep canvas above iOS home indicator / Android gesture bar */
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      /* Single-owner rule for the bottom safe area (home indicator / gesture bar):
+         the design-space layout math in battleLayout.computeDesignUIMetrics() lifts
+         the tray/abilities above it. Do NOT also pad here — getViewportSize() reads
+         clientHeight (which includes padding), so padding never shrinks the size
+         Phaser sees and would only double-count the inset (tray floats too high). */
       box-sizing: border-box;
     }
 

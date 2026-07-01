@@ -27,7 +27,7 @@ On your **very first battle**, the tutorial walks you through the garden — the
 
 - Enemies follow the dirt path toward the gate.
 - Your towers attack automatically.
-- Each enemy that gets through costs **hearts** (lives). You start with 20.
+- Each enemy that gets through costs **hearts** (lives). You start with 20. A red **"An animal got in!"** pops up at the gate so you know what happened (even the biggest critter can only take a few hearts at once).
 - Watch the **wave bar** in the middle of the top HUD.
 
 ### Between waves
@@ -55,7 +55,7 @@ On your **very first battle**, the tutorial walks you through the garden — the
 | **Penguin** | Freezes enemies (needs time to recharge) |
 | **Pig Wall** | Blocks the path — only this one can sit on the trail |
 
-New friends unlock as **Hannah levels up** or you reach **new zones** on the map.
+New friends unlock as **Hannah levels up** or you reach **new zones** on the map. When Hannah levels up during a battle, a **⭐ Level Up!** message celebrates — and tells you if a new friend or power just became available.
 
 ## Hannah's special powers
 

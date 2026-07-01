@@ -3,6 +3,9 @@ export const GameConfig = {
   tileSize: 64,
 
   startingLives: 20,
+  // Anti-frustration cap: a single enemy reaching the gate can never remove more
+  // than this many lives at once (only clips the biggest hitter, Elephant = 10).
+  maxLifeLossPerLeak: 5,
   // In-battle placement budget per zone (unchanged by meta economy tuning).
   startingSunshinePoints: { zone1: 150, zone2: 168, zone3: 192, zone4: 216, zone5: 240, endless: 250 },
   // Fraction of in-battle sunshine earned that deposits into the upgrade bank on victory.
