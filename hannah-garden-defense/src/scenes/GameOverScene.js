@@ -2,6 +2,8 @@ import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 import { loadPlayerName } from '../utils/hannahProgress.js';
+import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
+import { FONT_DISPLAY } from '../utils/textReadability.js';
 
 const COLORS = GameConfig.colors;
 
@@ -60,7 +62,7 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     const title = this.add.text(width / 2, 100, 'GAME OVER', {
-      fontFamily: 'Kenney Pixel',
+      fontFamily: FONT_DISPLAY,
       fontSize: '46px',
       color: '#FFD700',
       stroke: '#2E5A1F',
@@ -80,7 +82,7 @@ export class GameOverScene extends Phaser.Scene {
       : 'Endless Frontier';
 
     this.add.text(width / 2, 140, `${zoneName} — Battle ${this.battle + 1}`, {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '20px',
       color: '#FFF9E6',
       wordWrap: { width: width * 0.8 },
@@ -88,7 +90,7 @@ export class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const subtitle = this.add.text(width / 2, 172, '', {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '18px',
       color: '#A8DADC',
       wordWrap: { width: width * 0.75 },
@@ -138,13 +140,7 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   _drawBackground(width, height) {
-    const gfx = this.add.graphics();
-    for (let i = 0; i < 12; i++) {
-      const x = Phaser.Math.Between(0, width);
-      const y = Phaser.Math.Between(0, height);
-      gfx.fillStyle(0x4A7C30, 0.3);
-      gfx.fillCircle(x, y, Phaser.Math.Between(20, 40));
-    }
+    decorateGardenBackdrop(this, { width, height, variant: 'result' });
   }
 
   _createStatsPanel(width, panelY) {
@@ -152,19 +148,19 @@ export class GameOverScene extends Phaser.Scene {
     const panelH = 108;
 
     const shadow = this.add.rectangle(width / 2 + 2, panelY + 2, panelW, panelH, 0x000000, 0.2);
-    const panel = this.add.rectangle(width / 2, panelY, panelW, panelH, COLORS.uiPanel, 0.95)
+    const panel = this.add.rectangle(width / 2, panelY, panelW, panelH, COLORS.uiPanel, 1)
       .setStrokeStyle(2, COLORS.outline);
     this.add.rectangle(width / 2, panelY - panelH / 2 + 4, panelW - 8, 3, COLORS.accent, 0.4);
 
     const waveLabel = this.add.text(width / 2, panelY - 28, `Wave Reached: ${this.waveReached}`, {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '26px',
-      color: '#A8DADC',
+      color: '#3D5A1F',
     }).setOrigin(0.5).setAlpha(0);
 
     const encourage = this.add.text(width / 2, panelY + 14, '🐥 Keep going — you\'ve got this!', {
-      fontFamily: 'Kenney Future',
-      fontSize: '16px',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '17px',
       color: '#3D5A1F',
       wordWrap: { width: panelW - 40 },
       align: 'center',
@@ -192,18 +188,18 @@ export class GameOverScene extends Phaser.Scene {
     const boxY = height - 200;
 
     this.add.rectangle(width / 2 + 2, boxY + 2, boxW, boxH, 0x000000, 0.2);
-    this.add.rectangle(width / 2, boxY, boxW, boxH, COLORS.uiPanel, 0.92)
+    this.add.rectangle(width / 2, boxY, boxW, boxH, COLORS.uiPanel, 1)
       .setStrokeStyle(2, COLORS.stars);
 
     this.add.text(width / 2, boxY - boxH / 2 + 18, '💡 TIP', {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '16px',
       color: '#FFE135',
     }).setOrigin(0.5);
 
     this.add.text(width / 2, boxY - boxH / 2 + 38, hint, {
-      fontFamily: 'Kenney Future',
-      fontSize: '14px',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '15px',
       color: '#3D5A1F',
       wordWrap: { width: boxW - 48 },
       align: 'center',
@@ -212,10 +208,24 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   _spawnEncouragingParticles(width, height) {
-    for (let i = 0; i < 20; i++) {
+    const key = this.textures.exists('particle_sparkle')
+      ? 'particle_sparkle'
+      : (this.textures.exists('particle_star') ? 'particle_star' : null);
+    const tints = [COLORS.stars, 0xFFE135, 0xA8DADC, 0xFFD700];
+
+    for (let i = 0; i < 18; i++) {
       const x = Phaser.Math.Between(50, width - 50);
       const y = Phaser.Math.Between(height + 20, height + 100);
-      const dot = this.add.circle(x, y, Phaser.Math.Between(3, 6), COLORS.stars, 0.6);
+      const size = Phaser.Math.Between(12, 20);
+      const tint = Phaser.Math.RND.pick(tints);
+
+      const dot = key
+        ? this.add.image(x, y, key)
+          .setDisplaySize(size, size)
+          .setTint(tint)
+          .setAlpha(0.7)
+          .setDepth(2)
+        : this.add.circle(x, y, Phaser.Math.Between(3, 6), COLORS.stars, 0.6).setDepth(2);
 
       this.tweens.add({
         targets: dot,
@@ -282,7 +292,7 @@ export class GameOverScene extends Phaser.Scene {
       .setStrokeStyle(3, COLORS.outline);
 
     const text = this.add.text(x, y, label, {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '20px',
       color: '#4A2C0A',
     }).setOrigin(0.5);

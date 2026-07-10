@@ -164,9 +164,13 @@ export function computeBattleUI(sw, sh) {
 
   if (chrome.compact && !chrome.isPortrait) {
 
-    const trayHeight = 78;
+    // Bigger, more readable cards for kids. Derive scale from the per-card slot
+    // so cards never overlap on smaller landscape phones (step stays > card w).
+    const cardStep = Math.min(108, Math.floor((availW - 16) / cardCount));
 
-    const cardStep = Math.min(80, Math.floor((availW - 16) / cardCount));
+    const cardScale = Math.min(1.12, Math.max(0.85, (cardStep - 12) / 84));
+
+    const trayHeight = Math.max(78, Math.round(84 * cardScale + 18));
 
     return {
 
@@ -184,7 +188,7 @@ export function computeBattleUI(sw, sh) {
 
       cardStep,
 
-      cardScale: 0.85,
+      cardScale,
 
       abilityStep: 64,
 
@@ -248,13 +252,13 @@ export function computeBattleUI(sw, sh) {
 
     playableCenterX,
 
-    trayHeight: 94,
+    trayHeight: 118,
 
     trayRows: 1,
 
-    cardStep: 96,
+    cardStep: 112,
 
-    cardScale: 1,
+    cardScale: 1.15,
 
     abilityStep: 72,
 
@@ -282,6 +286,36 @@ export function screenPxToDesign(sw, sh, px) {
 }
 
 /**
+ * World-space (design coords) top/bottom of the visible viewport under the
+ * battle camera's contain-fit (+ the mobile chrome nudge).
+ *
+ * On a tall portrait phone the 1280×720 board only fills a thin horizontal band
+ * in the vertical centre of the screen, so the physical screen bottom maps to a
+ * world y far BELOW design y=720. Anchoring the bottom HUD to this `bottom`
+ * (instead of DESIGN.height) keeps the tray at the real screen bottom rather
+ * than floating inside the board over the enemy path.
+ *
+ * NOTE: this must mirror fitDesignInScreenRect() + nudgeBattleCameraForChrome()
+ * so UIScene (which syncs to that same camera) lines up.
+ */
+export function computeVisibleDesignBounds(sw, sh) {
+  const zoom = Math.max(0.0001, Math.min(sw / DESIGN.width, sh / DESIGN.height));
+  const halfViewH = sh / (2 * zoom);
+  let top = DESIGN.height / 2 - halfViewH;
+  let bottom = DESIGN.height / 2 + halfViewH;
+  if (isMobileViewport()) {
+    const chrome = computeBattleChrome(sw, sh);
+    const nudgePx = chrome.isPortrait
+      ? chrome.bottom * 0.2
+      : Math.max(chrome.bottom, chrome.right) * 0.12;
+    const nudge = nudgePx / zoom;
+    top += nudge;
+    bottom += nudge;
+  }
+  return { top, bottom, zoom };
+}
+
+/**
  * Design-space HUD anchors for UIScene (tray, send wave, abilities).
  *
  * Recommended safe padding (screen px):
@@ -291,11 +325,32 @@ export function screenPxToDesign(sw, sh, px) {
  * - Design equivalent at phone zoom (~0.3): ~40–80px for touch margin alone,
  *   ~120–160px total when CSS safe-area is unavailable
  */
+/** Design-space size of the tower cards (TowerTray CARD_W / CARD_H). */
+const TRAY_CARD_BASE = 84;
+
 export function computeDesignUIMetrics(sw, sh) {
   const ui = computeBattleUI(sw, sh);
   const safe = getSafeInsets();
   const mobile = ui.isPhone || isMobileViewport();
   const zoom = Math.max(0.0001, Math.min(sw / DESIGN.width, sh / DESIGN.height));
+
+  // Phone-portrait tower cards: computeBattleUI derives cardStep/cardScale from
+  // *screen* px, but TowerTray positions/sizes cards in *design* space. Portrait
+  // contain-fit uses a small zoom, so those screen values (as design px) squeeze
+  // the 7 cards into a few overlapping pixels. Re-derive the per-card slot in
+  // design space (÷zoom) targeting a readable, tappable on-screen size, and grow
+  // the tray to wrap the taller cards (bg wrapping in TowerTray follows these).
+  if (mobile && ui.isPortrait && ui.compact) {
+    const cardCount = 7;
+    const GAP_PX = 8;
+    const MAX_CARD_PX = 56;
+    const availWScreen = ui.playableW - ui.pad.left - ui.pad.right;
+    const slotScreen = Math.max(28, availWScreen / cardCount);
+    const cardScreen = Math.max(28, Math.min(MAX_CARD_PX, slotScreen - GAP_PX));
+    ui.cardStep = slotScreen / zoom;
+    ui.cardScale = (cardScreen / zoom) / TRAY_CARD_BASE;
+    ui.trayHeight = (cardScreen + 22) / zoom;
+  }
 
   const TOUCH_MARGIN_PX = 16;
   const GESTURE_FALLBACK_PX = ui.isPortrait ? 48 : 32;
@@ -314,7 +369,11 @@ export function computeDesignUIMetrics(sw, sh) {
   }
 
   const trayHeight = ui.trayHeight;
-  const trayBottom = DESIGN.height - designBottomInset;
+  // Anchor the tray to the visible viewport bottom (not the design board bottom).
+  // On tall portrait phones design y=720 is well above the physical screen edge,
+  // so DESIGN.height would leave the tray floating over the board/path.
+  const viewBottom = mobile ? computeVisibleDesignBounds(sw, sh).bottom : DESIGN.height;
+  const trayBottom = viewBottom - designBottomInset;
   const trayCenterY = trayBottom - trayHeight / 2;
   const trayTop = trayBottom - trayHeight;
 
@@ -323,9 +382,13 @@ export function computeDesignUIMetrics(sw, sh) {
   const abilityStep = mobile && ui.compact
     ? screenPxToDesign(sw, sh, ui.abilityStep)
     : 80;
-  const abilityX = DESIGN.width - (mobile && ui.compact && !ui.isPortrait
-    ? screenPxToDesign(sw, sh, ui.pad.right) + 32
-    : 50);
+  // Portrait needs extra inset so left-side name pills (BOMB/SHIELD) clear the
+  // garden gate / board edge; landscape already reserves a right chrome band.
+  const abilityX = DESIGN.width - (mobile && ui.compact
+    ? (ui.isPortrait
+      ? screenPxToDesign(sw, sh, ui.pad.right) + 72
+      : screenPxToDesign(sw, sh, ui.pad.right) + 48)
+    : 58);
 
   const abilityCount = 4;
   let abilityCenterY = DESIGN.height / 2;

@@ -10,6 +10,8 @@ import {
 import { LevelUpBanner } from '../ui/LevelUpBanner.js';
 import { getUpgradeableTowerTypes, paginateTowerTypes, canPurchaseUpgradeTier } from '../utils/upgradeTowers.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
+import { TEXT_GOLD, TEXT_ON_DARK, TEXT_PILL_BG, TEXT_PILL_PAD, FONT_DISPLAY } from '../utils/textReadability.js';
+import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
 
 const COLORS = GameConfig.colors;
 
@@ -48,6 +50,7 @@ export class UpgradeScene extends Phaser.Scene {
   create() {
     const { width, height } = DESIGN;
     setupResponsiveCamera(this);
+    this.cameras.main.setBackgroundColor('#6EA843');
     this.cameras.main.fadeIn(300);
     SceneMusicManager.transition(this, 'menu');
 
@@ -77,31 +80,26 @@ export class UpgradeScene extends Phaser.Scene {
   }
 
   _drawBackground(width, height) {
-    const gfx = this.add.graphics();
-    for (let i = 0; i < 15; i++) {
-      const x = Phaser.Math.Between(0, width);
-      const y = Phaser.Math.Between(0, height);
-      gfx.fillStyle(0x4A7C30, 0.3);
-      gfx.fillCircle(x, y, Phaser.Math.Between(15, 30));
-    }
+    decorateGardenBackdrop(this, { width, height, variant: 'upgrades' });
   }
 
   _drawHeader(width) {
     this.add.text(width / 2, 30, '⬆️ UPGRADES', {
-      fontFamily: 'Kenney Pixel',
+      fontFamily: FONT_DISPLAY,
       fontSize: '38px',
       color: '#FFD700',
       stroke: '#3D5A1F',
       strokeThickness: 4,
     }).setOrigin(0.5);
 
-    const coinBg = this.add.rectangle(width - 90, 30, 140, 34, 0x000000, 0.4)
-      .setStrokeStyle(1, COLORS.stars);
+    const coinBg = this.add.rectangle(width - 90, 30, 148, 38, 0x1a2e14, 0.94)
+      .setStrokeStyle(2, COLORS.stars);
 
     this.pointsDisplay = this.add.text(width - 90, 30, `☀️ ${this.sunshinePoints}`, {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '22px',
-      color: '#FFD700',
+      color: TEXT_GOLD,
+      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5);
   }
 
@@ -111,9 +109,12 @@ export class UpgradeScene extends Phaser.Scene {
     const barHeight = 22;
 
     this.add.text(width / 2, barY - 2, `Hannah Level ${this.hannahLevel}`, {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '20px',
-      color: '#FFF9E6',
+      color: TEXT_ON_DARK,
+      backgroundColor: TEXT_PILL_BG,
+      padding: TEXT_PILL_PAD,
+      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5, 1);
 
     const thresholds = GameConfig.hannahXpThresholds;
@@ -147,9 +148,10 @@ export class UpgradeScene extends Phaser.Scene {
     }
 
     this.add.text(width / 2, barY + barHeight + 10, `${xpInLevel} / ${xpNeeded} XP`, {
-      fontFamily: 'Kenney Future',
-      fontSize: '16px',
-      color: '#A8DADC',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '18px',
+      color: '#E8F4F4',
+      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5, 0);
 
     const nextUnlocks = [];
@@ -165,25 +167,27 @@ export class UpgradeScene extends Phaser.Scene {
     for (const [, cfg] of Object.entries(GameConfig.hannahAbilities)) {
       if (cfg.unlockLevel === this.hannahLevel + 1) nextUnlocks.push(cfg.label);
     }
-    let hintY = barY + barHeight + 28;
+    let hintY = barY + barHeight + 32;
     if (nextUnlocks.length > 0) {
       this.add.text(width / 2, hintY, `Lv.${this.hannahLevel + 1} unlocks: ${nextUnlocks.join(', ')}`, {
-        fontFamily: 'Kenney Future',
-        fontSize: '13px',
-        color: '#FFD700',
+        fontFamily: FONT_DISPLAY,
+        fontSize: '17px',
+        color: TEXT_GOLD,
         wordWrap: { width: width * 0.85 },
         align: 'center',
+        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
       }).setOrigin(0.5, 0);
-      hintY += 18;
+      hintY += 24;
     }
     if (nextZoneUnlocks.length > 0) {
       const zoneName = GameConfig.zones[this.unlockedZone + 1]?.name || `Zone ${this.unlockedZone + 2}`;
       this.add.text(width / 2, hintY, `${zoneName} unlocks: ${nextZoneUnlocks.join(', ')}`, {
-        fontFamily: 'Kenney Future',
-        fontSize: '13px',
-        color: '#A8DADC',
+        fontFamily: FONT_DISPLAY,
+        fontSize: '17px',
+        color: '#E8F4F4',
         wordWrap: { width: width * 0.85 },
         align: 'center',
+        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
       }).setOrigin(0.5, 0);
     }
   }
@@ -209,8 +213,8 @@ export class UpgradeScene extends Phaser.Scene {
   _createTowerUpgradeList(width, height) {
     const placedSet = new Set(this.placedTowers.map((t) => t.type));
     const towerTypes = getUpgradeableTowerTypes(this.placedTowers);
-    const startY = 140;
-    const cardHeight = 104;
+    const startY = 155;
+    const cardHeight = 140;
     const spacing = 8;
     const listBottom = height - 100;
     const pageSize = Math.max(1, Math.floor((listBottom - startY + spacing) / (cardHeight + spacing)));
@@ -220,13 +224,13 @@ export class UpgradeScene extends Phaser.Scene {
     if (totalPages > 1) {
       const pageY = listBottom + 8;
       const prevBtn = this.add.text(width / 2 - 80, pageY, '◀', {
-        fontFamily: 'Kenney Future', fontSize: '20px', color: page > 0 ? '#FFD700' : '#666666',
+        fontFamily: FONT_DISPLAY, fontSize: '20px', color: page > 0 ? '#FFD700' : '#666666',
       }).setOrigin(0.5).setInteractive({ useHandCursor: page > 0 });
       this.add.text(width / 2, pageY, `${page + 1} / ${totalPages}`, {
-        fontFamily: 'Kenney Future', fontSize: '14px', color: '#A8DADC',
+        fontFamily: FONT_DISPLAY, fontSize: '14px', color: '#A8DADC',
       }).setOrigin(0.5);
       const nextBtn = this.add.text(width / 2 + 80, pageY, '▶', {
-        fontFamily: 'Kenney Future', fontSize: '20px', color: page < totalPages - 1 ? '#FFD700' : '#666666',
+        fontFamily: FONT_DISPLAY, fontSize: '20px', color: page < totalPages - 1 ? '#FFD700' : '#666666',
       }).setOrigin(0.5).setInteractive({ useHandCursor: page < totalPages - 1 });
 
       if (page > 0) {
@@ -270,21 +274,26 @@ export class UpgradeScene extends Phaser.Scene {
 
       this.add.rectangle(width / 2 + 2, y + cardHeight / 2 + 2, cardW, cardHeight, 0x000000, 0.2);
 
-      if (this.textures.exists('ui_panelBorder')) {
-        this.add.image(width / 2, y + cardHeight / 2, 'ui_panelBorder')
-          .setDisplaySize(cardW, cardHeight)
-          .setAlpha(0.9);
-      } else {
-        this.add.rectangle(width / 2, y + cardHeight / 2, cardW, cardHeight, COLORS.uiPanel, 0.95)
-          .setStrokeStyle(2, COLORS.outline);
-      }
+      // Solid panel + gold stroke only — stretched ui_panelBorder smeared its
+      // baked white "shine" into glitchy dashes and soft grey edge speckles
+      // on the green background when setDisplaySize stretched the texture.
+      this.add.rectangle(width / 2, y + cardHeight / 2, cardW, cardHeight, COLORS.uiPanel, 0.98)
+        .setStrokeStyle(3, COLORS.stars);
       this.add.rectangle(width / 2, y + 4, cardW - 8, 3, COLORS.primary, 0.4);
 
+      const iconX = width / 2 - cardW / 2 + 40;
+      const iconY = y + cardHeight / 2;
       if (this.textures.exists(spriteKey)) {
-        this.add.image(width / 2 - cardW / 2 + 40, y + cardHeight / 2, spriteKey)
-          .setDisplaySize(44, 44);
+        // Cream plate (not a soft grey circle — those read as dirty blobs).
+        this.add.rectangle(iconX, iconY, 46, 46, 0xFFF9E6, 1)
+          .setStrokeStyle(2, 0xB8D080);
+        const tex = this.textures.get(spriteKey);
+        if (tex?.setFilter) tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+        this.add.image(iconX, iconY, spriteKey)
+          .setDisplaySize(40, 40);
       } else {
-        this.add.circle(width / 2 - cardW / 2 + 40, y + cardHeight / 2, 20, 0x888888);
+        this.add.rectangle(iconX, iconY, 40, 40, 0xDDE8C8, 1)
+          .setStrokeStyle(2, 0xB8D080);
       }
 
       const textLeft = width / 2 - cardW / 2 + 76;
@@ -292,25 +301,25 @@ export class UpgradeScene extends Phaser.Scene {
       const textMaxW = cardW - 76 - btnAreaW;
 
       const displayName = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      this.add.text(textLeft, y + 10, displayName, {
-        fontFamily: 'Kenney Future',
-        fontSize: '15px',
+      this.add.text(textLeft, y + 8, displayName, {
+        fontFamily: FONT_DISPLAY,
+        fontSize: '16px',
         color: '#3D5A1F',
         wordWrap: { width: textMaxW },
       }).setOrigin(0, 0);
 
       const tierStars = '★'.repeat(tier + 1) + '☆'.repeat(2 - tier);
       this.add.text(textLeft, y + 28, `Tier ${tier + 1}/3  ${tierStars}`, {
-        fontFamily: 'Kenney Future',
-        fontSize: '13px',
+        fontFamily: FONT_DISPLAY,
+        fontSize: '14px',
         color: '#888888',
       }).setOrigin(0, 0);
 
       if (!placedSet.has(type)) {
-        this.add.text(textLeft, y + 42, 'Not used last battle', {
-          fontFamily: 'Kenney Future',
-          fontSize: '10px',
-          color: '#A8A8A8',
+        this.add.text(textLeft, y + 46, 'Not used last battle', {
+          fontFamily: FONT_DISPLAY,
+          fontSize: '13px',
+          color: '#666666',
         }).setOrigin(0, 0);
       }
 
@@ -329,8 +338,8 @@ export class UpgradeScene extends Phaser.Scene {
             ? `Beat zone ${config.unlock.value + 1} for max tier`
             : 'Reach higher Hannah level for max tier';
           this.add.text(textLeft, y + cardHeight / 2 - 8, gateHint, {
-            fontFamily: 'Kenney Future',
-            fontSize: '10px',
+            fontFamily: FONT_DISPLAY,
+            fontSize: '12px',
             color: '#A8AADC',
             wordWrap: { width: textMaxW },
           }).setOrigin(0, 0.5);
@@ -343,25 +352,37 @@ export class UpgradeScene extends Phaser.Scene {
           .setStrokeStyle(2, canAfford ? COLORS.outline : 0x666666)
           .setInteractive({ useHandCursor: canAfford });
 
-        const btnText = this.add.text(upgBtnX, upgBtnY, `⬆ ${upgCost}☀`, {
-          fontFamily: 'Kenney Future',
-          fontSize: '15px',
+        // Kenney Future has no ⬆/☀ glyphs — those fell back to tofu that read
+        // as a stray "1" / bar before the cost ("1 120"). Use plain digits + star.
+        const btnText = this.add.text(upgBtnX, upgBtnY, `${upgCost}`, {
+          fontFamily: FONT_DISPLAY,
+          fontSize: '16px',
           color: canAfford ? '#4A2C0A' : '#CCCCCC',
-        }).setOrigin(0.5);
+        }).setOrigin(0, 0.5);
+        const costIcon = this.textures.exists('ui_uiStar')
+          ? this.add.image(0, upgBtnY, 'ui_uiStar').setDisplaySize(16, 16).setTint(0xffd700)
+          : this.add.circle(0, upgBtnY, 7, COLORS.stars).setStrokeStyle(1, COLORS.outline);
+        const costClusterW = costIcon.displayWidth + 6 + btnText.width;
+        costIcon.setPosition(upgBtnX - costClusterW / 2 + costIcon.displayWidth / 2, upgBtnY);
+        btnText.setPosition(upgBtnX - costClusterW / 2 + costIcon.displayWidth + 6, upgBtnY);
 
         const currentStats = tier === 0 ? config : config.upgrades[tier - 1];
         const statLines = this._buildUpgradeStatLines(upgrade, currentStats);
         if (statLines.length > 0) {
-          this.add.text(textLeft, y + 46, statLines.join('\n'), {
-            fontFamily: 'Kenney Future',
-            fontSize: '10px',
-            color: '#4CAF50',
+          // Start below name/tier/(optional unused) lines; taller cards leave
+          // room for 3–4 darker-green stat lines without crossing the border.
+          const statsY = placedSet.has(type) ? y + 50 : y + 62;
+          this.add.text(textLeft, statsY, statLines.join('\n'), {
+            fontFamily: FONT_DISPLAY,
+            fontSize: '15px',
+            color: '#1B5E20',
             wordWrap: { width: textMaxW },
             lineSpacing: 2,
           }).setOrigin(0, 0);
         }
 
         if (canAfford) {
+          // Don't scale-tween costIcon — setDisplaySize images collapse if scale→1.
           upgradeBtn.on('pointerover', () => {
             this.tweens.add({ targets: [upgradeBtn, btnText], scaleX: 1.08, scaleY: 1.08, duration: 60 });
           });
@@ -408,7 +429,7 @@ export class UpgradeScene extends Phaser.Scene {
       } else {
         const maxX = width / 2 + cardW / 2 - 70;
         this.add.text(maxX, y + cardHeight / 2, '⭐ MAX', {
-          fontFamily: 'Kenney Future',
+          fontFamily: FONT_DISPLAY,
           fontSize: '16px',
           color: '#FFD700',
         }).setOrigin(0.5);
@@ -443,7 +464,7 @@ export class UpgradeScene extends Phaser.Scene {
       .setStrokeStyle(2, COLORS.outline);
 
     const text = this.add.text(x, y, label, {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '20px',
       color: '#4A2C0A',
     }).setOrigin(0.5);

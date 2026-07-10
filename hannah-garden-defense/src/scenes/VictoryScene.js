@@ -9,8 +9,18 @@ import {
   battleSunshineToMetaBank,
 } from '../utils/hannahProgress.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
+import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
+import { FONT_DISPLAY } from '../utils/textReadability.js';
+import {
+  VICTORY_UI_DEPTH,
+  burstVictoryConfetti,
+  startVictoryConfetti,
+  createFloatingSparkles,
+  burstStarSparkles,
+} from '../utils/victoryConfetti.js';
 
 const COLORS = GameConfig.colors;
+const UI_DEPTH = VICTORY_UI_DEPTH;
 
 export class VictoryScene extends Phaser.Scene {
   constructor() {
@@ -41,30 +51,38 @@ export class VictoryScene extends Phaser.Scene {
 
     this._drawBackground(width, height);
     this._createConfetti(width, height);
+    this._createFloatingSparkles(width, height);
 
+    // Trophy image is sized via setDisplaySize (scale != 1). Pop-in must tween
+    // back to that display base — absolute scale 1 would leave it at native
+    // texture size (50px) instead of the intended 56px.
     const trophy = this.textures.exists('icon_trophy')
-      ? this.add.image(width / 2, 50, 'icon_trophy').setDisplaySize(56, 56).setOrigin(0.5).setScale(0)
-      : this.add.text(width / 2, 50, '🏆', { fontSize: '48px' }).setOrigin(0.5).setScale(0);
+      ? this.add.image(width / 2, 44, 'icon_trophy').setDisplaySize(56, 56).setOrigin(0.5)
+      : this.add.text(width / 2, 44, '🏆', { fontSize: '48px' }).setOrigin(0.5);
+    trophy.setDepth(UI_DEPTH);
+    const trophyBaseSX = trophy.scaleX;
+    const trophyBaseSY = trophy.scaleY;
+    trophy.setScale(0);
 
     this.tweens.add({
       targets: trophy,
-      scaleX: 1, scaleY: 1,
+      scaleX: trophyBaseSX, scaleY: trophyBaseSY,
       duration: 600,
       ease: 'Back.easeOut',
     });
 
-    const title = this.add.text(width / 2, 100, 'VICTORY!', {
-      fontFamily: 'Kenney Pixel',
-      fontSize: '46px',
+    const title = this.add.text(width / 2, 94, 'VICTORY!', {
+      fontFamily: FONT_DISPLAY,
+      fontSize: '52px',
       color: '#FFD700',
       stroke: '#2E5A1F',
       strokeThickness: 6,
-    }).setOrigin(0.5).setAlpha(0);
+    }).setOrigin(0.5).setAlpha(0).setDepth(UI_DEPTH);
 
     this.tweens.add({
       targets: title,
       alpha: 1,
-      y: 95,
+      y: 88,
       duration: 500,
       delay: 200,
     });
@@ -77,16 +95,18 @@ export class VictoryScene extends Phaser.Scene {
       ? (this.dailyDateKey ?? 'Today')
       : `Battle ${this.battle + 1} Complete!`;
 
-    this.add.text(width / 2, 140, `${zoneName} — ${battleLabel}`, {
-      fontFamily: 'Kenney Future',
-      fontSize: '20px',
+    this.add.text(width / 2, 132, `${zoneName} — ${battleLabel}`, {
+      fontFamily: FONT_DISPLAY,
+      fontSize: '22px',
       color: '#FFF9E6',
-    }).setOrigin(0.5);
+      wordWrap: { width: width * 0.85 },
+      align: 'center',
+    }).setOrigin(0.5).setDepth(UI_DEPTH);
 
     const stars = this._calculateStars();
-    this._displayStars(width, 200, stars);
-    this._showStarFeedback(width, 200, stars);
-    this._animatePoints(width, 280, stars);
+    this._displayStars(width, 188, stars);
+    this._showStarFeedback(width, 188, stars);
+    this._animatePoints(width, 300, stars);
     this._saveProgress(stars);
     this._postScore(stars);
     this._createButtons(width, height);
@@ -95,20 +115,20 @@ export class VictoryScene extends Phaser.Scene {
   _showStarFeedback(width, starY, stars) {
     const delta = stars - (this.prevStars ?? 0);
     if (delta > 0) {
-      const bonus = this.add.text(width / 2, starY + 50, `+${delta} ★`, {
-        fontFamily: 'Kenney Future',
+      const bonus = this.add.text(width / 2, starY + 48, `+${delta} ★`, {
+        fontFamily: FONT_DISPLAY,
         fontSize: '28px',
         color: '#FFE135',
         stroke: '#3D5A1F',
         strokeThickness: 3,
-      }).setOrigin(0.5).setAlpha(0).setScale(0.5);
+      }).setOrigin(0.5).setAlpha(0).setScale(0.5).setDepth(UI_DEPTH);
 
       this.tweens.add({
         targets: bonus,
         alpha: 1,
         scaleX: 1,
         scaleY: 1,
-        y: starY + 44,
+        y: starY + 42,
         duration: 500,
         delay: 1500,
         ease: 'Back.easeOut',
@@ -117,15 +137,15 @@ export class VictoryScene extends Phaser.Scene {
 
     if (stars < 3 && this.mode !== 'daily') {
       const need = GameConfig.starThresholds.three;
-      const replayHint = this.add.text(width / 2, starY + (delta > 0 ? 78 : 50),
+      const replayHint = this.add.text(width / 2, starY + (delta > 0 ? 74 : 48),
         `Replay from the map to chase 3★ (need ${need} lives left)`,
         {
-          fontFamily: 'Kenney Future',
-          fontSize: '14px',
+          fontFamily: FONT_DISPLAY,
+          fontSize: '18px',
           color: '#A8DADC',
           wordWrap: { width: width * 0.8 },
           align: 'center',
-        }).setOrigin(0.5, 0).setAlpha(0);
+        }).setOrigin(0.5, 0).setAlpha(0).setDepth(UI_DEPTH);
 
       this.tweens.add({
         targets: replayHint,
@@ -137,13 +157,7 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   _drawBackground(width, height) {
-    const gfx = this.add.graphics();
-    for (let i = 0; i < 12; i++) {
-      const x = Phaser.Math.Between(0, width);
-      const y = Phaser.Math.Between(0, height);
-      gfx.fillStyle(0x4A7C30, 0.3);
-      gfx.fillCircle(x, y, Phaser.Math.Between(20, 40));
-    }
+    decorateGardenBackdrop(this, { width, height, variant: 'result' });
   }
 
   _calculateStars() {
@@ -152,30 +166,20 @@ export class VictoryScene extends Phaser.Scene {
     return 1;
   }
 
+  /**
+   * Kid-friendly falling celebration. Solid rectangles/circles/icon_star —
+   * not soft Kenney particle_* glows (those vanish on grass with NORMAL blend).
+   * Opening burst is on-screen immediately; rain keeps respawning the whole time.
+   */
   _createConfetti(width, height) {
-    const confettiColors = [0xFFD700, 0xFF9F1C, 0xE63946, 0xA8DADC, 0x7EC850, 0xFFE135, 0xFF69B4];
+    // Dense full-viewport rain in DESIGN space (see victoryConfetti.js).
+    burstVictoryConfetti(this, width, height, 52);
+    startVictoryConfetti(this, width, height, 72);
+  }
 
-    for (let i = 0; i < 50; i++) {
-      const x = Phaser.Math.Between(0, width);
-      const startY = Phaser.Math.Between(-120, -20);
-      const color = Phaser.Math.RND.pick(confettiColors);
-      const w = Phaser.Math.Between(6, 12);
-      const h = Phaser.Math.Between(4, 8);
-
-      const particle = this.add.rectangle(x, startY, w, h, color)
-        .setAngle(Phaser.Math.Between(0, 360));
-
-      this.tweens.add({
-        targets: particle,
-        y: height + 50,
-        x: x + Phaser.Math.Between(-100, 100),
-        angle: Phaser.Math.Between(180, 720),
-        duration: Phaser.Math.Between(2500, 5000),
-        delay: Phaser.Math.Between(0, 1200),
-        ease: 'Sine.easeIn',
-        onComplete: () => particle.destroy(),
-      });
-    }
+  /** Mid-band sparkles so the gap between points and buttons feels alive. */
+  _createFloatingSparkles(width, height) {
+    createFloatingSparkles(this, width, height);
   }
 
   _displayStars(width, y, starCount) {
@@ -188,7 +192,7 @@ export class VictoryScene extends Phaser.Scene {
       const star = this.add.text(sx, y, '★', {
         fontSize: '54px',
         color: earned ? '#FFE135' : '#444444',
-      }).setOrigin(0.5).setScale(0).setAlpha(earned ? 1 : 0.4);
+      }).setOrigin(0.5).setScale(0).setAlpha(earned ? 1 : 0.4).setDepth(UI_DEPTH);
 
       this.tweens.add({
         targets: star,
@@ -205,24 +209,15 @@ export class VictoryScene extends Phaser.Scene {
 
       if (earned) {
         this.time.delayedCall(700 + i * 300, () => {
-          for (let j = 0; j < 5; j++) {
-            const sparkle = this.add.circle(
-              sx + Phaser.Math.Between(-15, 15),
-              y + Phaser.Math.Between(-15, 15),
-              Phaser.Math.Between(2, 4), 0xFFE135
-            );
-            this.tweens.add({
-              targets: sparkle,
-              alpha: 0,
-              scaleX: 2,
-              scaleY: 2,
-              duration: 500,
-              onComplete: () => sparkle.destroy(),
-            });
-          }
+          if (!this.sys?.isActive()) return;
+          this._burstStarSparkles(sx, y);
         });
       }
     }
+  }
+
+  _burstStarSparkles(sx, y) {
+    burstStarSparkles(this, sx, y);
   }
 
   _starBonusPoints(stars) {
@@ -245,16 +240,16 @@ export class VictoryScene extends Phaser.Scene {
     const totalEarned = this._metaPointsEarned(stars);
 
     this.add.text(width / 2, y, 'Sunshine Points Earned:', {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '20px',
       color: '#FFF9E6',
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(UI_DEPTH);
 
-    const pointsValue = this.add.text(width / 2, y + 38, '0', {
-      fontFamily: 'Kenney Future',
+    const pointsValue = this.add.text(width / 2, y + 36, '0', {
+      fontFamily: FONT_DISPLAY,
       fontSize: '34px',
       color: '#FFD700',
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(UI_DEPTH);
 
     this.tweens.addCounter({
       from: 0,
@@ -333,9 +328,12 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   _createButtons(width, height) {
-    const btnY = height - 70;
+    // Pull buttons up to shrink the dead mid gap while keeping 60px touch targets.
+    const btnY = height - 118;
+    const gap = 24;
+    const btnW = 240;
 
-    this._createButton(width / 2 - 150, btnY, '⬆️ UPGRADES', () => {
+    this._createButton(width / 2 - btnW / 2 - gap / 2, btnY, 'UPGRADES', () => {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
       const saved = this.savedProgress || loadLocalProgress(this.playerName);
       this.scene.start('UpgradeScene', {
@@ -346,25 +344,28 @@ export class VictoryScene extends Phaser.Scene {
         prevHannahLevel: this.prevHannahLevel,
         hannahLevel: saved.hannahLevel,
       });
-    });
+    }, btnW);
 
-    this._createButton(width / 2 + 150, btnY, '🗺️ MAP', () => {
+    this._createButton(width / 2 + btnW / 2 + gap / 2, btnY, 'MAP', () => {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
       this.scene.start('WorldMapScene', { playerName: this.playerName });
-    });
+    }, btnW);
   }
 
-  _createButton(x, y, label, callback) {
-    const shadow = this.add.rectangle(x + 2, y + 2, 220, 56, 0x000000, 0.3);
-    const bg = this.add.rectangle(x, y, 220, 56, COLORS.button)
+  _createButton(x, y, label, callback, btnW = 220) {
+    const btnH = 60;
+    const shadow = this.add.rectangle(x + 2, y + 2, btnW, btnH, 0x000000, 0.3)
+      .setDepth(UI_DEPTH);
+    const bg = this.add.rectangle(x, y, btnW, btnH, COLORS.button)
       .setInteractive({ useHandCursor: true })
-      .setStrokeStyle(3, COLORS.outline);
+      .setStrokeStyle(3, COLORS.outline)
+      .setDepth(UI_DEPTH);
 
     const text = this.add.text(x, y, label, {
-      fontFamily: 'Kenney Future',
-      fontSize: '20px',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '22px',
       color: '#4A2C0A',
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(UI_DEPTH + 1);
 
     bg.on('pointerover', () => {
       this.tweens.add({ targets: [bg, text, shadow], scaleX: 1.08, scaleY: 1.08, duration: 60 });

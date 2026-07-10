@@ -403,11 +403,16 @@ export async function saveProgressWithSync(progress) {
 export async function loadProgress(playerName) {
   try {
     const res = await fetch(`/api/progress/${encodeURIComponent(playerName)}`);
+    // Legacy servers returned 404 for missing players; treat as empty local.
     if (res.status === 404) {
       return loadLocalProgress(playerName);
     }
     if (res.ok) {
       const row = await res.json();
+      // Server may return empty defaults (empty: true) for first-time players.
+      if (row?.empty) {
+        return loadLocalProgress(playerName);
+      }
       const remote = serverRowToProgress(row, playerName);
       const local = loadLocalProgress(playerName);
       const merged = mergeProgressRecords(local, remote);

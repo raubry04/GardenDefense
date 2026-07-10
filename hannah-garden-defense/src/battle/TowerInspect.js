@@ -1,9 +1,10 @@
 import { GameConfig } from '../config.js';
+import { HUD_PANEL_ALPHA, TEXT_GOLD, TEXT_ON_DARK } from '../utils/textReadability.js';
 import { formatTowerStats, towerDisplayName } from './towerStats.js';
 import { TILE, COLORS } from './battleConstants.js';
 
-const PANEL_W = 168;
-const PANEL_H = 118;
+const PANEL_W = 188;
+const PANEL_H = 148;
 const MARGIN = 8;
 
 export class TowerInspect {
@@ -51,55 +52,57 @@ export class TowerInspect {
     const name = towerDisplayName(tower.type);
     const tierStars = tower.tier > 0 ? ' ' + '★'.repeat(Math.min(tower.tier, 3)) : '';
 
-    const bg = s.add.rectangle(panelX, panelY, PANEL_W, PANEL_H, 0x000000, 0.88)
+    const bg = s.add.rectangle(panelX, panelY, PANEL_W, PANEL_H, 0x1a2e14, HUD_PANEL_ALPHA)
       .setStrokeStyle(2, COLORS.stars)
       .setDepth(210);
     this._objects.push(bg);
 
-    const title = s.add.text(panelX, panelY - 44, `${name}${tierStars}`, {
+    const title = s.add.text(panelX, panelY - 58, `${name}${tierStars}`, {
       fontFamily: 'Kenney Future',
-      fontSize: '13px',
-      color: '#FFD700',
+      fontSize: '16px',
+      color: TEXT_GOLD,
       align: 'center',
-      wordWrap: { width: 150 },
+      wordWrap: { width: 170 },
+      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(title);
 
-    const statText = s.add.text(panelX, panelY - 22, stats.join('\n'), {
+    const statText = s.add.text(panelX, panelY - 30, stats.join('\n'), {
       fontFamily: 'Kenney Future',
-      fontSize: '10px',
-      color: '#FFF9E6',
+      fontSize: '13px',
+      color: TEXT_ON_DARK,
       align: 'center',
-      lineSpacing: 2,
+      lineSpacing: 3,
+      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(statText);
 
-    const note = s.add.text(panelX, panelY + 28, 'Upgrade after battle', {
+    const note = s.add.text(panelX, panelY + 34, 'Upgrade after battle', {
       fontFamily: 'Kenney Future',
-      fontSize: '8px',
+      fontSize: '12px',
       color: '#A8DADC',
       align: 'center',
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(note);
 
-    const sellBtn = s.add.rectangle(panelX - 38, panelY + 48, 80, 44, COLORS.button)
+    const sellBtn = s.add.rectangle(panelX - 40, panelY + 56, 86, 44, COLORS.button)
       .setStrokeStyle(1, COLORS.outline)
       .setInteractive({ useHandCursor: true })
       .setDepth(211);
-    const sellLabel = s.add.text(panelX - 38, panelY + 48, `SELL +${refund}☀`, {
+    const sellLabel = s.add.text(panelX - 40, panelY + 56, `SELL +${refund}☀`, {
       fontFamily: 'Kenney Future',
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(212);
     this._objects.push(sellBtn, sellLabel);
 
-    const closeBtn = s.add.rectangle(panelX + 38, panelY + 48, 64, 44, 0x444444)
+    const closeBtn = s.add.rectangle(panelX + 42, panelY + 56, 70, 44, 0x444444)
       .setStrokeStyle(1, COLORS.outline)
       .setInteractive({ useHandCursor: true })
       .setDepth(211);
-    const closeLabel = s.add.text(panelX + 38, panelY + 48, 'CLOSE', {
+    const closeLabel = s.add.text(panelX + 42, panelY + 56, 'CLOSE', {
       fontFamily: 'Kenney Future',
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#FFFFFF',
     }).setOrigin(0.5).setDepth(212);
     this._objects.push(closeBtn, closeLabel);

@@ -54,7 +54,17 @@ app.use((req, _res, next) => {
 
 app.use('/game-assets', express.static(path.join(projectRoot, 'assets')));
 
-app.use(express.static(path.join(projectRoot, 'dist')));
+app.use(express.static(path.join(projectRoot, 'dist'), {
+  // Hashed asset filenames are immutable; HTML must always revalidate so
+  // browsers pick up new chunk hashes after a rebuild.
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 
 
 
@@ -77,9 +87,10 @@ if (process.env.NODE_ENV !== 'production') {
 
 
 app.get('*', (_req, res) => {
-
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(projectRoot, 'dist', 'index.html'));
-
 });
 
 

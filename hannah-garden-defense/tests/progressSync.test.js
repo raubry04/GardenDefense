@@ -30,6 +30,14 @@ describe('progress sync round-trip', () => {
     db.prepare('DELETE FROM player_progress WHERE player_name = ?').run(TEST_PLAYER);
   });
 
+  it('returns empty defaults (200) for unknown players instead of 404', async () => {
+    const getRes = await request(app).get('/api/progress/BrandNewPlayerNobody');
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.empty).toBe(true);
+    expect(getRes.body.player_name).toBe('BrandNewPlayerNobody');
+    expect(getRes.body.hannah_level).toBe(1);
+  });
+
   it('persists extended fields through POST and GET', async () => {
     const local = {
       playerName: TEST_PLAYER,

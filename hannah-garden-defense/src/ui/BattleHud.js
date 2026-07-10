@@ -1,8 +1,18 @@
 import { GameConfig } from "../config.js";
 import { setTouchFriendlyCircleHit } from "../utils/battleInput.js";
+import {
+  HUD_PANEL_ALPHA,
+  HUD_PANEL_FILL,
+  TEXT_ON_DARK,
+  TEXT_GOLD,
+  TEXT_PILL_BG,
+  TEXT_PILL_PAD,
+} from "../utils/textReadability.js";
 
 const COLORS = GameConfig.colors;
 const HUD_DEPTH = 200;
+/** On-screen heart icon size (heartIcon texture is 32×32; display via setDisplaySize). */
+const HEART_DISPLAY = 22;
 
 export function formatWaveHudLabel(wave, total) {
   if (total == null) return `Wave: ${wave} ♾`;
@@ -29,40 +39,59 @@ export class BattleHud {
     const maxIcons = Math.min(scene.lives, 8);
     const heartSpacing = 22;
     const startX = 20;
+    const livesPadX = 8;
+    const livesGap = 6;
 
     for (let i = 0; i < maxIcons; i++) {
       const heart = scene.add
         .image(startX + i * heartSpacing, row1Y, "heartIcon")
-        .setDisplaySize(22, 22)
+        .setDisplaySize(HEART_DISPLAY, HEART_DISPLAY)
         .setDepth(hudDepth);
       heart.setData('layoutY', row1Y);
+      // Capture display-size base so pulse/loss tweens stay relative (absolute
+      // scale 1 would restore the native 32px texture after a life update).
+      heart.setData('baseScaleX', heart.scaleX);
+      heart.setData('baseScaleY', heart.scaleY);
       this.heartIcons.push(heart);
     }
 
-    const livesX = startX + maxIcons * heartSpacing + (maxIcons > 0 ? 8 : 0);
+    // Opaque pill behind hearts + count — shadow-only digits were hard to read over grass.
     this.livesText = scene.add
-      .text(livesX, row1Y - 10, this.livesLabel(), {
+      .text(0, row1Y - 10, this.livesLabel(), {
         fontFamily: "Kenney Future",
-        fontSize: "20px",
-        color: "#FFF9E6",
+        fontSize: "24px",
+        color: TEXT_ON_DARK,
         shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
       })
       .setDepth(hudDepth);
+    this._livesPadX = livesPadX;
+    this._livesGap = livesGap;
+    this._livesStartX = startX;
+    this._livesHeartSpacing = heartSpacing;
+    // Placeholder panel; sized immediately below once text width is known.
+    this.livesPanel = scene.add
+      .rectangle(startX, row1Y, 40, 36, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(hudDepth - 1);
+    this.resizeLivesPanelToContent();
 
     this.startLowHealthPulse();
 
     const wavePanelX = width / 2;
+    // Opaque panel (not ~0.45 alpha): GameScene props composite underneath
+    // UIScene, so a translucent bar lets trees show through Kenney Future's
+    // sparse glyph pixels and look like world depth is above the WAVE text.
     this.wavePanel = scene.add
-      .rectangle(wavePanelX, row2Y, 240, 44, 0x000000, 0.45)
+      .rectangle(wavePanelX, row2Y, 248, 48, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(hudDepth);
     this.wavePanel.setOrigin(0.5);
 
     this.waveText = scene.add
-      .text(wavePanelX, row2Y - 16, formatWaveHudLabel(0, scene.totalWaves), {
+      .text(wavePanelX, row2Y - 18, formatWaveHudLabel(0, scene.totalWaves), {
         fontFamily: "Kenney Future",
-        fontSize: "22px",
-        color: "#FFD700",
+        fontSize: "26px",
+        color: TEXT_GOLD,
         shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 3, fill: true },
       })
       .setOrigin(0.5, 0)
@@ -83,6 +112,7 @@ export class BattleHud {
     this._createTopRightControls(width, row1Y, hudDepth);
     this._canonicalRow1Y = row1Y;
     this._canonicalRow2Y = row2Y;
+    this._trackHudY(this.livesPanel, row1Y);
     this._trackHudY(this.livesText, row1Y - 10);
     this._trackHudY(this.pauseBtn, row1Y);
     this._trackHudY(this.pauseLabel, row1Y);
@@ -94,7 +124,7 @@ export class BattleHud {
     this._trackHudY(this._hudStarIcon, row1Y);
     this._trackHudY(this.pointsText, row1Y - 10);
     this._trackHudY(this.wavePanel, row2Y);
-    this._trackHudY(this.waveText, row2Y - 16);
+    this._trackHudY(this.waveText, row2Y - 18);
     this._trackHudY(this.waveBarBg, row2Y + 12);
     this._trackHudY(this.waveBarFill, row2Y + 12);
   }
@@ -111,6 +141,7 @@ export class BattleHud {
     this.heartIcons.forEach((h) => {
       if (h?.active) h.setY(h.getData('layoutY') + row1Delta);
     });
+    if (this.livesPanel?.active) this.livesPanel.setY(this.livesPanel.getData('layoutY') + row1Delta);
     if (this.livesText?.active) this.livesText.setY(this.livesText.getData('layoutY') + row1Delta);
     if (this.wavePanel?.active) this.wavePanel.setY(this.wavePanel.getData('layoutY') + row2Delta);
     if (this.waveText?.active) this.waveText.setY(this.waveText.getData('layoutY') + row2Delta);
@@ -170,7 +201,7 @@ export class BattleHud {
     this.pauseLabel = scene.add
       .text(pauseX, row1Y, "⏸", {
         fontFamily: "Kenney Future",
-        fontSize: "16px",
+        fontSize: "18px",
         color: "#4A2C0A",
       })
       .setOrigin(0.5)
@@ -178,8 +209,10 @@ export class BattleHud {
     this.pauseHint = scene.add
       .text(pauseX, row1Y + btnR + 2, "Pause", {
         fontFamily: "Kenney Future",
-        fontSize: "9px",
-        color: "#FFF9E6",
+        fontSize: "13px",
+        color: TEXT_ON_DARK,
+        backgroundColor: TEXT_PILL_BG,
+        padding: { x: 5, y: 2 },
         shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
       })
       .setOrigin(0.5, 0)
@@ -198,7 +231,7 @@ export class BattleHud {
     this.speedLabel = scene.add
       .text(speedX, row1Y, "×1", {
         fontFamily: "Kenney Future",
-        fontSize: "14px",
+        fontSize: "16px",
         color: "#4A2C0A",
       })
       .setOrigin(0.5)
@@ -206,8 +239,10 @@ export class BattleHud {
     this.speedHint = scene.add
       .text(speedX, row1Y + btnR + 2, "Speed", {
         fontFamily: "Kenney Future",
-        fontSize: "9px",
-        color: "#FFF9E6",
+        fontSize: "13px",
+        color: TEXT_ON_DARK,
+        backgroundColor: TEXT_PILL_BG,
+        padding: { x: 5, y: 2 },
         shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
       })
       .setOrigin(0.5, 0)
@@ -215,34 +250,47 @@ export class BattleHud {
     this._battleSpeed = 1;
 
     const sunPanelRight = speedX - btnR - 12;
-    const sunPanelW = 108;
+    // Size panel to icon + digits (avoid a wide empty right pad).
+    this.pointsText = scene.add
+      .text(0, row1Y - 10, `${scene.sunshinePoints}`, {
+        fontFamily: "Kenney Future",
+        fontSize: "24px",
+        color: TEXT_GOLD,
+        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+      })
+      .setDepth(hudDepth);
+    const sunPadX = 10;
+    const sunIconSlot = 26;
+    const sunGap = 6;
+    const sunPanelW = Math.ceil(
+      sunPadX + sunIconSlot + sunGap + this.pointsText.width + sunPadX,
+    );
     const sunPanelX = sunPanelRight - sunPanelW / 2;
     this.sunPanel = scene.add
-      .rectangle(sunPanelX, row1Y, sunPanelW, 34, 0x000000, 0.5)
+      .rectangle(sunPanelX, row1Y, sunPanelW, 36, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(hudDepth - 1);
 
     this._hudStarIcon = scene.add
-      .image(sunPanelX - sunPanelW / 2 + 18, row1Y, "ui_uiStar")
+      .image(sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot / 2, row1Y, "ui_uiStar")
       .setDisplaySize(22, 22)
       .setTint(0xffd700)
       .setDepth(hudDepth);
-    this.pointsText = scene.add
-      .text(sunPanelX - sunPanelW / 2 + 32, row1Y - 10, `${scene.sunshinePoints}`, {
-        fontFamily: "Kenney Future",
-        fontSize: "22px",
-        color: "#FFD700",
-        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
-      })
-      .setDepth(hudDepth);
+    this.pointsText.setPosition(
+      sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot + sunGap,
+      row1Y - 10,
+    );
+    this._sunPadX = sunPadX;
+    this._sunIconSlot = sunIconSlot;
+    this._sunGap = sunGap;
 
     const speedTooltip = scene.add
       .text(speedX, row1Y - btnR - 6, "Toggle 1× / 2× speed", {
         fontFamily: "Kenney Future",
-        fontSize: "10px",
-        color: "#FFFFFF",
-        backgroundColor: "#000000cc",
-        padding: { x: 6, y: 3 },
+        fontSize: "13px",
+        color: TEXT_ON_DARK,
+        backgroundColor: TEXT_PILL_BG,
+        padding: TEXT_PILL_PAD,
       })
       .setOrigin(0.5, 1)
       .setVisible(false)
@@ -280,8 +328,14 @@ export class BattleHud {
     this._speedTooltip = speedTooltip;
   }
 
-  _repositionTopRight(row1Y, pauseX, speedX, sunPanelX) {
+  _repositionTopRight(row1Y, pauseX, speedX, _sunPanelX) {
     const sunPanelW = this._sunPanelW ?? 108;
+    const sunPadX = this._sunPadX ?? 10;
+    const sunIconSlot = this._sunIconSlot ?? 26;
+    const sunGap = this._sunGap ?? 6;
+    // Derive center from speed control (not a fixed half-width of 54).
+    const sunPanelRight = speedX - 22 - 12;
+    const sunPanelX = sunPanelRight - sunPanelW / 2;
     this.pauseBtn?.setPosition(pauseX, row1Y);
     this.pauseLabel?.setPosition(pauseX, row1Y);
     this.pauseHint?.setPosition(pauseX, row1Y + 24);
@@ -290,8 +344,41 @@ export class BattleHud {
     this.speedHint?.setPosition(speedX, row1Y + 24);
     this._speedTooltip?.setPosition(speedX, row1Y - 28);
     this.sunPanel?.setPosition(sunPanelX, row1Y);
-    this._hudStarIcon?.setPosition(sunPanelX - sunPanelW / 2 + 18, row1Y);
-    this.pointsText?.setPosition(sunPanelX - sunPanelW / 2 + 32, row1Y - 10);
+    this.sunPanel?.setSize(sunPanelW, 36);
+    this._hudStarIcon?.setPosition(
+      sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot / 2,
+      row1Y,
+    );
+    this.pointsText?.setPosition(
+      sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot + sunGap,
+      row1Y - 10,
+    );
+  }
+
+  /** Keep sunshine panel width tight when the point total gains/loses digits. */
+  resizeSunPanelToContent() {
+    if (!this.sunPanel?.active || !this.pointsText?.active) return;
+    const sunPadX = this._sunPadX ?? 10;
+    const sunIconSlot = this._sunIconSlot ?? 26;
+    const sunGap = this._sunGap ?? 6;
+    const sunPanelW = Math.ceil(
+      sunPadX + sunIconSlot + sunGap + this.pointsText.width + sunPadX,
+    );
+    // Anchor to the panel's current right edge so it stays flush with speed/pause.
+    const panelRight = this.sunPanel.x + (this._sunPanelW ?? this.sunPanel.width) / 2;
+    const sunPanelX = panelRight - sunPanelW / 2;
+    this._sunPanelW = sunPanelW;
+    this.sunPanel.setSize(sunPanelW, 36);
+    this.sunPanel.setPosition(sunPanelX, this.sunPanel.y);
+    const row1Y = this.sunPanel.y;
+    this._hudStarIcon?.setPosition(
+      sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot / 2,
+      row1Y,
+    );
+    this.pointsText.setPosition(
+      sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot + sunGap,
+      row1Y - 10,
+    );
   }
 
   resetSpeed() {
@@ -312,10 +399,12 @@ export class BattleHud {
         callback: () => {
           this.heartIcons.forEach((h, i) => {
             if (i < scene.lives && h.visible) {
+              const bx = h.getData('baseScaleX') ?? 1;
+              const by = h.getData('baseScaleY') ?? 1;
               scene.tweens.add({
                 targets: h,
-                scaleX: 1.3,
-                scaleY: 1.3,
+                scaleX: bx * 1.3,
+                scaleY: by * 1.3,
                 duration: 200,
                 yoyo: true,
               });
@@ -330,11 +419,13 @@ export class BattleHud {
     const scene = this.scene;
     const heart = this.heartIcons[index];
     if (!heart) return;
+    const bx = heart.getData('baseScaleX') ?? 1;
+    const by = heart.getData('baseScaleY') ?? 1;
 
     scene.tweens.add({
       targets: heart,
-      scaleX: 1.5,
-      scaleY: 1.5,
+      scaleX: bx * 1.5,
+      scaleY: by * 1.5,
       duration: 150,
       yoyo: true,
       onComplete: () => {
@@ -361,7 +452,7 @@ export class BattleHud {
       yoyo: true,
       ease: "Quad.easeOut",
       onStart: () => this.pointsText.setColor("#FFFFAA"),
-      onComplete: () => this.pointsText.setColor("#FFD700"),
+      onComplete: () => this.pointsText.setColor(TEXT_GOLD),
     });
 
     if (delta > 0) {
@@ -407,7 +498,7 @@ export class BattleHud {
       repeat: 2,
       ease: "Sine.easeInOut",
       onStart: () => this.pointsText.setColor("#FF6666"),
-      onComplete: () => this.pointsText.setColor("#FFD700"),
+      onComplete: () => this.pointsText.setColor(TEXT_GOLD),
     });
   }
 
@@ -416,13 +507,45 @@ export class BattleHud {
     return this.scene.lives > maxIcons ? `×${this.scene.lives}` : `${this.scene.lives}`;
   }
 
+  /** Keep the lives pill tight when the digit count changes. */
+  resizeLivesPanelToContent() {
+    if (!this.livesPanel?.active || !this.livesText?.active) return;
+    const livesPadX = this._livesPadX ?? 8;
+    const livesGap = this._livesGap ?? 6;
+    const startX = this._livesStartX ?? 20;
+    const heartSpacing = this._livesHeartSpacing ?? 22;
+    const visibleHearts = Math.min(
+      this.scene?.lives ?? this.heartIcons.length,
+      this.heartIcons.length,
+    );
+    const lastHeartRight = visibleHearts > 0
+      ? startX + (visibleHearts - 1) * heartSpacing + HEART_DISPLAY / 2
+      : startX;
+    const panelW = visibleHearts > 0
+      ? Math.ceil((lastHeartRight - startX) + livesGap + this.livesText.width + livesPadX * 2)
+      : Math.ceil(this.livesText.width + livesPadX * 2);
+    const livesPanelX = startX - livesPadX + panelW / 2;
+    this._livesPanelW = panelW;
+    this.livesPanel.setSize(panelW, 36);
+    this.livesPanel.setPosition(livesPanelX, this.livesPanel.y);
+    const livesTextX = visibleHearts > 0
+      ? lastHeartRight + livesGap
+      : livesPanelX - this.livesText.width / 2;
+    this.livesText.setPosition(livesTextX, this.livesText.y);
+  }
+
   updateHearts() {
     for (let i = 0; i < this.heartIcons.length; i++) {
       const heart = this.heartIcons[i];
       heart.setVisible(i < this.scene.lives);
-      heart.setScale(1);
+      // Restore display-size base (not absolute 1 — that would jump to 32px).
+      const bx = heart.getData('baseScaleX');
+      const by = heart.getData('baseScaleY');
+      if (bx != null && by != null) heart.setScale(bx, by);
+      else heart.setDisplaySize(HEART_DISPLAY, HEART_DISPLAY);
       heart.setAlpha(1);
     }
+    this.resizeLivesPanelToContent();
   }
 
   updateWaveProgress() {

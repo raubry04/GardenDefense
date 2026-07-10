@@ -59,7 +59,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     applyMobileLayout();
-    this.cameras.main.setBackgroundColor('#5A9A38');
+    this.cameras.main.setBackgroundColor('#6EA843');
     this.cameras.main.fadeIn(300);
     SceneMusicManager.transition(this, 'battle');
     this.lives = GameConfig.startingLives;
@@ -126,6 +126,8 @@ export class GameScene extends Phaser.Scene {
       worldWidth: this.worldWidth,
       worldHeight: this.worldHeight,
     });
+    // Ensure UIScene paints above GameScene (depths are per-scene).
+    this.scene.bringToTop('UIScene');
 
     this._setupEvents();
     this.abilityController.setupAbilities();
@@ -213,13 +215,13 @@ export class GameScene extends Phaser.Scene {
         const roll = rng.frac();
         // Grass exists only in a narrow ring around the path — skip large trees on
         // path-adjacent tiles only; other props fill the lawn normally.
-        if (roll < 0.10 && !this._isAdjacentToPath(r, c)) {
+        if (roll < 0.16 && !this._isAdjacentToPath(r, c)) {
           this._drawTreeDecoration(cx, cy, rng);
-        } else if (roll < 0.23) {
+        } else if (roll < 0.34) {
           this._drawBushDecoration(cx, cy, rng);
-        } else if (roll < 0.36) {
+        } else if (roll < 0.42) {
           this._drawRockDecoration(cx, cy, rng);
-        } else if (roll < 0.44) {
+        } else if (roll < 0.55) {
           this._drawDecorProp(cx, cy, rng);
         }
       }
@@ -232,7 +234,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   _fillScenery(view) {
-    refillSceneGrass(this, view, -10, { clipToDesign: true });
+    // Fill letterbox margins with the same Craftpix grass tiles so top/bottom
+    // bars match the playfield (no mismatched solid pale-green letterbox).
+    refillSceneGrass(this, view, -10);
   }
 
   _pickPropKey(pool) {
@@ -266,7 +270,7 @@ export class GameScene extends Phaser.Scene {
   _drawTreeDecoration(cx, cy, rng) {
     const key = this._pickPropKey(TREE_KEYS);
     if (!key) return null;
-    const size = rng.between(48, 72);
+    const size = rng.between(56, 88);
     const img = this.add.image(cx + rng.between(-4, 4), cy + rng.between(-8, 4), key)
       .setDisplaySize(size, size)
       .setDepth(2);
@@ -278,7 +282,7 @@ export class GameScene extends Phaser.Scene {
   _drawBushDecoration(cx, cy, rng) {
     const key = this._pickPropKey(BUSH_KEYS);
     if (!key) return null;
-    const size = rng.between(28, 44);
+    const size = rng.between(36, 56);
     const img = this.add.image(cx + rng.between(-6, 6), cy + rng.between(-4, 6), key)
       .setDisplaySize(size, size)
       .setDepth(2);
@@ -305,7 +309,8 @@ export class GameScene extends Phaser.Scene {
   _drawRockDecoration(cx, cy, rng) {
     const key = this._pickPropKey(ROCK_KEYS);
     if (!key) return null;
-    const size = rng.between(20, 32);
+    // Keep rocks large enough to read as rocks, not grey dots.
+    const size = rng.between(32, 48);
     const img = this.add.image(cx + rng.between(-8, 8), cy + rng.between(-4, 8), key)
       .setDisplaySize(size, size)
       .setDepth(2);
@@ -316,7 +321,7 @@ export class GameScene extends Phaser.Scene {
   _drawDecorProp(cx, cy, rng) {
     const key = this._pickPropKey(this._zoneDecorKeys());
     if (!key) return null;
-    const size = rng.between(28, 48);
+    const size = rng.between(40, 64);
     const img = this.add.image(cx + rng.between(-6, 6), cy + rng.between(-4, 6), key)
       .setDisplaySize(size, size)
       .setDepth(2);
@@ -721,17 +726,6 @@ export class GameScene extends Phaser.Scene {
       .setDepth(200).setInteractive();
     objects.push(overlay);
 
-    const panel = this.add.rectangle(centerX, centerY, 320, 420, COLORS.uiPanel)
-      .setStrokeStyle(3, COLORS.outline).setDepth(201);
-    objects.push(panel);
-
-    const title = this.add.text(centerX, centerY - 170, 'PAUSED', {
-      fontFamily: 'Kenney Pixel',
-      fontSize: '36px',
-      color: '#3D5A1F',
-    }).setOrigin(0.5).setDepth(202);
-    objects.push(title);
-
     const buttons = [
       { label: 'RESUME', action: () => this._togglePause() },
       { label: 'HOW TO PLAY', action: () => this.game.events.emit('replay-tutorial') },
@@ -740,9 +734,29 @@ export class GameScene extends Phaser.Scene {
       { label: 'BACK TO MAP', action: () => { this.scene.stop('UIScene'); this.scene.stop('GameScene'); this.scene.start('WorldMapScene', { playerName: this.playerName }); } },
     ];
 
+    // Fit the pause stack into the visible design viewport (phones are short).
+    const btnH = 50;
+    const btnGap = 10;
+    const titleBlock = 56;
+    const stackH = titleBlock + buttons.length * (btnH + btnGap);
+    const panelH = Math.min(440, Math.max(stackH + 40, 320));
+    const panelW = Math.min(340, width - 48);
+
+    const panel = this.add.rectangle(centerX, centerY, panelW, panelH, COLORS.uiPanel)
+      .setStrokeStyle(3, COLORS.outline).setDepth(201);
+    objects.push(panel);
+
+    const title = this.add.text(centerX, centerY - panelH / 2 + 36, 'PAUSED', {
+      fontFamily: 'Kenney Pixel',
+      fontSize: '36px',
+      color: '#3D5A1F',
+    }).setOrigin(0.5).setDepth(202);
+    objects.push(title);
+
+    const startY = centerY - panelH / 2 + titleBlock + btnH / 2 + 8;
     buttons.forEach((btn, idx) => {
-      const by = centerY - 80 + idx * 58;
-      const bg = this.add.rectangle(centerX, by, 220, 50, COLORS.button)
+      const by = startY + idx * (btnH + btnGap);
+      const bg = this.add.rectangle(centerX, by, Math.min(240, panelW - 40), btnH, COLORS.button)
         .setInteractive({ useHandCursor: true }).setStrokeStyle(2, COLORS.outline).setDepth(202);
       const text = this.add.text(centerX, by, btn.label, {
         fontFamily: 'Kenney Future', fontSize: '22px', color: '#4A2C0A',
@@ -774,6 +788,7 @@ export class GameScene extends Phaser.Scene {
     this.battleVfx?.destroy();
     this.bossBanner?.destroy();
     this.towerInspect?.close();
+    this.towerPlacement?.teardownInput();
     if (this.selectedTower) {
       this.game.events.emit('tower-deselected');
     }

@@ -49,6 +49,17 @@ export class UIScene extends Phaser.Scene {
     this.tray.updateAffordability();
     syncToBattleCamera(this);
     this.scene.bringToTop();
+    // Scene order still matters for opaque UI, but a translucent WAVE panel
+    // previously let GameScene trees show through Kenney Future glyph gaps —
+    // that looked like a depth bug even when UIScene was already on top.
+    // BattleHud now uses an opaque wave/sun panel; keep bringToTop as belt+suspenders.
+    this._bringUiAboveWorld = () => {
+      if (this.sys?.isActive?.()) this.scene.bringToTop();
+    };
+    this.game.events.on("viewport-relayout", this._bringUiAboveWorld);
+    this.events.once("shutdown", () => {
+      this.game.events.off("viewport-relayout", this._bringUiAboveWorld);
+    });
 
     this.tutorial = new TutorialManager(this, { zone: this.zone, battle: this.battle });
     this.time.delayedCall(400, () => this.tutorial.start());
@@ -157,6 +168,7 @@ export class UIScene extends Phaser.Scene {
         this.hud.updateHearts();
       }
       this.hud.livesText.setText(this.hud.livesLabel());
+      this.hud.resizeLivesPanelToContent();
       this.hud.startLowHealthPulse();
     });
 
@@ -164,6 +176,7 @@ export class UIScene extends Phaser.Scene {
       const delta = data.points - this.sunshinePoints;
       this.sunshinePoints = data.points;
       this.hud.pointsText.setText(`${this.sunshinePoints}`);
+      this.hud.resizeSunPanelToContent();
       this.hud.animatePointsChange(delta);
       this.tray.updateAffordability();
     });

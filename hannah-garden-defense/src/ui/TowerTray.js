@@ -9,7 +9,19 @@ const COLORS = GameConfig.colors;
 const TRAY_DEPTH = 150;
 const CARD_W = 84;
 const CARD_H = 84;
+const SPRITE_BASE = 46;
+const COIN_BASE = 14;
 const DRAG_MOVE_PX = 10;
+
+// Card-relative layout offsets (design units, from card centre). Applied in both
+// create() and applyLayout() so parts keep their arrangement at any card scale.
+const OFF = {
+  sprite: { x: 0, y: -13 },
+  name: { x: 0, y: 12 },
+  costBadge: { x: 0, y: 28 },
+  coin: { x: -12, y: 28 },
+  cost: { x: 0, y: 28 },
+};
 
 export class TowerTray {
   /**
@@ -39,6 +51,17 @@ export class TowerTray {
       obj.setData("layoutY", y);
       this._trayObjects.push(obj);
       return obj;
+    };
+
+    // Track a card part with its card-relative offset so applyLayout can place it
+    // at (cardX + offX*scale, cardY + offY*scale) — keeping the per-card
+    // arrangement (icon on top, cost chip at the bottom) instead of stacking all
+    // parts at the card centre.
+    this._cardScale = this._cardScale ?? 1;
+    const trackPart = (obj, cardY, off) => {
+      obj.setData("offX", off.x);
+      obj.setData("offY", off.y);
+      return trackY(obj, cardY + off.y);
     };
 
     this.trayBgOuter = trackY(
@@ -91,47 +114,65 @@ export class TowerTray {
         y,
       );
 
-      const sprite = trackY(
+      const sprite = trackPart(
         scene.add
-          .image(x, y - 16, spriteKey)
-          .setDisplaySize(44, 44)
+          .image(x, y + OFF.sprite.y, spriteKey)
+          .setDisplaySize(SPRITE_BASE, SPRITE_BASE)
           .setDepth(TRAY_DEPTH + 1),
-        y - 16,
+        y,
+        OFF.sprite,
       );
 
       const towerName = type.replace("_", " ");
       const displayName =
         towerName.length > 7 ? towerName.substring(0, 6) + "…" : towerName;
-      const nameText = trackY(
+      const nameText = trackPart(
         scene.add
-          .text(x, y + 14, displayName, {
-            fontFamily: "Kenney Future",
-            fontSize: "10px",
-            color: affordable ? "#CCCCCC" : "#666666",
-          })
-          .setOrigin(0.5)
-          .setDepth(TRAY_DEPTH + 1),
-        y + 14,
-      );
-
-      const coinIcon = trackY(
-        scene.add
-          .image(x - 14, y + 30, "ui_uiStar")
-          .setDisplaySize(12, 12)
-          .setTint(COLORS.stars)
-          .setDepth(TRAY_DEPTH + 1),
-        y + 30,
-      );
-      const costText = trackY(
-        scene.add
-          .text(x - 6, y + 24, `${config.cost}`, {
+          .text(x, y + OFF.name.y, displayName, {
             fontFamily: "Kenney Future",
             fontSize: "14px",
-            color: affordable ? "#FFD700" : "#666666",
+            // Locked: light grey (readable) — dark-on-dark was near-invisible.
+            color: unlocked ? (affordable ? "#FFFFFF" : "#C8C8C8") : "#D0D0D0",
+          })
+          .setOrigin(0.5)
+          .setShadow(0, 1, "#000000", 3)
+          .setDepth(TRAY_DEPTH + 1),
+        y,
+        OFF.name,
+      );
+
+      // Dark chip at the bottom of the card so the gold cost reads clearly
+      // over the animal sprite (near-opaque — sparse Kenney glyphs need it).
+      const costBadge = trackPart(
+        scene.add
+          .rectangle(x, y + OFF.costBadge.y, 56, 22, 0x1a1a1a, 0.92)
+          .setStrokeStyle(1.5, 0xffd700, 0.75)
+          .setDepth(TRAY_DEPTH + 1),
+        y,
+        OFF.costBadge,
+      );
+
+      const coinIcon = trackPart(
+        scene.add
+          .image(x + OFF.coin.x, y + OFF.coin.y, "ui_uiStar")
+          .setDisplaySize(COIN_BASE, COIN_BASE)
+          .setTint(COLORS.stars)
+          .setDepth(TRAY_DEPTH + 2),
+        y,
+        OFF.coin,
+      );
+      const costText = trackPart(
+        scene.add
+          .text(x + OFF.cost.x, y + OFF.cost.y, `${config.cost}`, {
+            fontFamily: "Kenney Future",
+            fontSize: "18px",
+            color: unlocked ? (affordable ? "#FFD700" : "#C8C8C8") : "#D0D0D0",
           })
           .setOrigin(0, 0.5)
-          .setDepth(TRAY_DEPTH + 1),
-        y + 24,
+          .setShadow(0, 2, "#000000", 3)
+          .setDepth(TRAY_DEPTH + 2),
+        y,
+        OFF.cost,
       );
 
       const greyOverlay = trackY(
@@ -142,7 +183,7 @@ export class TowerTray {
           CARD_H,
           0x000000,
           unlocked && affordable ? 0 : 0.4,
-        ).setDepth(TRAY_DEPTH + 1),
+        ).setDepth(TRAY_DEPTH + 2),
         y,
       );
 
@@ -180,6 +221,7 @@ export class TowerTray {
         sprite,
         nameText,
         costText,
+        costBadge,
         coinIcon,
         greyOverlay,
         selectionGlow,
@@ -187,7 +229,10 @@ export class TowerTray {
         unlocked,
       };
 
-      const hoverTargets = [cardBg, nameText, costText, greyOverlay];
+      // Images sized with setDisplaySize (sprite, coinIcon) must NOT be scale-
+      // tweened — absolute scale 1.08 would blow up a 14px star to native texture
+      // size. Only tween objects whose base scale is the card scale.
+      const hoverTargets = [cardBg, nameText, costText, costBadge, greyOverlay];
       const onCardDown = (pointer) => {
         const liveUnlocked = this._isTowerUnlocked(config);
         const liveCost = this._placementCost(type);
@@ -203,25 +248,32 @@ export class TowerTray {
         this._startTowerDrag(type, card, pointer);
       };
 
+      // Hover/press pop must be RELATIVE to the current card scale (cards are
+      // scaled up in portrait/landscape via applyLayout); absolute 1.08→1 would
+      // collapse the card to native size after a tap on phones.
       hitZone.on("pointerover", () => {
         if (!this._canUseTowerCard(config, type)) return;
+        const s = this._cardScale ?? 1;
         scene.tweens.add({
           targets: hoverTargets,
-          scaleX: 1.08,
-          scaleY: 1.08,
+          scaleX: s * 1.08,
+          scaleY: s * 1.08,
           duration: 60,
         });
-        sprite.setDisplaySize(48, 48);
+        sprite.setDisplaySize(SPRITE_BASE * s * 1.09, SPRITE_BASE * s * 1.09);
+        coinIcon.setDisplaySize(COIN_BASE * s * 1.09, COIN_BASE * s * 1.09);
       });
       hitZone.on("pointerout", () => {
+        const s = this._cardScale ?? 1;
         scene.tweens.add({
           targets: hoverTargets,
-          scaleX: 1,
-          scaleY: 1,
+          scaleX: s,
+          scaleY: s,
           duration: 60,
         });
         if (this.selectedTowerType !== type) {
-          sprite.setDisplaySize(44, 44);
+          sprite.setDisplaySize(SPRITE_BASE * s, SPRITE_BASE * s);
+          coinIcon.setDisplaySize(COIN_BASE * s, COIN_BASE * s);
         }
       });
       hitZone.on("pointerdown", onCardDown);
@@ -234,17 +286,23 @@ export class TowerTray {
 
   _resetTowerCard(card) {
     const scene = this.scene;
+    const s = this._cardScale ?? 1;
     const parts = [
       card.cardBg,
       card.nameText,
       card.costText,
+      card.costBadge,
       card.greyOverlay,
       card.selectionGlow,
-    ];
+    ].filter(Boolean);
     scene.tweens.killTweensOf([...parts, card.sprite, card.coinIcon]);
-    parts.forEach((obj) => obj.setScale(1));
-    card.sprite.setDisplaySize(44, 44);
-    card.coinIcon.setDisplaySize(12, 12);
+    // Reset to the current card scale (not 1) so cards keep their portrait/
+    // landscape sizing after a selection is cleared.
+    parts.forEach((obj) => obj.setScale(s));
+    card.sprite.setScale(1);
+    card.coinIcon.setScale(1);
+    card.sprite.setDisplaySize(SPRITE_BASE * s, SPRITE_BASE * s);
+    card.coinIcon.setDisplaySize(COIN_BASE * s, COIN_BASE * s);
   }
 
   clearSelection() {
@@ -313,9 +371,11 @@ export class TowerTray {
       card.costText.setText(`${cost}`);
       const affordable = unlocked && scene.sunshinePoints >= cost;
       card.cardBg.setStrokeStyle(2, affordable ? 0x6c6f85 : 0x444444);
-      card.nameText.setColor(unlocked && affordable ? "#CCCCCC" : "#666666");
-      card.costText.setColor(unlocked && affordable ? "#FFD700" : "#666666");
-      card.greyOverlay.setFillStyle(0x000000, unlocked && affordable ? 0 : 0.4);
+      card.nameText.setColor(unlocked ? (affordable ? "#FFFFFF" : "#C8C8C8") : "#D0D0D0");
+      card.costText.setColor(unlocked ? (affordable ? "#FFD700" : "#C8C8C8") : "#D0D0D0");
+      card.costBadge?.setStrokeStyle(1.5, 0xffd700, unlocked && affordable ? 0.65 : 0.35);
+      // Lighter dim for locked so name/cost stay readable under the lock badge.
+      card.greyOverlay.setFillStyle(0x000000, unlocked && affordable ? 0 : unlocked ? 0.35 : 0.22);
       if (card.lockText) card.lockText.setVisible(!unlocked);
       this._setTowerCardInteractive(card, unlocked, affordable);
     });
@@ -335,8 +395,11 @@ export class TowerTray {
     if (!card || !card.unlocked) return;
     const scene = this.scene;
 
-    const pulseTargets = [card.cardBg, card.sprite, card.nameText, card.costText, card.greyOverlay];
-    scene.tweens.killTweensOf(pulseTargets);
+    // Exclude sprite/coinIcon — they use setDisplaySize; relative scale tweens
+    // compound into a giant star over the cost chip.
+    const pulseTargets = [card.cardBg, card.nameText, card.costText, card.costBadge, card.greyOverlay].filter(Boolean);
+    scene.tweens.killTweensOf([...pulseTargets, card.sprite, card.coinIcon].filter(Boolean));
+    const s = this._cardScale ?? 1;
     card._spotlightPulse = scene.tweens.add({
       targets: pulseTargets,
       scaleX: '*=1.15',
@@ -345,6 +408,23 @@ export class TowerTray {
       yoyo: true,
       repeat: 2,
       ease: 'Sine.easeInOut',
+    });
+    scene.tweens.add({
+      targets: { t: 0 },
+      t: 1,
+      duration: 220,
+      yoyo: true,
+      repeat: 2,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tw) => {
+        const k = 1 + 0.15 * tw.getValue();
+        card.sprite?.setDisplaySize(SPRITE_BASE * s * k, SPRITE_BASE * s * k);
+        card.coinIcon?.setDisplaySize(COIN_BASE * s * k, COIN_BASE * s * k);
+      },
+      onComplete: () => {
+        card.sprite?.setDisplaySize(SPRITE_BASE * s, SPRITE_BASE * s);
+        card.coinIcon?.setDisplaySize(COIN_BASE * s, COIN_BASE * s);
+      },
     });
 
     // Reuse the selection glow as a gold flash — but only when this card isn't
@@ -378,7 +458,8 @@ export class TowerTray {
     this.towerCards.forEach((c) => this._resetTowerCard(c));
     this.selectedTowerType = type;
     this._towerTapMode = false;
-    card.sprite.setDisplaySize(48, 48);
+    const s = this._cardScale ?? 1;
+    card.sprite.setDisplaySize(SPRITE_BASE * s * 1.09, SPRITE_BASE * s * 1.09);
     this._updateTowerSelection();
 
     const start = this._designPointFromPointer(pointer);
@@ -564,6 +645,7 @@ export class TowerTray {
     const ui = m.ui;
     if (!ui?.cardScale || !this.towerCards?.length) return;
     const scale = ui.cardScale;
+    this._cardScale = scale;
     const step = ui.cardStep ?? CARD_W + 12;
     const towers = this.towerCards;
     const width = GameConfig.canvas.width;
@@ -580,14 +662,22 @@ export class TowerTray {
         ? baseCenterY - rowGap / 2 + rowIdx * rowGap
         : baseCenterY;
       cards.forEach((card, idx) => {
-        const x = startX + idx * step + (CARD_W * scale) / 2;
-        const parts = [card.cardBg, card.hitZone, card.sprite, card.nameText, card.costText, card.coinIcon, card.greyOverlay, card.selectionGlow, card.lockText].filter(Boolean);
+        const cx = startX + idx * step + (CARD_W * scale) / 2;
+        const parts = [card.cardBg, card.hitZone, card.sprite, card.nameText, card.costText, card.costBadge, card.coinIcon, card.greyOverlay, card.selectionGlow, card.lockText].filter(Boolean);
         parts.forEach((p) => {
-          p.setPosition(x, rowY);
-          p.setScale(scale);
+          const offX = p.getData("offX") ?? 0;
+          const offY = p.getData("offY") ?? 0;
+          p.setPosition(cx + offX * scale, rowY + offY * scale);
+          // Don't setScale on display-sized images — it fights setDisplaySize
+          // and can leave the cost star massively oversized after hover tweens.
+          if (p !== card.sprite && p !== card.coinIcon) {
+            p.setScale(scale);
+          }
         });
-        card.sprite.setDisplaySize(44 * scale, 44 * scale);
-        card.coinIcon.setDisplaySize(12 * scale, 12 * scale);
+        card.sprite.setScale(1);
+        card.coinIcon.setScale(1);
+        card.sprite.setDisplaySize(SPRITE_BASE * scale, SPRITE_BASE * scale);
+        card.coinIcon.setDisplaySize(COIN_BASE * scale, COIN_BASE * scale);
       });
     };
 
@@ -599,8 +689,15 @@ export class TowerTray {
     }
 
     if (ui.trayHeight && this.trayBgOuter?.active) {
-      this.trayBgOuter.setSize(width - 40, ui.trayHeight);
-      this.trayBgInner?.setSize(width - 48, ui.trayHeight - 8);
+      // Wrap the background around the actual cards instead of spanning the full
+      // board width — otherwise the tray shows a large empty panel beside the
+      // (centered) cards, especially in landscape. Cards are centered at width/2
+      // by layoutRow, so the centered bg stays aligned.
+      const rowCount = twoRows ? row0Count : towers.length;
+      const contentW = (rowCount - 1) * step + CARD_W * scale;
+      const bgW = Math.min(width - 40, contentW + 24);
+      this.trayBgOuter.setSize(bgW, ui.trayHeight);
+      this.trayBgInner?.setSize(bgW - 8, ui.trayHeight - 8);
     }
   }
 

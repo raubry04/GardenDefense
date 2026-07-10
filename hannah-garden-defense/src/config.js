@@ -203,11 +203,11 @@ export const GameConfig = {
 
   /** Per-zone map decoration prop keys (craftpixTiles CRAFTPIX_PROPS). */
   zonePropPools: {
-    0: ['treeSmall', 'bushSmall', 'rock1'],
-    1: ['treeMedium', 'bushMedium', 'windmill', 'woodenBarrel'],
-    2: ['treeLarge', 'well', 'campfire', 'tent'],
-    3: ['bushLarge', 'treasureChest', 'flag', 'rock4'],
-    4: ['castleRound', 'watchtowerTall', 'bridgeHorizontal', 'rock5'],
+    0: ['treeSmall', 'treeMedium', 'bushSmall', 'bushMedium', 'bushLarge', 'flag', 'fenceHorizontal', 'woodenBarrel'],
+    1: ['treeMedium', 'treeLarge', 'bushMedium', 'bushLarge', 'windmill', 'woodenBarrel', 'fenceHorizontal'],
+    2: ['treeLarge', 'bushLarge', 'well', 'campfire', 'tent', 'woodenCart', 'flag'],
+    3: ['bushLarge', 'treeMedium', 'treasureChest', 'flag', 'blueBanner', 'fenceHorizontal', 'woodenBarrel'],
+    4: ['castleRound', 'watchtowerTall', 'bridgeHorizontal', 'treeLarge', 'flag', 'redBanner', 'tent'],
   },
 
   /** Replay modifier when battle has fewer than 3 stars. */
@@ -266,7 +266,7 @@ export const GameConfig = {
 
   colors: {
     primary: 0xFFD700,
-    grass: 0x7EC850,
+    grass: 0x6EA843,
     path: 0xC8A96E,
     uiPanel: 0xFFF9E6,
     button: 0xFF9F1C,

@@ -93,16 +93,18 @@ export class TowerPlacement {
 
   setupInput() {
     const s = this.scene;
-    s.input.on('pointermove', (pointer) => {
+    // Named handlers so shutdown can remove them. GameScene is reused across
+    // battles/restarts; anonymous listeners would stack and double-fire inspect/sell.
+    this._onPointerMove = (pointer) => {
       if (s.paused) return;
       if (isPointerOverBattleUI(s.game, pointer)) return;
       if (!s.selectedTower) return;
       this.ensureGhostPreview();
       const { col, row } = this.placementTileFromPointer(pointer);
       this.updateGhostAt(col, row);
-    });
+    };
 
-    s.input.on('pointerdown', (pointer) => {
+    this._onPointerDown = (pointer) => {
       if (s.paused) return;
       if (isPointerOverBattleUI(s.game, pointer)) return;
       const { col, row } = this.placementTileFromPointer(pointer);
@@ -132,9 +134,19 @@ export class TowerPlacement {
         if (uiScene?.tray?._towerDrag) return;
         s.towerInspect.close();
       }
-    });
+    };
 
-    s.input.mouse.disableContextMenu();
+    this.teardownInput();
+    s.input.on('pointermove', this._onPointerMove);
+    s.input.on('pointerdown', this._onPointerDown);
+    s.input.mouse?.disableContextMenu?.();
+  }
+
+  teardownInput() {
+    const s = this.scene;
+    if (!s?.input) return;
+    if (this._onPointerMove) s.input.off('pointermove', this._onPointerMove);
+    if (this._onPointerDown) s.input.off('pointerdown', this._onPointerDown);
   }
 
   isValidPlacement(row, col) {
@@ -336,12 +348,13 @@ export class TowerPlacement {
     const refund = Math.floor(tower.cost * GameConfig.sellRefundPercent);
     const objects = [];
 
-    const bg = s.add.rectangle(tower.x, tower.y - 30, 100, 36, 0x000000, 0.85)
+    const bg = s.add.rectangle(tower.x, tower.y - 30, 112, 40, 0x1a2e14, 0.96)
       .setStrokeStyle(2, COLORS.stars).setDepth(200).setInteractive({ useHandCursor: true });
     objects.push(bg);
 
     const text = s.add.text(tower.x, tower.y - 30, `SELL +${refund}☀`, {
-      fontFamily: 'Kenney Future', fontSize: '14px', color: '#FFD700',
+      fontFamily: 'Kenney Future', fontSize: '15px', color: '#FFD700',
+      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5).setDepth(201);
     objects.push(text);
 

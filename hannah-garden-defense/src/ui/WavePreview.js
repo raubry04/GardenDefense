@@ -1,5 +1,6 @@
 import { ENEMY_SPRITES } from '../utils/AssetRegistry.js';
 import { GameConfig } from '../config.js';
+import { TEXT_GOLD, TEXT_ON_DARK, TEXT_PILL_BG } from '../utils/textReadability.js';
 
 /**
  * Colour-blind-safe symbol badges for enemy threat tags. Keys match
@@ -47,8 +48,11 @@ export class WavePreview {
     const y = this.hud._hudRow2Y - 28;
     this._label = scene.add.text(this.hud.wavePanel.x, y, 'Next:', {
       fontFamily: 'Kenney Future',
-      fontSize: '11px',
-      color: '#A8DADC',
+      fontSize: '14px',
+      color: TEXT_ON_DARK,
+      backgroundColor: TEXT_PILL_BG,
+      padding: { x: 6, y: 3 },
+      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5, 1).setDepth(HUD_DEPTH).setVisible(false);
   }
 
@@ -87,10 +91,10 @@ export class WavePreview {
       const x = startX + shown.length * ICON_STEP + 10;
       const overflowLabel = this.scene.add.text(x, y, `+${overflow}`, {
         fontFamily: 'Kenney Future',
-        fontSize: '11px',
-        color: '#FFD700',
+        fontSize: '14px',
+        color: TEXT_GOLD,
         stroke: '#000000',
-        strokeThickness: 2,
+        strokeThickness: 3,
       }).setOrigin(0.5).setDepth(HUD_DEPTH);
       this._icons.push(overflowLabel);
     }
@@ -110,7 +114,7 @@ export class WavePreview {
     if (badgeGlyph) {
       const badge = this.scene.add.text(x + 8, y - 10, badgeGlyph, {
         fontFamily: 'Kenney Future',
-        fontSize: '8px',
+        fontSize: '10px',
         color: '#FFD700',
         stroke: '#000000',
         strokeThickness: 2,
@@ -119,10 +123,10 @@ export class WavePreview {
     }
     const countText = this.scene.add.text(x + 10, y + 6, `×${count}`, {
       fontFamily: 'Kenney Future',
-      fontSize: '9px',
-      color: '#FFFFFF',
+      fontSize: '13px',
+      color: TEXT_ON_DARK,
       stroke: '#000000',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0, 0.5).setDepth(HUD_DEPTH);
     this._icons.push(icon, countText);
   }

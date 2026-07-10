@@ -1,9 +1,17 @@
 import { GameConfig } from "../config.js";
 import { sfxVol } from "../utils/audioMix.js";
 import { setTouchFriendlyCircleHit } from "../utils/battleInput.js";
+import {
+  HUD_PANEL_ALPHA,
+  HUD_PANEL_FILL,
+  TEXT_ON_DARK,
+  TEXT_PILL_BG,
+  TEXT_PILL_PAD,
+} from "../utils/textReadability.js";
 import { showToast } from "./Toast.js";
 
 const COLORS = GameConfig.colors;
+const ABILITY_DEPTH = 250;
 
 const ABILITY_COLORS = {
   SUNSHINE_BURST: 0xffd700,
@@ -17,6 +25,14 @@ const ABILITY_LABELS = {
   GARDEN_RAIN: 'R',
   RAINBOW_SHIELD: 'D',
   FLOWER_BOMB: 'F',
+};
+
+/** Short names that fit beside ability circles without clipping. */
+const ABILITY_SHORT_NAMES = {
+  SUNSHINE_BURST: 'SUN',
+  GARDEN_RAIN: 'RAIN',
+  RAINBOW_SHIELD: 'SHIELD',
+  FLOWER_BOMB: 'BOMB',
 };
 
 /** @param {string} text */
@@ -51,7 +67,9 @@ export class AbilityBar {
     const btnRadius = 36;
     const spacing = 80;
     const startY = height / 2 - ((abilities.length - 1) * spacing) / 2;
-    const x = width - 50;
+    // Keep circles inset so left-side name labels stay on-screen (portrait
+    // applyLayout pushes further left via computeDesignUIMetrics.abilityX).
+    const x = width - 72;
     this._abilityObjects = [];
 
     const trackY = (obj, layoutY) => {
@@ -67,10 +85,38 @@ export class AbilityBar {
       const unlocked = this._isAbilityUnlocked(config);
       const abilityColor = unlocked ? (ABILITY_COLORS[key] || COLORS.accent) : 0x555555;
 
+      const shortName = (
+        ABILITY_SHORT_NAMES[key] || config.label.split(' ')[0] || key
+      ).toUpperCase();
+      const nameLabel = trackY(
+        scene.add
+          .text(x - btnRadius - 10, y, shortName, {
+            fontFamily: "Kenney Future",
+            fontSize: "15px",
+            color: unlocked ? TEXT_ON_DARK : "#AAAAAA",
+            backgroundColor: TEXT_PILL_BG,
+            // Tighter pad + slightly larger type — less empty dark slab.
+            padding: { x: 6, y: 3 },
+            align: "right",
+            shadow: {
+              offsetX: 1,
+              offsetY: 1,
+              color: "#000",
+              blur: 2,
+              fill: true,
+            },
+          })
+          .setOrigin(1, 0.5)
+          .setDepth(ABILITY_DEPTH)
+          .setVisible(this._touchMode),
+        y,
+      );
+
       const circle = trackY(
         scene.add
           .circle(x, y, btnRadius, abilityColor)
-          .setStrokeStyle(3, COLORS.outline),
+          .setStrokeStyle(3, COLORS.outline)
+          .setDepth(ABILITY_DEPTH + 1),
         y,
       );
       if (this._touchMode) {
@@ -95,36 +141,48 @@ export class AbilityBar {
               fill: true,
             },
           })
-          .setOrigin(0.5),
+          .setOrigin(0.5)
+          .setDepth(ABILITY_DEPTH + 2),
         y,
       );
 
       const tooltipText = unlocked
         ? `${config.label}\n${config.description || ''}`
         : `${config.label} (Lv.${config.unlockLevel})`;
+      // Detail tooltip sits left of the circle (same side as short name) so it
+      // never clips off the right edge of the viewport.
       const tooltip = trackY(
         scene.add
-          .text(x, y + btnRadius + 8, tooltipText, {
+          .text(x - btnRadius - 10, y, tooltipText, {
             fontFamily: "Kenney Future",
-            fontSize: "9px",
-            color: "#FFFFFF",
-            backgroundColor: "#000000aa",
-            padding: { x: 4, y: 2 },
-            align: 'center',
-            wordWrap: { width: 120 },
+            fontSize: "13px",
+            color: TEXT_ON_DARK,
+            backgroundColor: TEXT_PILL_BG,
+            padding: TEXT_PILL_PAD,
+            align: 'right',
+            wordWrap: { width: 180 },
+            shadow: {
+              offsetX: 1,
+              offsetY: 1,
+              color: "#000",
+              blur: 2,
+              fill: true,
+            },
           })
-          .setOrigin(0.5, 0)
-          .setVisible(this._touchMode),
-        y + btnRadius + 8,
+          .setOrigin(1, 0.5)
+          .setDepth(ABILITY_DEPTH + 3)
+          .setVisible(false),
+        y,
       );
 
-      const cooldownGfx = scene.add.graphics();
+      const cooldownGfx = scene.add.graphics().setDepth(ABILITY_DEPTH + 2);
       cooldownGfx.setVisible(false);
       this._abilityObjects.push(cooldownGfx);
 
       const btn = {
         circle,
         label,
+        nameLabel,
         cooldownGfx,
         tooltip,
         key,
@@ -150,6 +208,7 @@ export class AbilityBar {
       circle.on("pointerout", () => {
         if (this._touchMode) return;
         btn.tooltip.setVisible(false);
+        btn.nameLabel?.setVisible(false);
         scene.tweens.add({
           targets: [circle, label],
           scaleX: 1,
@@ -159,11 +218,13 @@ export class AbilityBar {
       });
       circle.on("pointerdown", () => {
         if (!unlocked) return;
+        if (this._touchMode) this._showAbilityTooltip(btn, true);
         this._requestAbility(key, config, btn);
       });
       label.setInteractive({ useHandCursor: unlocked });
       label.on("pointerdown", () => {
         if (!unlocked) return;
+        if (this._touchMode) this._showAbilityTooltip(btn, true);
         this._requestAbility(key, config, btn);
       });
 
@@ -200,6 +261,11 @@ export class AbilityBar {
         .setDepth(10),
       y,
     );
+    // sendWaveBg is an image scaled via setDisplaySize, so its base scale != 1.
+    // Hover/press tweens must animate relative to this base (recaptured whenever
+    // applyLayout resizes the button); absolute scale values would collapse it
+    // to the native texture size after a tap on a static (non-relayout) screen.
+    this._captureSendWaveBaseScale();
 
     this.sendWaveText = trackY(
       scene.add
@@ -213,27 +279,28 @@ export class AbilityBar {
       y - 4,
     );
 
-    const bonusY = y + 34;
+    const bonusY = y + 42;
     this.sendWaveBonusBg = trackY(
       scene.add
-        .rectangle(x, bonusY + 8, 280, 22, 0x000000, 0.65)
-        .setStrokeStyle(1, 0x4a2c0a, 0.5)
+        .rectangle(x, bonusY, 280, 28, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
+        .setStrokeStyle(2, COLORS.outline)
         .setDepth(10),
-      bonusY + 8,
+      bonusY,
     );
 
     this.sendWaveBonusText = trackY(
       scene.add
         .text(x, bonusY, "+10 BONUS", {
           fontFamily: "Kenney Future",
-          fontSize: "12px",
-          color: "#FFF9E6",
+          fontSize: "15px",
+          color: TEXT_ON_DARK,
           shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
         })
-        .setOrigin(0.5, 0)
+        .setOrigin(0.5)
         .setDepth(11),
       bonusY,
     );
+    this._fitSendWaveBonusBg();
 
     this._sendWaveGlowTween = scene.tweens.add({
       targets: this.sendWaveGlow,
@@ -244,32 +311,52 @@ export class AbilityBar {
     });
 
     this.sendWaveBg.on("pointerover", () => {
-      scene.tweens.add({
-        targets: [this.sendWaveBg, this.sendWaveText],
-        scaleX: 1.08,
-        scaleY: 1.08,
-        duration: 60,
-      });
+      this._tweenSendWaveScale(1.08, 60);
     });
     this.sendWaveBg.on("pointerout", () => {
-      scene.tweens.add({
-        targets: [this.sendWaveBg, this.sendWaveText],
-        scaleX: 1,
-        scaleY: 1,
-        duration: 60,
-      });
+      this._tweenSendWaveScale(1, 60);
     });
     this.sendWaveBg.on("pointerdown", () => {
       scene.sound.play("buttonClick", { volume: sfxVol('buttonClick') });
-      scene.tweens.add({
-        targets: [this.sendWaveBg, this.sendWaveText],
-        scaleX: 0.94,
-        scaleY: 0.94,
-        duration: 50,
-        yoyo: true,
-      });
+      this._tweenSendWaveScale(0.94, 50, true);
       scene.game.events.emit("send-wave-early");
     });
+  }
+
+  /** Store the send-wave button's current display scale as its animation base. */
+  _captureSendWaveBaseScale() {
+    if (this.sendWaveBg?.active) {
+      this._sendWaveBaseScaleX = this.sendWaveBg.scaleX;
+      this._sendWaveBaseScaleY = this.sendWaveBg.scaleY;
+    }
+  }
+
+  /**
+   * Scale the send-wave button by `factor` relative to its display-size base
+   * scale (the bg image) while scaling the label absolutely (its base is 1).
+   */
+  _tweenSendWaveScale(factor, duration, yoyo = false) {
+    const scene = this.scene;
+    const baseX = this._sendWaveBaseScaleX ?? 1;
+    const baseY = this._sendWaveBaseScaleY ?? 1;
+    if (this.sendWaveBg?.active) {
+      scene.tweens.add({
+        targets: this.sendWaveBg,
+        scaleX: baseX * factor,
+        scaleY: baseY * factor,
+        duration,
+        yoyo,
+      });
+    }
+    if (this.sendWaveText?.active) {
+      scene.tweens.add({
+        targets: this.sendWaveText,
+        scaleX: factor,
+        scaleY: factor,
+        duration,
+        yoyo,
+      });
+    }
   }
 
   setSendWaveVisible(visible) {
@@ -278,11 +365,30 @@ export class AbilityBar {
     this.sendWaveBonusText.setVisible(visible);
     this.sendWaveBonusBg?.setVisible(visible);
     this.sendWaveGlow.setVisible(visible);
+    // Phaser can still hit-test interactive objects that are merely invisible.
+    // Disable input while a wave is active so a mid-wave tap can't fire
+    // send-wave-early (and so kids don't get a confusing "Wait for the wave timer!" toast).
     if (visible) {
+      this.sendWaveBg.setInteractive({ useHandCursor: true });
       this._sendWaveGlowTween.resume();
     } else {
+      this.sendWaveBg.disableInteractive();
       this._sendWaveGlowTween.pause();
     }
+  }
+
+  /** Resize/recenter the dark pill so it fully wraps the bonus text. */
+  _fitSendWaveBonusBg() {
+    const text = this.sendWaveBonusText;
+    const bg = this.sendWaveBonusBg;
+    if (!text?.active || !bg?.active) return;
+    // Tight wrap around the label — avoid oversized empty dark slabs.
+    const padX = 14;
+    const padY = 6;
+    const w = Math.max(72, (text.width || 0) + padX);
+    const h = Math.max(22, (text.height || 0) + padY);
+    bg.setSize(w, h);
+    bg.setPosition(text.x, text.y);
   }
 
   _showAbilityTooltip(btn, persistent = false) {
@@ -290,13 +396,23 @@ export class AbilityBar {
     const desc = btn.config.description ? `\n${btn.config.description}` : '';
     btn.tooltip.setText(`${btn.config.label}${state}${desc}`);
     btn.tooltip.setVisible(true);
+    btn.nameLabel?.setVisible(false);
     if (!persistent) return;
     this._openAbilityTooltip = btn;
+    this.abilityButtons?.forEach((b) => {
+      if (b !== btn) {
+        b.tooltip?.setVisible(false);
+        b.nameLabel?.setVisible(this._touchMode);
+      }
+    });
   }
 
   _dismissAbilityTooltips() {
     this._openAbilityTooltip = null;
-    this.abilityButtons?.forEach((b) => b.tooltip?.setVisible(false));
+    this.abilityButtons?.forEach((b) => {
+      b.tooltip?.setVisible(false);
+      b.nameLabel?.setVisible(this._touchMode);
+    });
   }
 
   dismissTouchTooltips() {
@@ -308,6 +424,7 @@ export class AbilityBar {
     this.sendWaveBonusText.setText("+10 BONUS");
     this.sendWaveBonusText.setVisible(true);
     this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
+    this._fitSendWaveBonusBg();
   }
 
   updateSendWaveCooldown({ seconds, isPrep, manualFirstWave }) {
@@ -316,12 +433,12 @@ export class AbilityBar {
       const show = Boolean(text);
       this.sendWaveBonusText.setVisible(show);
       this.sendWaveBonusBg?.setVisible(show && this.sendWaveBg.visible);
+      if (show) this._fitSendWaveBonusBg();
     };
 
     if (!this.sendWaveBg?.visible) {
       if (seconds <= 0) return;
-      this.sendWaveBg.setVisible(true);
-      this.sendWaveText.setVisible(true);
+      this.setSendWaveVisible(true);
       this.sendWaveText.setText(`Next in ${seconds}s`);
       setBonus("");
       this._sendWaveGlowTween?.pause();
@@ -344,6 +461,7 @@ export class AbilityBar {
       this.sendWaveBonusText.setText("+10 BONUS");
       this.sendWaveBonusText.setVisible(true);
       this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
+      this._fitSendWaveBonusBg();
     } else {
       this.resetSendWaveLabels();
     }
@@ -364,6 +482,7 @@ export class AbilityBar {
     this.sendWaveBonusText.setText("+10 BONUS");
     this.sendWaveBonusText.setVisible(true);
     this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
+    this._fitSendWaveBonusBg();
   }
 
   startAbilityCooldown(btn, duration) {
@@ -413,6 +532,7 @@ export class AbilityBar {
       const abilityColor = unlocked ? (ABILITY_COLORS[btn.key] || COLORS.accent) : 0x555555;
       btn.circle.setFillStyle(abilityColor);
       btn.label.setColor(unlocked ? '#FFFFFF' : '#AAAAAA');
+      btn.nameLabel?.setColor(unlocked ? TEXT_ON_DARK : '#AAAAAA');
       if (this._touchMode) {
         setTouchFriendlyCircleHit(btn.circle, 16);
         btn.circle.input.cursor = unlocked ? 'pointer' : 'default';
@@ -484,17 +604,21 @@ export class AbilityBar {
       if (obj?.active) obj.setY(obj.getData("layoutY") + sendDelta);
     });
     if (this.sendWaveBg?.active) {
+      this.scene.tweens.killTweensOf(this.sendWaveBg);
       this.sendWaveBg.setDisplaySize(sendW, 50);
+      this._captureSendWaveBaseScale();
       this.sendWaveGlow?.setPosition(this.sendWaveBg.x, this.sendWaveBg.y);
       this.sendWaveGlow?.setRadius(Math.max(sendW * 0.55, 90));
     }
-    if (this.sendWaveBonusBg?.active && this.sendWaveBg?.active) {
-      this.sendWaveBonusBg.setSize(sendW + 40, 22);
-      this.sendWaveBonusBg.setPosition(this.sendWaveBg.x, this.sendWaveBonusBg.y);
+    if (this.sendWaveBonusBg?.active && this.sendWaveBonusText?.active) {
+      this.sendWaveBonusBg.setPosition(this.sendWaveBonusText.x, this.sendWaveBonusText.y);
+      this._fitSendWaveBonusBg();
     }
     if (compact && this.sendWaveText?.active) {
       this.sendWaveText.setFontSize('18px');
-      this.sendWaveBonusText?.setFontSize('10px');
+      // Keep bonus readable on phones — 11px was too small over grass.
+      this.sendWaveBonusText?.setFontSize('13px');
+      this._fitSendWaveBonusBg();
     }
 
     const n = this.abilityButtons?.length ?? 0;
@@ -503,17 +627,23 @@ export class AbilityBar {
     const canonicalStart =
       canonical.abilityCenterY - ((n - 1) * canonical.abilitySpacing) / 2;
     const newStart = m.abilityCenterY - ((n - 1) * m.abilityStep) / 2;
+    const btnRadius = 36;
+    // Keep circles inset from the right so left-side labels stay on-screen.
+    const abilityX = Math.min(m.abilityX, GameConfig.canvas.width - 72);
 
     this.abilityButtons.forEach((btn, idx) => {
       const canonicalY = canonicalStart + idx * canonical.abilitySpacing;
       const newY = newStart + idx * m.abilityStep;
       const deltaY = newY - canonicalY;
+      const cy = btn.circle.getData("layoutY") + deltaY;
 
-      btn.circle.setPosition(m.abilityX, btn.circle.getData("layoutY") + deltaY);
-      btn.label.setPosition(m.abilityX, btn.label.getData("layoutY") + deltaY);
-      btn.tooltip.setPosition(m.abilityX, btn.tooltip.getData("layoutY") + deltaY);
+      btn.circle.setPosition(abilityX, cy);
+      btn.label.setPosition(abilityX, btn.label.getData("layoutY") + deltaY);
+      const labelX = abilityX - btnRadius - 10;
+      btn.nameLabel?.setPosition(labelX, cy);
+      btn.tooltip.setPosition(labelX, cy);
       if (btn.cooldownGfx?.active) {
-        btn.cooldownGfx.setPosition(m.abilityX, btn.circle.y);
+        btn.cooldownGfx.setPosition(0, 0);
       }
     });
   }

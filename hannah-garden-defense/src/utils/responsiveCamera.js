@@ -7,7 +7,8 @@ import { isMobileViewport } from './mobileViewport.js';
 export { DESIGN };
 
 const GRASS_KEYS = CRAFTPIX_GRASS_TILES.map((n) => craftpixGroundKey(n));
-export const GRASS_BG = '#5A9A38';
+/** Match Craftpix grass tile average (#6EA843) so letterbox/CSS never reads as a pale bar. */
+export const GRASS_BG = '#6EA843';
 
 export function getSafeTop() {
   return 28 + getSafeInsets().top;
@@ -121,7 +122,7 @@ export function setupResponsiveCamera(scene, onLayout, opts = {}) {
     cam.setBackgroundColor(GRASS_BG);
     fitDesignInScreenRect(cam, sw, sh, { x: 0, y: 0, w: sw, h: sh });
     const view = viewOf(cam);
-    if (withGrass) refillSceneGrass(scene, view, -10);
+    if (withGrass) refillSceneGrass(scene, view, -10, { clipToDesign: true });
     if (onLayout) onLayout(view);
   };
 

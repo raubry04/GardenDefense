@@ -126,8 +126,8 @@ export class TutorialManager {
 
     const step = this.steps[this.currentStep];
     const { ui, centerX, centerY } = this._layout();
-    const panelW = Math.min(380, GameConfig.canvas.width - 32);
-    const panelH = Math.min(160, GameConfig.canvas.height * 0.22);
+    const panelW = Math.min(420, GameConfig.canvas.width - 28);
+    const panelH = Math.min(210, GameConfig.canvas.height * 0.3);
     const targetPos = this._getTargetPosition(step.target, ui);
     const panelX = centerX;
     const panelY = step.target
@@ -138,7 +138,7 @@ export class TutorialManager {
     this._objects = objects;
 
     const overlay = this.scene.add.rectangle(
-      centerX, centerY, GameConfig.canvas.width * 2, GameConfig.canvas.height * 2, 0x000000, 0.55,
+      centerX, centerY, GameConfig.canvas.width * 2, GameConfig.canvas.height * 2, 0x000000, 0.62,
     ).setDepth(TUTORIAL_DEPTH);
     const allowTrayInput = step.target === 'towerTray' || step.target === 'validTile';
     if (!allowTrayInput) {
@@ -146,59 +146,65 @@ export class TutorialManager {
     }
     objects.push(overlay);
 
-    const bg = this.scene.add.rectangle(panelX, panelY, panelW, panelH, COLORS.uiPanel, 0.98)
+    const bg = this.scene.add.rectangle(panelX, panelY, panelW, panelH, COLORS.uiPanel, 1)
       .setStrokeStyle(3, COLORS.primary)
       .setDepth(TUTORIAL_DEPTH + 1);
     objects.push(bg);
 
-    const title = this.scene.add.text(panelX, panelY - panelH / 2 + 22, step.title || 'Tip', {
+    const title = this.scene.add.text(panelX, panelY - panelH / 2 + 28, step.title || 'Tip', {
       fontFamily: 'Kenney Pixel',
-      fontSize: '16px',
+      fontSize: '22px',
       color: '#3D5A1F',
       align: 'center',
     }).setOrigin(0.5).setDepth(TUTORIAL_DEPTH + 2);
     objects.push(title);
 
-    const body = this.scene.add.text(panelX, panelY + 8, step.text, {
+    const body = this.scene.add.text(panelX, panelY + 4, step.text, {
       fontFamily: 'Kenney Future',
-      fontSize: '14px',
+      fontSize: '18px',
       color: '#4A2C0A',
-      wordWrap: { width: panelW - 36 },
+      wordWrap: { width: panelW - 40 },
       align: 'center',
-      lineSpacing: 3,
+      lineSpacing: 4,
     }).setOrigin(0.5).setDepth(TUTORIAL_DEPTH + 2);
     objects.push(body);
 
     const progress = this.scene.add.text(
-      panelX, panelY + panelH / 2 - 38,
+      panelX, panelY + panelH / 2 - 42,
       `${this.currentStep + 1} / ${this.steps.length}`,
       {
         fontFamily: 'Kenney Future',
-        fontSize: '11px',
-        color: '#888888',
+        fontSize: '14px',
+        color: '#666666',
       },
     ).setOrigin(0.5).setDepth(TUTORIAL_DEPTH + 2);
     objects.push(progress);
 
-    const btnY = panelY + panelH / 2 - 18;
+    const btnY = panelY + panelH / 2 - 24;
     const nextLabel = this.currentStep >= this.steps.length - 1 ? 'Got it!' : 'Next';
-    const nextBtn = this.scene.add.rectangle(panelX + panelW / 2 - 58, btnY, 96, 30, COLORS.button)
+    const nextBtn = this.scene.add.rectangle(panelX + panelW / 2 - 70, btnY, 120, 44, COLORS.button)
       .setStrokeStyle(2, COLORS.outline)
       .setInteractive({ useHandCursor: true })
       .setDepth(TUTORIAL_DEPTH + 3);
-    const nextText = this.scene.add.text(panelX + panelW / 2 - 58, btnY, nextLabel, {
+    const nextText = this.scene.add.text(panelX + panelW / 2 - 70, btnY, nextLabel, {
       fontFamily: 'Kenney Future',
-      fontSize: '14px',
+      fontSize: '18px',
       color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(TUTORIAL_DEPTH + 3);
     objects.push(nextBtn, nextText);
 
-    const skipBtn = this.scene.add.text(panelX - panelW / 2 + 16, btnY, 'Skip', {
+    // Dark text on cream pill + orange stroke — readable vs grey-on-white.
+    const skipX = panelX - panelW / 2 + 52;
+    const skipBg = this.scene.add.rectangle(skipX, btnY, 88, 40, 0xFFF9E6)
+      .setStrokeStyle(2, COLORS.button)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(TUTORIAL_DEPTH + 3);
+    const skipBtn = this.scene.add.text(skipX, btnY, 'Skip', {
       fontFamily: 'Kenney Future',
-      fontSize: '12px',
-      color: '#888888',
-    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true }).setDepth(TUTORIAL_DEPTH + 3);
-    objects.push(skipBtn);
+      fontSize: '18px',
+      color: '#4A2C0A',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(TUTORIAL_DEPTH + 3);
+    objects.push(skipBg, skipBtn);
 
     if (step.target) {
       const arrow = this.scene.add.triangle(
@@ -213,6 +219,7 @@ export class TutorialManager {
     const advance = () => this.advance();
     nextBtn.on('pointerdown', advance);
     nextText.setInteractive({ useHandCursor: true }).on('pointerdown', advance);
+    skipBg.on('pointerdown', dismiss);
     skipBtn.on('pointerdown', dismiss);
   }
 
@@ -222,15 +229,15 @@ export class TutorialManager {
 
     const container = this.scene.add.container(centerX, bubbleY).setDepth(2900);
 
-    const bg = this.scene.add.rectangle(0, 0, Math.min(360, GameConfig.canvas.width - 24), 52, COLORS.uiPanel, 0.95)
+    const bg = this.scene.add.rectangle(0, 0, Math.min(400, GameConfig.canvas.width - 20), 68, COLORS.uiPanel, 1)
       .setStrokeStyle(2, COLORS.button)
       .setOrigin(0.5);
 
     const label = this.scene.add.text(0, 0, text, {
       fontFamily: 'Kenney Future',
-      fontSize: '13px',
+      fontSize: '16px',
       color: '#4A2C0A',
-      wordWrap: { width: 320 },
+      wordWrap: { width: 360 },
       align: 'center',
     }).setOrigin(0.5);
 

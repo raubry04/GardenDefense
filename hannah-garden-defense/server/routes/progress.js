@@ -21,8 +21,10 @@ export function validateNonNegativeInt(value) {
 
 /**
  * GET /:name — Return the player_progress row for the given player name.
+ * Missing players return empty defaults (200) so first-time clients don't see
+ * a noisy 404 before their first POST save.
  * @param {string} req.params.name - Player name
- * @returns {object} Player progress row or 404
+ * @returns {object} Player progress row (or empty defaults)
  */
 router.get('/:name', (req, res) => {
   try {
@@ -31,7 +33,21 @@ router.get('/:name', (req, res) => {
     ).get(req.params.name);
 
     if (!row) {
-      return res.status(404).json({ error: 'Player not found' });
+      return res.status(200).json({
+        player_name: req.params.name,
+        hannah_level: 1,
+        hannah_xp: 0,
+        garden_level: 1,
+        sunshine_points: 0,
+        meta_sunshine_earned: 0,
+        meta_sunshine_spent: 0,
+        battle_stars: '{}',
+        unlocked_zone: 0,
+        zone_stars: '{}',
+        zone_battles: '{}',
+        tower_upgrades: '{}',
+        empty: true,
+      });
     }
     res.json(row);
   } catch (err) {

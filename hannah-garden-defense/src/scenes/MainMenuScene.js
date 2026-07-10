@@ -6,6 +6,8 @@ import { createSettingsPanel } from '../ui/SettingsPanel.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 import { loadPlayerName, savePlayerName } from '../utils/hannahProgress.js';
 import { isValidPlayerName } from '../utils/playerName.js';
+import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
+import { FONT_DISPLAY, buttonTextStyle, bodyTextStyle, titleTextStyle } from '../utils/textReadability.js';
 
 const COLORS = GameConfig.colors;
 
@@ -18,7 +20,7 @@ export class MainMenuScene extends Phaser.Scene {
   create() {
     const { width, height } = DESIGN;
     this.cameras.main.fadeIn(300);
-    this.cameras.main.setBackgroundColor('#5A9A38');
+    this.cameras.main.setBackgroundColor('#6EA843');
     setupResponsiveCamera(this);
     applyAudioSettings(this);
 
@@ -27,8 +29,8 @@ export class MainMenuScene extends Phaser.Scene {
     this._createTitle(width);
     this._createNameEntry(width);
 
-    const buttonY = 350;
-    const buttonSpacing = 95;
+    const buttonY = 310;
+    const buttonSpacing = 84;
 
     this._createButton(width / 2, buttonY, 'PLAY', () => {
       this._ensureMusic();
@@ -75,29 +77,14 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   _createForegroundDecor(width, height) {
-    const props = [
-      { key: 'cp_treeSmall', x: 80, y: height - 40, size: 72 },
-      { key: 'cp_treeMedium', x: width - 90, y: height - 35, size: 88 },
-      { key: 'cp_bushMedium', x: width * 0.25, y: height - 28, size: 48 },
-      { key: 'cp_bushSmall', x: width * 0.72, y: height - 32, size: 40 },
-      { key: 'cp_rock1', x: 140, y: height - 18, size: 28 },
-      { key: 'cp_rock2', x: width - 160, y: height - 16, size: 24 },
-      { key: 'cp_rock3', x: width * 0.5, y: height - 14, size: 22 },
-    ];
-
-    props.forEach((p) => {
-      this.add.image(p.x, p.y, p.key)
-        .setDisplaySize(p.size, p.size)
-        .setOrigin(0.5, 1)
-        .setDepth(2)
-        .setAlpha(0.92);
-    });
+    // Shared garden frame — also visible behind the Settings overlay.
+    decorateGardenBackdrop(this, { width, height, variant: 'menu' });
   }
 
   /* ── Title ───────────────────────────────────────────── */
 
   _createTitle(width) {
-    const titleY = 90;
+    const titleY = 72;
 
     const burstGfx = this.add.graphics().setDepth(4);
     burstGfx.setPosition(width / 2, titleY);
@@ -136,9 +123,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.add.circle(width / 2, titleY, 34, 0xFFD700, 0.3).setDepth(5);
 
     this.add.text(width / 2, titleY, "Hannah's Garden Defense", {
-      fontFamily: 'Kenney Pixel',
-      fontSize: '48px',
-      color: '#FFD700',
+      ...titleTextStyle('54px', '#FFD700'),
       stroke: '#3D5A1F',
       strokeThickness: 6,
     }).setOrigin(0.5).setDepth(5);
@@ -150,7 +135,7 @@ export class MainMenuScene extends Phaser.Scene {
     const savedName = loadPlayerName();
     this.playerName = savedName;
 
-    const panelY = 210;
+    const panelY = 188;
     const panelW = 340;
     const panelH = 80;
     const uiDepth = 20;
@@ -163,14 +148,12 @@ export class MainMenuScene extends Phaser.Scene {
       .setOrigin(0.5).setDepth(uiDepth);
 
     this.add.text(width / 2, panelY - 22, 'Your Name:', {
-      fontFamily: 'Kenney Future',
-      fontSize: '22px',
-      color: '#3D5A1F',
+      ...bodyTextStyle('24px', '#3D5A1F'),
     }).setOrigin(0.5).setDepth(uiDepth + 1);
 
     this.nameDisplay = this.add.text(width / 2 + 10, panelY + 10, savedName || 'Tap to enter name', {
-      fontFamily: 'Kenney Future',
-      fontSize: '24px',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '26px',
       color: savedName ? '#4A2C0A' : '#888888',
     }).setOrigin(0.5).setDepth(uiDepth + 1).setInteractive({ useHandCursor: true });
 
@@ -196,19 +179,20 @@ export class MainMenuScene extends Phaser.Scene {
   /* ── Decorative animals ──────────────────────────────── */
 
   _createDecorativeAnimals(width, height) {
+    // Keep mascots in the far corners, behind side décor, so they don't sit on carts/bushes.
     if (this.textures.exists('chick')) {
-      const chick = this.add.image(-40, height - 55, 'chick')
+      const chick = this.add.image(-40, height - 48, 'chick')
         .setScale(0.4)
-        .setAlpha(0.9)
-        .setDepth(3);
+        .setAlpha(0.95)
+        .setDepth(0);
       this._animateChickHop(chick, width, height);
     }
 
     if (this.textures.exists('rabbit')) {
-      const rabbit = this.add.image(width + 30, height - 70, 'rabbit')
-        .setScale(0.45)
+      const rabbit = this.add.image(width + 30, height - 62, 'rabbit')
+        .setScale(0.4)
         .setAlpha(0)
-        .setDepth(3);
+        .setDepth(0);
       this._animateRabbitPeek(rabbit, width, height);
     }
   }
@@ -217,34 +201,37 @@ export class MainMenuScene extends Phaser.Scene {
     const hopDuration = 500;
     const restDuration = 800;
     const hopDistance = 55;
-    const totalHops = Math.ceil((width + 80) / hopDistance);
+    // Only hop across the left margin — stop before the centered button stack / cart.
+    const maxX = 150;
+    const totalHops = Math.ceil((maxX + 80) / hopDistance);
     let hopIndex = 0;
+    const baseY = height - 48;
 
     const doHop = () => {
       if (!chick.active) return;
 
       this.tweens.add({
         targets: chick,
-        x: chick.x + hopDistance,
+        x: Math.min(maxX, chick.x + hopDistance),
         duration: hopDuration,
         ease: 'Sine.easeInOut',
       });
 
       this.tweens.add({
         targets: chick,
-        y: height - 55 - 18,
+        y: baseY - 18,
         duration: hopDuration / 2,
         yoyo: true,
         ease: 'Sine.easeOut',
       });
 
       hopIndex++;
-      if (hopIndex < totalHops) {
+      if (hopIndex < totalHops && chick.x < maxX - 10) {
         this.time.delayedCall(hopDuration + restDuration, doHop);
       } else {
         this.time.delayedCall(4000, () => {
           if (!chick.active) return;
-          chick.setPosition(-40, height - 55);
+          chick.setPosition(-40, baseY);
           hopIndex = 0;
           doHop();
         });
@@ -306,9 +293,7 @@ export class MainMenuScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     const text = this.add.text(x, y, label, {
-      fontFamily: 'Kenney Future',
-      fontSize: '28px',
-      color: '#4A2C0A',
+      ...buttonTextStyle('30px'),
     }).setOrigin(0.5).setDepth(depth + 1);
 
     const parts = [bg, text, shadow];
@@ -346,7 +331,8 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   _resumeAudio() {
-    SceneMusicManager.resumeAudioContext(this);
+    // force: this is always called from a user gesture (tap).
+    SceneMusicManager.resumeAudioContext(this, { force: true });
   }
 
   /* ── Name prompt ─────────────────────────────────────── */
@@ -371,14 +357,14 @@ export class MainMenuScene extends Phaser.Scene {
     objects.push(panel);
 
     const title = this.add.text(width / 2, height / 2 - 100, 'Enter Your Name', {
-      fontFamily: 'Kenney Pixel',
+      fontFamily: FONT_DISPLAY,
       fontSize: '32px',
       color: '#3D5A1F',
     }).setOrigin(0.5).setDepth(depth + 2);
     objects.push(title);
 
     const hint = this.add.text(width / 2, height / 2 - 62, 'Max 12 characters', {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '16px',
       color: '#888888',
     }).setOrigin(0.5).setDepth(depth + 2);
@@ -404,7 +390,7 @@ export class MainMenuScene extends Phaser.Scene {
       'border:none',
       'outline:none',
       'background:transparent',
-      'font-family:Kenney Future, sans-serif',
+      'font-family:Kenney Pixel, sans-serif',
       'font-size:22px',
       'color:#4A2C0A',
       'text-align:center',
@@ -435,7 +421,7 @@ export class MainMenuScene extends Phaser.Scene {
     nameInput.select();
 
     const errorText = this.add.text(width / 2, height / 2 + 36, '', {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '16px',
       color: '#E63946',
     }).setOrigin(0.5).setDepth(depth + 2);
@@ -487,7 +473,7 @@ export class MainMenuScene extends Phaser.Scene {
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(depth + 2);
     const cancelText = this.add.text(width / 2 - 90, height / 2 + 90, 'CANCEL', {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '20px',
       color: '#FFFFFF',
     }).setOrigin(0.5).setDepth(depth + 3);
@@ -498,7 +484,7 @@ export class MainMenuScene extends Phaser.Scene {
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(depth + 2);
     const okText = this.add.text(width / 2 + 90, height / 2 + 90, 'OK', {
-      fontFamily: 'Kenney Future',
+      fontFamily: FONT_DISPLAY,
       fontSize: '20px',
       color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(depth + 3);
@@ -525,7 +511,8 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   _playSFX() {
-    this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+    // Gated: raw sound.play while AudioContext is still suspended spams Chrome.
+    SceneMusicManager.playSfxSafe(this, 'buttonClick', { volume: GameConfig.audio.sfxVolume });
   }
 
   _showInstructions() {
@@ -546,16 +533,16 @@ export class MainMenuScene extends Phaser.Scene {
     objects.push(panel);
 
     const titleText = this.add.text(width / 2, height / 2 - panelH / 2 + 28, '', {
-      fontFamily: 'Kenney Pixel',
-      fontSize: '22px',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '24px',
       color: '#3D5A1F',
       align: 'center',
     }).setOrigin(0.5).setDepth(102);
     objects.push(titleText);
 
     const bodyText = this.add.text(width / 2, height / 2 - 10, '', {
-      fontFamily: 'Kenney Future',
-      fontSize: '17px',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '18px',
       color: '#4A2C0A',
       align: 'center',
       wordWrap: { width: panelW - 48 },
@@ -564,8 +551,8 @@ export class MainMenuScene extends Phaser.Scene {
     objects.push(bodyText);
 
     const progressText = this.add.text(width / 2, height / 2 + panelH / 2 - 72, '', {
-      fontFamily: 'Kenney Future',
-      fontSize: '13px',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '15px',
       color: '#888888',
     }).setOrigin(0.5).setDepth(102);
     objects.push(progressText);
@@ -582,30 +569,31 @@ export class MainMenuScene extends Phaser.Scene {
       objects.forEach((o) => { if (o?.active) o.destroy(); });
     };
 
-    const prevBtn = this.add.rectangle(width / 2 - 110, height / 2 + panelH / 2 - 28, 100, 44, COLORS.button)
+    const navY = height / 2 + panelH / 2 - 32;
+    const prevBtn = this.add.rectangle(width / 2 - 120, navY, 120, 48, COLORS.button)
       .setInteractive({ useHandCursor: true })
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(102);
-    const prevLabel = this.add.text(width / 2 - 110, height / 2 + panelH / 2 - 28, 'Back', {
-      fontFamily: 'Kenney Future', fontSize: '18px', color: '#4A2C0A',
+    const prevLabel = this.add.text(width / 2 - 120, navY, 'Back', {
+      fontFamily: FONT_DISPLAY, fontSize: '20px', color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(102);
     objects.push(prevBtn, prevLabel);
 
-    const nextBtn = this.add.rectangle(width / 2 + 110, height / 2 + panelH / 2 - 28, 100, 44, COLORS.button)
+    const nextBtn = this.add.rectangle(width / 2 + 120, navY, 120, 48, COLORS.button)
       .setInteractive({ useHandCursor: true })
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(102);
-    const nextLabel = this.add.text(width / 2 + 110, height / 2 + panelH / 2 - 28, 'Next', {
-      fontFamily: 'Kenney Future', fontSize: '18px', color: '#4A2C0A',
+    const nextLabel = this.add.text(width / 2 + 120, navY, 'Next', {
+      fontFamily: FONT_DISPLAY, fontSize: '20px', color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(102);
     objects.push(nextBtn, nextLabel);
 
-    const closeBtn = this.add.rectangle(width / 2, height / 2 + panelH / 2 + 36, 140, 44, COLORS.accent)
+    const closeBtn = this.add.rectangle(width / 2, height / 2 + panelH / 2 + 40, 160, 48, COLORS.accent)
       .setInteractive({ useHandCursor: true })
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(102);
-    const closeLabel = this.add.text(width / 2, height / 2 + panelH / 2 + 36, 'CLOSE', {
-      fontFamily: 'Kenney Future', fontSize: '18px', color: '#4A2C0A',
+    const closeLabel = this.add.text(width / 2, height / 2 + panelH / 2 + 40, 'CLOSE', {
+      fontFamily: FONT_DISPLAY, fontSize: '20px', color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(102);
     objects.push(closeBtn, closeLabel);
 
