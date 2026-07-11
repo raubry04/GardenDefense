@@ -71,10 +71,10 @@ export class TowerTray {
           trayCenterY,
           width - 40,
           trayHeight,
-          0x1a1a2e,
-          0.75,
+          0x1a2e14,
+          0.92,
         )
-        .setStrokeStyle(3, 0x4a4e69)
+        .setStrokeStyle(3, 0xc9a227)
         .setDepth(TRAY_DEPTH),
       trayCenterY,
     );
@@ -85,9 +85,9 @@ export class TowerTray {
         trayCenterY,
         width - 48,
         trayHeight - 8,
-        0x000000,
-        0,
-      ).setStrokeStyle(1, 0x6c6f85).setDepth(TRAY_DEPTH),
+        0x243a1c,
+        0.55,
+      ).setStrokeStyle(1, 0xe8d5a3).setDepth(TRAY_DEPTH),
       trayCenterY,
     );
 
@@ -154,9 +154,8 @@ export class TowerTray {
 
       const coinIcon = trackPart(
         scene.add
-          .image(x + OFF.coin.x, y + OFF.coin.y, "ui_uiStar")
+          .image(x + OFF.coin.x, y + OFF.coin.y, "ui_sunshine")
           .setDisplaySize(COIN_BASE, COIN_BASE)
-          .setTint(COLORS.stars)
           .setDepth(TRAY_DEPTH + 2),
         y,
         OFF.coin,
@@ -191,7 +190,13 @@ export class TowerTray {
         ? null
         : trackY(
             scene.add
-              .text(x, y, '🔒', { fontSize: '18px' })
+              .text(x, y, 'LOCK', {
+                fontFamily: 'Kenney Future',
+                fontSize: '14px',
+                color: '#FFD700',
+                stroke: '#000000',
+                strokeThickness: 3,
+              })
               .setOrigin(0.5)
               .setDepth(TRAY_DEPTH + 2),
             y,

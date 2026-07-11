@@ -181,7 +181,8 @@ export class MainMenuScene extends Phaser.Scene {
   _createDecorativeAnimals(width, height) {
     // Keep mascots in the far corners, behind side décor, so they don't sit on carts/bushes.
     if (this.textures.exists('chick')) {
-      const chick = this.add.image(-40, height - 48, 'chick')
+      // Start fully on-screen — negative X clipped the chick on phone letterbox.
+      const chick = this.add.image(28, height - 48, 'chick')
         .setScale(0.4)
         .setAlpha(0.95)
         .setDepth(0);
@@ -189,7 +190,7 @@ export class MainMenuScene extends Phaser.Scene {
     }
 
     if (this.textures.exists('rabbit')) {
-      const rabbit = this.add.image(width + 30, height - 62, 'rabbit')
+      const rabbit = this.add.image(width - 36, height - 62, 'rabbit')
         .setScale(0.4)
         .setAlpha(0)
         .setDepth(0);
@@ -203,7 +204,7 @@ export class MainMenuScene extends Phaser.Scene {
     const hopDistance = 55;
     // Only hop across the left margin — stop before the centered button stack / cart.
     const maxX = 150;
-    const totalHops = Math.ceil((maxX + 80) / hopDistance);
+    const totalHops = Math.ceil((maxX - 28) / hopDistance);
     let hopIndex = 0;
     const baseY = height - 48;
 
@@ -231,7 +232,7 @@ export class MainMenuScene extends Phaser.Scene {
       } else {
         this.time.delayedCall(4000, () => {
           if (!chick.active) return;
-          chick.setPosition(-40, baseY);
+          chick.setPosition(28, baseY);
           hopIndex = 0;
           doHop();
         });

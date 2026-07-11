@@ -71,15 +71,18 @@ export class LeaderboardScene extends Phaser.Scene {
     modes.forEach((mode, i) => {
       const x = startX + i * (tabW + gap);
       const active = this._leaderboardMode === mode.id;
-      const bg = this.add.rectangle(x, tabY, tabW, tabH, active ? COLORS.primary : 0x2A2A4E, active ? 1 : 0.92)
+      const bg = this.add.rectangle(x, tabY, tabW, tabH, active ? COLORS.primary : 0x3d5a1f, active ? 1 : 0.92)
         .setStrokeStyle(2, active ? COLORS.outline : 0x444466)
         .setDepth(uiDepth)
         .setInteractive({ useHandCursor: true });
 
       const label = this.add.text(x, tabY, mode.label, {
         fontFamily: FONT_DISPLAY,
-        fontSize: '16px',
+        fontSize: '22px',
         color: active ? '#4A2C0A' : '#FFF9E6',
+        shadow: active
+          ? { offsetX: 0, offsetY: 0, color: '#000', blur: 0, fill: false }
+          : { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
       }).setOrigin(0.5).setDepth(uiDepth + 1);
 
       bg.on('pointerdown', () => {
@@ -156,7 +159,7 @@ export class LeaderboardScene extends Phaser.Scene {
       const isCurrentPlayer = entry.player_name === this.playerName;
 
       this.add.rectangle(width / 2, y, tableWidth, rowHeight - 2,
-        i % 2 === 0 ? 0x2A2A4E : 0x1E1E3A, 0.88).setDepth(uiDepth);
+        i % 2 === 0 ? 0x2a3d1a : 0x1e2e14, 0.88).setDepth(uiDepth);
 
       if (isCurrentPlayer) {
         this.add.rectangle(width / 2, y, tableWidth, rowHeight - 2, COLORS.primary, 0.15)

@@ -10,20 +10,23 @@ export const TUTORIAL_BASICS = [
     title: 'Pick a Defender',
     text: 'Drag an animal from the tray onto a grass tile to place it.',
     target: 'towerTray',
+    requireAction: 'select-tower',
   },
   {
     title: 'Place It',
     text: 'Drop on green grass to place your defender. Pig Walls go on the path!',
     target: 'validTile',
+    requireAction: 'place-tower',
   },
   {
     title: 'Send the Wave',
     text: 'When ready, tap SEND WAVE to start the critters marching.',
     target: 'waveButton',
+    requireAction: 'send-wave',
   },
   {
     title: 'Sunshine Points',
-    text: 'Defeating enemies earns Sunshine Points (☀). Spend them on more defenders!',
+    text: 'Defeating enemies earns Sunshine Points. Spend them on more defenders!',
     target: null,
   },
 ];
@@ -41,7 +44,7 @@ export const TOWER_GUIDE = [
   },
   {
     title: 'Dog Patrol',
-    text: 'Barks in an area — stuns enemies and slows them. Great against fast runners.',
+    text: 'Barks in an area — stuns enemies briefly. Great against fast runners and Gorillas (who ignore slows).',
     target: 'towerTray',
   },
   {
@@ -153,7 +156,7 @@ export function getFirstBattleSteps() {
     },
     {
       title: 'Threats',
-      text: 'Frog splits • Gorilla ignores slow • Parrot flies • Monkey steals • Bear smashes towers • Elephant stomps • Cow tanks • Horse sprints • Buffalo charges walls.',
+      text: 'New critters get a tip when they first appear. Watch for flyers, splitters, and slow-immune Gorillas!',
       target: null,
     },
     {

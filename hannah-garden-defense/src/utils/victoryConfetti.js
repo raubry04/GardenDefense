@@ -137,6 +137,8 @@ export function burstVictoryConfetti(scene, width, height, count = 48) {
 
 /** Continuous top-down rain across the full design width while the scene is active. */
 export function startVictoryConfetti(scene, width, height, count = 72) {
+  const touch = scene?.sys?.game?.device?.input?.touch;
+  const scaled = touch ? Math.min(count, 40) : count;
   const spawn = (stagger = 0, mode = 'rain') => {
     spawnConfettiPiece(scene, width, height, {
       mode,
@@ -145,12 +147,12 @@ export function startVictoryConfetti(scene, width, height, count = 72) {
     });
   };
   // First wave: on-screen burst so the rain never looks empty at t=0.
-  const immediate = Math.min(count, 36);
+  const immediate = Math.min(scaled, touch ? 20 : 36);
   for (let i = 0; i < immediate; i++) {
     spawn(0, 'burst');
   }
   // Rest trickle in from the top edge across the full width.
-  for (let i = immediate; i < count; i++) {
+  for (let i = immediate; i < scaled; i++) {
     spawn(40 + Math.floor(Math.random() * 700), 'rain');
   }
 }

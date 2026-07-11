@@ -1,18 +1,15 @@
 import { AssetRegistry } from '../utils/AssetRegistry.js';
-
 import {
-
   CRAFTPIX_USED_GROUND_TILES,
-
   CRAFTPIX_PROPS,
-
   craftpixGroundPath,
-
   craftpixGroundKey,
-
   craftpixPropPath,
-
 } from '../utils/craftpixTiles.js';
+import {
+  applyNearestFilterToTextures,
+  generateSunshineTexture,
+} from '../utils/pixelArtTextures.js';
 
 
 
@@ -172,43 +169,28 @@ export class BootScene extends Phaser.Scene {
 
 
   create() {
-
     if (this._loadFailed) return;
 
     this._generateHeartTexture();
+    generateSunshineTexture(this, 'ui_sunshine');
+    applyNearestFilterToTextures(this);
 
     this.cameras.main.fadeOut(400, 0, 0, 0);
-
     this.cameras.main.once('camerafadeoutcomplete', () => {
-
       this.scene.start('MainMenuScene');
-
     });
-
   }
-
-
 
   _generateHeartTexture() {
-
     const gfx = this.make.graphics({ x: 0, y: 0, add: false });
-
     const s = 32;
-
     gfx.fillStyle(0xE63946);
-
     gfx.fillCircle(s * 0.3, s * 0.3, s * 0.25);
-
     gfx.fillCircle(s * 0.7, s * 0.3, s * 0.25);
-
     gfx.fillTriangle(s * 0.05, s * 0.4, s * 0.95, s * 0.4, s * 0.5, s * 0.9);
-
     gfx.generateTexture('heartIcon', s, s);
-
     gfx.destroy();
-
   }
-
 }
 
 

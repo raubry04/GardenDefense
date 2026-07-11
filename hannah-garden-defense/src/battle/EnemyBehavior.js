@@ -16,6 +16,17 @@ export class EnemyBehavior {
     }
   }
 
+  _syncEnemyBars(enemy, delta) {
+    const s = this.scene;
+    const dy = enemy.hpBarDy ?? TILE / 2 - 4;
+    const by = enemy.y - dy;
+    enemy.hpBarBg?.setPosition(enemy.x, by);
+    enemy.hpBar?.setPosition(enemy.x, by);
+    updateEnemyStatusFx(enemy);
+    updateStatusRing(enemy);
+    s.battleVfx?.updateEnemyMotionFx(enemy, delta);
+  }
+
   updateEnemies(delta) {
     const s = this.scene;
     for (let i = s.enemies.length - 1; i >= 0; i--) {
@@ -26,19 +37,10 @@ export class EnemyBehavior {
       }
 
       const prevX = enemy.x;
-      const syncBars = () => {
-        const dy = enemy.hpBarDy ?? TILE / 2 - 4;
-        const by = enemy.y - dy;
-        enemy.hpBarBg?.setPosition(enemy.x, by);
-        enemy.hpBar?.setPosition(enemy.x, by);
-        updateEnemyStatusFx(enemy);
-        updateStatusRing(enemy);
-        s.battleVfx?.updateEnemyMotionFx(enemy, delta);
-      };
 
       if (enemy.stunTimer > 0) {
         enemy.stunTimer -= delta;
-        syncBars();
+        this._syncEnemyBars(enemy, delta);
         continue;
       }
 
@@ -100,7 +102,7 @@ export class EnemyBehavior {
         enemy.y += Math.sin(angle) * move;
         this._faceMovement(enemy, enemy.x - prevX);
         enemy.sprite.setPosition(enemy.x, enemy.y);
-        syncBars();
+        this._syncEnemyBars(enemy, delta);
 
         if (Phaser.Math.Distance.Between(enemy.x, enemy.y, gate.x, gate.y) < TILE * 0.5) {
           this.enemyReachedGate(enemy);
@@ -134,7 +136,7 @@ export class EnemyBehavior {
             enemy.y += Math.sin(angle) * mv;
             this._faceMovement(enemy, enemy.x - prevX);
             enemy.sprite.setPosition(enemy.x, enemy.y);
-            syncBars();
+            this._syncEnemyBars(enemy, delta);
           }
           continue;
         }
@@ -170,7 +172,7 @@ export class EnemyBehavior {
       enemy.y += Math.sin(angle) * move;
       this._faceMovement(enemy, enemy.x - prevX);
       enemy.sprite.setPosition(enemy.x, enemy.y);
-      syncBars();
+      this._syncEnemyBars(enemy, delta);
 
       const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, target.x, target.y);
       if (dist < 8) {

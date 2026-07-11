@@ -88,6 +88,7 @@ export class TowerPlacement {
 
     this.placeTower(s.selectedTower, row, col);
     s.sound.play('towerPlaced', { volume: GameConfig.audio.sfxVolume });
+    s.game.events.emit('tower-placed', { type: s.selectedTower, row, col });
     return true;
   }
 
@@ -352,7 +353,7 @@ export class TowerPlacement {
       .setStrokeStyle(2, COLORS.stars).setDepth(200).setInteractive({ useHandCursor: true });
     objects.push(bg);
 
-    const text = s.add.text(tower.x, tower.y - 30, `SELL +${refund}☀`, {
+    const text = s.add.text(tower.x, tower.y - 30, `SELL +${refund}`, {
       fontFamily: 'Kenney Future', fontSize: '15px', color: '#FFD700',
       shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5).setDepth(201);
@@ -380,7 +381,7 @@ export class TowerPlacement {
     const s = this.scene;
     s.sunshinePoints += refund;
     s.game.events.emit('points-changed', { points: s.sunshinePoints });
-    this.showFloatingText(tower.x, tower.y - 20, `+${refund}☀`, '#4CAF50');
+    this.showFloatingText(tower.x, tower.y - 20, `+${refund}`, '#4CAF50');
     s.enemyBehavior.destroyTower(tower);
     s.sound.play('pointsEarned', { volume: GameConfig.audio.sfxVolume });
   }

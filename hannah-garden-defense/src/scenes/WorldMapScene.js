@@ -107,9 +107,12 @@ export class WorldMapScene extends Phaser.Scene {
     this.add.circle(52, headerY, 22, COLORS.primary)
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(uiDepth + 1);
-    this.add.text(52, headerY, '👧', { fontSize: '20px' })
-      .setOrigin(0.5)
-      .setDepth(uiDepth + 2);
+    const avatarInitial = (this.playerName || 'H').charAt(0).toUpperCase();
+    this.add.text(52, headerY, avatarInitial, {
+      fontFamily: FONT_DISPLAY,
+      fontSize: '22px',
+      color: '#FFF9E6',
+    }).setOrigin(0.5).setDepth(uiDepth + 2);
 
     // Single-line name + level — no wordWrap (it was clipping mid-name under décor).
     const nameMaxW = Math.max(120, width - 300);
@@ -135,9 +138,15 @@ export class WorldMapScene extends Phaser.Scene {
       shadow: { ...TEXT_SOFT_SHADOW, color: '#000' },
     }).setOrigin(0, 0.5).setDepth(uiDepth + 2);
 
-    this.add.circle(width - 130, headerY, 12, COLORS.stars)
-      .setStrokeStyle(2, COLORS.outline)
-      .setDepth(uiDepth + 1);
+    if (this.textures.exists('ui_sunshine')) {
+      this.add.image(width - 130, headerY, 'ui_sunshine')
+        .setDisplaySize(22, 22)
+        .setDepth(uiDepth + 1);
+    } else {
+      this.add.circle(width - 130, headerY, 12, COLORS.stars)
+        .setStrokeStyle(2, COLORS.outline)
+        .setDepth(uiDepth + 1);
+    }
     this.add.text(width - 110, headerY, `${availableMetaBank(progress)}`, {
       fontFamily: FONT_HUD,
       fontSize: '26px',
@@ -307,10 +316,12 @@ export class WorldMapScene extends Phaser.Scene {
           color: LOCKED_LABEL,
         }).setOrigin(0, 0.5).setShadow(0, 1, '#000000', 3).setDepth(uiDepth + 2);
 
-        // Kenney fonts lack the chain emoji — it rendered as a white "88"/tofu
-        // next to the lock. One lock emoji is enough.
-        this.add.text(width / 2 + zoneWidth / 2 - 24, y, '🔒', {
-          fontSize: '28px',
+        this.add.text(width / 2 + zoneWidth / 2 - 24, y, 'LOCK', {
+          fontFamily: FONT_DISPLAY,
+          fontSize: '16px',
+          color: '#FFD700',
+          stroke: '#000000',
+          strokeThickness: 3,
         }).setOrigin(1, 0.5).setDepth(uiDepth + 2);
       }
     }
@@ -323,7 +334,7 @@ export class WorldMapScene extends Phaser.Scene {
     const endlessBg = this._themedBar(width / 2, endlessY, zoneWidth, zoneHeight,
       endlessUnlocked ? 0x6A1B9A : 0x5A4A3A, endlessUnlocked, uiDepth + 1);
 
-    this.add.text(width / 2, endlessY, endlessUnlocked ? '♾️ Endless Frontier' : '♾️ Endless Frontier 🔒', {
+    this.add.text(width / 2, endlessY, endlessUnlocked ? 'Endless Frontier' : 'Endless Frontier (locked)', {
       fontFamily: FONT_DISPLAY,
       fontSize: '26px',
       color: endlessUnlocked ? '#FFD700' : LOCKED_LABEL,
@@ -342,7 +353,7 @@ export class WorldMapScene extends Phaser.Scene {
     const dailyBg = this._themedBar(width / 2, dailyY, zoneWidth, zoneHeight - 8,
       endlessUnlocked ? 0x1565C0 : 0x5A4A3A, endlessUnlocked, uiDepth + 1);
 
-    this.add.text(width / 2, dailyY, endlessUnlocked ? '📅 Daily Challenge' : '📅 Daily Challenge 🔒', {
+    this.add.text(width / 2, dailyY, endlessUnlocked ? 'Daily Challenge' : 'Daily Challenge (locked)', {
       fontFamily: FONT_DISPLAY,
       fontSize: '26px',
       color: endlessUnlocked ? '#FFF9E6' : LOCKED_LABEL,

@@ -10,20 +10,29 @@ export class TowerCombat {
     this.scene = scene;
     this._cellSize = TILE * 2;
     this._enemyGrid = new Map();
+    this._gridCellPool = [];
+    this._lastHitSfxAt = 0;
   }
 
   _rebuildEnemyGrid() {
-    const grid = new Map();
+    for (const cell of this._enemyGrid.values()) {
+      cell.length = 0;
+      this._gridCellPool.push(cell);
+    }
+    this._enemyGrid.clear();
     const cs = this._cellSize;
     for (const enemy of this.scene.enemies) {
       if (!enemy.alive) continue;
       const col = Math.floor(enemy.x / cs);
       const row = Math.floor(enemy.y / cs);
       const key = `${row},${col}`;
-      if (!grid.has(key)) grid.set(key, []);
-      grid.get(key).push(enemy);
+      let cell = this._enemyGrid.get(key);
+      if (!cell) {
+        cell = this._gridCellPool.pop() || [];
+        this._enemyGrid.set(key, cell);
+      }
+      cell.push(enemy);
     }
-    this._enemyGrid = grid;
   }
 
   _getEnemiesInRange(tower, range) {
@@ -284,7 +293,11 @@ export class TowerCombat {
     }
 
     enemy.hp -= damage;
-    s.sound.play('enemyHit', { volume: sfxVol('enemyHit') });
+    const now = s.time?.now ?? 0;
+    if (now - this._lastHitSfxAt >= 45) {
+      this._lastHitSfxAt = now;
+      s.sound.play('enemyHit', { volume: sfxVol('enemyHit') });
+    }
 
     const hpPercent = enemy.maxHp > 0 ? Math.max(0, enemy.hp / enemy.maxHp) : 0;
     enemy.hpBar.setScale(hpPercent, 1);
@@ -306,7 +319,7 @@ export class TowerCombat {
         if (stolen > 0) {
           s.sunshinePoints -= stolen;
           s.game.events.emit('points-changed', { points: s.sunshinePoints });
-          s.towerPlacement.showFloatingText(enemy.x, enemy.y - 30, `-${stolen}☀`, '#FF9F1C');
+          s.towerPlacement.showFloatingText(enemy.x, enemy.y - 30, `-${stolen} sun`, '#FF9F1C');
         }
       }
     }

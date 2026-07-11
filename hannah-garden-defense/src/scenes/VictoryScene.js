@@ -258,7 +258,7 @@ export class VictoryScene extends Phaser.Scene {
       delay: 1800,
       ease: 'Power2',
       onUpdate: (tween) => {
-        pointsValue.setText(`☀ ${Math.floor(tween.getValue())}`);
+        pointsValue.setText(`${Math.floor(tween.getValue())}`);
       },
     });
   }

@@ -21,19 +21,26 @@ const ABILITY_COLORS = {
 };
 
 const ABILITY_LABELS = {
-  SUNSHINE_BURST: 'S',
-  GARDEN_RAIN: 'R',
-  RAINBOW_SHIELD: 'D',
-  FLOWER_BOMB: 'F',
-};
-
-/** Short names that fit beside ability circles without clipping. */
-const ABILITY_SHORT_NAMES = {
   SUNSHINE_BURST: 'SUN',
   GARDEN_RAIN: 'RAIN',
-  RAINBOW_SHIELD: 'SHIELD',
+  RAINBOW_SHIELD: 'SHLD',
   FLOWER_BOMB: 'BOMB',
 };
+
+/** Short names for status/tooltips; circle uses ABILITY_LABELS pictographs. */
+export const ABILITY_SHORT_NAMES = {
+  SUNSHINE_BURST: 'Burst',
+  GARDEN_RAIN: 'Rain',
+  RAINBOW_SHIELD: 'Shield',
+  FLOWER_BOMB: 'Bomb',
+};
+
+/** Kid-friendly ready / cooldown copy helpers (testable). */
+export function abilityReadyLabel(onCooldown, secondsLeft) {
+  if (!onCooldown) return 'Ready!';
+  const s = Math.max(1, Math.ceil(secondsLeft || 0));
+  return `${s}s`;
+}
 
 /** @param {string} text */
 export function isNextWaveLabel(text) {
@@ -85,17 +92,14 @@ export class AbilityBar {
       const unlocked = this._isAbilityUnlocked(config);
       const abilityColor = unlocked ? (ABILITY_COLORS[key] || COLORS.accent) : 0x555555;
 
-      const shortName = (
-        ABILITY_SHORT_NAMES[key] || config.label.split(' ')[0] || key
-      ).toUpperCase();
+      // Status pill only (Ready! / Ns) — do not mirror SHLD/BOMB beside the circle.
       const nameLabel = trackY(
         scene.add
-          .text(x - btnRadius - 10, y, shortName, {
+          .text(x - btnRadius - 10, y, '', {
             fontFamily: "Kenney Future",
             fontSize: "15px",
             color: unlocked ? TEXT_ON_DARK : "#AAAAAA",
             backgroundColor: TEXT_PILL_BG,
-            // Tighter pad + slightly larger type — less empty dark slab.
             padding: { x: 6, y: 3 },
             align: "right",
             shadow: {
@@ -108,7 +112,7 @@ export class AbilityBar {
           })
           .setOrigin(1, 0.5)
           .setDepth(ABILITY_DEPTH)
-          .setVisible(this._touchMode),
+          .setVisible(false),
         y,
       );
 
@@ -131,7 +135,7 @@ export class AbilityBar {
         scene.add
           .text(x, y, icon, {
             fontFamily: "Kenney Future",
-            fontSize: "24px",
+            fontSize: icon.length > 2 ? "14px" : "22px",
             color: unlocked ? "#FFFFFF" : "#AAAAAA",
             shadow: {
               offsetX: 1,
@@ -208,7 +212,6 @@ export class AbilityBar {
       circle.on("pointerout", () => {
         if (this._touchMode) return;
         btn.tooltip.setVisible(false);
-        btn.nameLabel?.setVisible(false);
         scene.tweens.add({
           targets: [circle, label],
           scaleX: 1,
@@ -396,13 +399,11 @@ export class AbilityBar {
     const desc = btn.config.description ? `\n${btn.config.description}` : '';
     btn.tooltip.setText(`${btn.config.label}${state}${desc}`);
     btn.tooltip.setVisible(true);
-    btn.nameLabel?.setVisible(false);
     if (!persistent) return;
     this._openAbilityTooltip = btn;
     this.abilityButtons?.forEach((b) => {
       if (b !== btn) {
         b.tooltip?.setVisible(false);
-        b.nameLabel?.setVisible(this._touchMode);
       }
     });
   }
@@ -411,7 +412,6 @@ export class AbilityBar {
     this._openAbilityTooltip = null;
     this.abilityButtons?.forEach((b) => {
       b.tooltip?.setVisible(false);
-      b.nameLabel?.setVisible(this._touchMode);
     });
   }
 
@@ -520,8 +520,36 @@ export class AbilityBar {
         btn.cooldownGfx.clear();
         btn.cooldownGfx.setVisible(false);
         btn.cooldownTween = null;
+        if (btn.nameLabel?.active && btn.unlocked) {
+          btn.nameLabel.setVisible(true);
+          btn.nameLabel.setText(abilityReadyLabel(false));
+          scene.time.delayedCall(1200, () => {
+            if (!btn.nameLabel?.active || btn.onCooldown) return;
+            btn.nameLabel.setVisible(false);
+            btn.nameLabel.setText('');
+          });
+        }
       },
     });
+    // Show remaining seconds beside the circle while cooling down.
+    if (btn.nameLabel?.active) {
+      const totalSec = duration / 1000;
+      btn.nameLabel.setVisible(true);
+      btn.nameLabel.setText(abilityReadyLabel(true, totalSec));
+      btn._readyTick = scene.time.addEvent({
+        delay: 250,
+        repeat: Math.ceil(totalSec * 4),
+        callback: () => {
+          if (!btn.onCooldown || !btn.nameLabel?.active) {
+            btn._readyTick?.remove?.(false);
+            btn._readyTick = null;
+            return;
+          }
+          const left = (btn.cooldownTween?.getValue?.() ?? 0) * totalSec;
+          btn.nameLabel.setText(abilityReadyLabel(true, left));
+        },
+      });
+    }
   }
 
   refreshUnlocks() {

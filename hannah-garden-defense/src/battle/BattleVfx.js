@@ -31,9 +31,10 @@ export class BattleVfx {
       lifespan: preset.lifespan ?? 350,
       speed: preset.speed ?? { min: 30, max: 90 },
       scale: { start: 0.35, end: 0 },
-      alpha: { start: 0.9, end: 0 },
+      alpha: preset.alpha ?? { start: 0.95, end: 0 },
       emitting: false,
-      blendMode: 'ADD',
+      // NORMAL reads on grass; ADD washed out against bright Craftpix tiles.
+      blendMode: 'NORMAL',
     }).setDepth(55);
 
     this._emitters[key] = emitter;

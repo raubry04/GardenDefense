@@ -40,7 +40,7 @@ export function buildAssetCopyList() {
     add(`Assets/2D assets/Particle Pack/PNG (Transparent)/${file}`, `kenney/particles/${key}.png`);
   }
 
-  for (const icon of ['star', 'medal1', 'medal2', 'trophy', 'door']) {
+  for (const icon of ['star', 'medal1', 'medal2', 'trophy', 'door', 'pause', 'gear', 'warning']) {
     add(`Assets/Icons/Game Icons/PNG/White/1x/${icon}.png`, `kenney/icons/${icon}.png`);
   }
 

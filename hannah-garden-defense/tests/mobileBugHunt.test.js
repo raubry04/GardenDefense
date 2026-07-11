@@ -17,7 +17,7 @@ describe('mobile/iOS bug-hunt regressions', () => {
     const src = read('src/scenes/GameScene.js');
     // Guard flag initialised and used to gate the victory transition + update loop.
     expect(src).toContain('_battleEnded');
-    expect(src).toMatch(/battle-complete'[\s\S]{0,80}if \(this\._battleEnded\) return;/);
+    expect(src).toMatch(/battle-complete'[\s\S]{0,120}if \(isBattleTerminal\(this\)\) return;/);
     // Delayed VictoryScene start is guarded against a torn-down scene.
     expect(src).toMatch(/if \(!this\.sys\?\.isActive\?\.\(\)\) return;/);
   });
@@ -121,14 +121,16 @@ describe('mobile/iOS bug-hunt regressions', () => {
     expect(hud).not.toMatch(/rectangle\(wavePanelX,\s*row2Y,\s*240,\s*44,\s*0x000000,\s*0\.45\)/);
   });
 
-  it('AbilityBar places name labels left of circles and fits bonus pill', () => {
+  it('AbilityBar uses circle pictographs without redundant side name labels', () => {
     const src = read('src/ui/AbilityBar.js');
     expect(src).toContain('ABILITY_SHORT_NAMES');
+    expect(src).toContain('ABILITY_LABELS');
     expect(src).toContain('_fitSendWaveBonusBg');
     expect(src).toContain('TEXT_PILL_BG');
     expect(src).toMatch(/setOrigin\(1,\s*0\.5\)/);
-    expect(src).toMatch(/\.toUpperCase\(\)/);
     expect(src).toMatch(/SUNSHINE_BURST:\s*'SUN'/);
+    // Side name starts hidden — only Ready!/cooldown status uses the pill.
+    expect(src).toMatch(/nameLabel[\s\S]{0,400}setVisible\(false\)/);
   });
 
   it('WorldMap keeps BACK clear of zone bars and chick clear of stars', () => {
@@ -194,7 +196,7 @@ describe('mobile/iOS bug-hunt regressions', () => {
     const src = read('src/scenes/UpgradeScene.js');
     expect(src).toMatch(/const cardHeight = 1[2-4]\d/);
     expect(src).not.toMatch(/`⬆ \$\{upgCost\}☀`/);
-    expect(src).toMatch(/ui_uiStar/);
+    expect(src).toMatch(/ui_sunshine/);
     expect(src).toMatch(/fontSize:\s*'15px'/);
     expect(src).toMatch(/color:\s*'#1B5E20'/);
   });

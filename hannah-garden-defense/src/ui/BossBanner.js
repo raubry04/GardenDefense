@@ -23,7 +23,7 @@ export class BossBanner {
       .setScrollFactor(0);
 
     const label = bossType.replace(/_/g, ' ');
-    const bg = scene.add.rectangle(0, 0, cam.width * 0.92, 52, 0x1a0a0a, 0.92)
+    const bg = scene.add.rectangle(0, 0, cam.width * 0.92, 52, 0x2a1810, 0.9)
       .setStrokeStyle(3, 0xe63946);
     const title = scene.add.text(0, -8, 'BOSS INCOMING', {
       fontFamily: 'Kenney Pixel',

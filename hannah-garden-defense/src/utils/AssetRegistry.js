@@ -94,6 +94,12 @@ export const AssetRegistry = {
 
     door: `${A}/kenney/icons/door.png`,
 
+    pause: `${A}/kenney/icons/pause.png`,
+
+    gear: `${A}/kenney/icons/gear.png`,
+
+    warning: `${A}/kenney/icons/warning.png`,
+
   },
 
 

@@ -89,7 +89,7 @@ export class TowerInspect {
       .setStrokeStyle(1, COLORS.outline)
       .setInteractive({ useHandCursor: true })
       .setDepth(211);
-    const sellLabel = s.add.text(panelX - 40, panelY + 56, `SELL +${refund}☀`, {
+    const sellLabel = s.add.text(panelX - 40, panelY + 56, `SELL +${refund}`, {
       fontFamily: 'Kenney Future',
       fontSize: '13px',
       color: '#4A2C0A',

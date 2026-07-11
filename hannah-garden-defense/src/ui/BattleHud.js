@@ -19,6 +19,23 @@ export function formatWaveHudLabel(wave, total) {
   return `Wave: ${wave} / ${total}`;
 }
 
+/** Projected victory stars from current lives (matches VictoryScene thresholds). */
+export function projectedStarsFromLives(lives, thresholds = GameConfig.starThresholds) {
+  if (lives >= (thresholds?.three ?? 15)) return 3;
+  if (lives >= (thresholds?.two ?? 8)) return 2;
+  if (lives > 0) return 1;
+  return 0;
+}
+
+export function starMeterHint(lives, thresholds = GameConfig.starThresholds) {
+  const stars = projectedStarsFromLives(lives, thresholds);
+  const need3 = thresholds?.three ?? 15;
+  if (stars >= 3) return 'Keep hearts for 3 stars!';
+  if (stars === 2) return `Need ${need3} hearts for 3 stars`;
+  if (stars === 1) return `Need ${thresholds?.two ?? 8} hearts for 2 stars`;
+  return 'Protect the gate!';
+}
+
 export class BattleHud {
   /** @param {import("../scenes/UIScene.js").UIScene} scene */
   constructor(scene) {
@@ -75,6 +92,48 @@ export class BattleHud {
       .setDepth(hudDepth - 1);
     this.resizeLivesPanelToContent();
 
+    // Opaque panel + heart icons + text (no Text backgroundColor / panelBorder —
+    // those smeared into white L-brackets and crushed heart fragments on mobile).
+    this._starMeterHearts = [];
+    const meterY = row1Y + 28;
+    const meterHeartSize = 14;
+    const meterHeartGap = 15;
+    const meterPadX = 8;
+    const meterText = starMeterHint(scene.lives);
+    this.starMeterText = scene.add
+      .text(0, meterY, meterText, {
+        fontFamily: "Kenney Future",
+        fontSize: "13px",
+        color: TEXT_GOLD,
+        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(hudDepth);
+    const starsShown = Math.min(3, Math.max(0, projectedStarsFromLives(scene.lives)));
+    for (let i = 0; i < 3; i++) {
+      const hx = startX + meterPadX + meterHeartSize / 2 + i * meterHeartGap;
+      const heart = scene.add
+        .image(hx, meterY, "heartIcon")
+        .setDisplaySize(meterHeartSize, meterHeartSize)
+        .setDepth(hudDepth)
+        .setAlpha(i < starsShown ? 1 : 0.28);
+      heart.setData("layoutY", meterY);
+      this._starMeterHearts.push(heart);
+    }
+    const heartsW = 3 * meterHeartGap;
+    const textX = startX + meterPadX + heartsW + 4;
+    this.starMeterText.setPosition(textX, meterY);
+    const meterW = Math.ceil(
+      meterPadX + heartsW + 4 + this.starMeterText.width + meterPadX,
+    );
+    this.starMeterPanel = scene.add
+      .rectangle(startX + meterW / 2, meterY, meterW, 22, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
+      .setStrokeStyle(2, COLORS.outline)
+      .setDepth(hudDepth - 1);
+    this._starMeterPadX = meterPadX;
+    this._starMeterHeartGap = meterHeartGap;
+    this._starMeterStartX = startX;
+
     this.startLowHealthPulse();
 
     const wavePanelX = width / 2;
@@ -114,6 +173,9 @@ export class BattleHud {
     this._canonicalRow2Y = row2Y;
     this._trackHudY(this.livesPanel, row1Y);
     this._trackHudY(this.livesText, row1Y - 10);
+    if (this.starMeterPanel) this._trackHudY(this.starMeterPanel, row1Y + 28);
+    if (this.starMeterText) this._trackHudY(this.starMeterText, row1Y + 28);
+    this._starMeterHearts?.forEach((h) => this._trackHudY(h, row1Y + 28));
     this._trackHudY(this.pauseBtn, row1Y);
     this._trackHudY(this.pauseLabel, row1Y);
     this._trackHudY(this.pauseHint, row1Y + 24);
@@ -141,8 +203,19 @@ export class BattleHud {
     this.heartIcons.forEach((h) => {
       if (h?.active) h.setY(h.getData('layoutY') + row1Delta);
     });
+    this._starMeterHearts?.forEach((h) => {
+      if (h?.active && h.getData('layoutY') != null) {
+        h.setY(h.getData('layoutY') + row1Delta);
+      }
+    });
     if (this.livesPanel?.active) this.livesPanel.setY(this.livesPanel.getData('layoutY') + row1Delta);
     if (this.livesText?.active) this.livesText.setY(this.livesText.getData('layoutY') + row1Delta);
+    if (this.starMeterPanel?.active && this.starMeterPanel.getData('layoutY') != null) {
+      this.starMeterPanel.setY(this.starMeterPanel.getData('layoutY') + row1Delta);
+    }
+    if (this.starMeterText?.active && this.starMeterText.getData('layoutY') != null) {
+      this.starMeterText.setY(this.starMeterText.getData('layoutY') + row1Delta);
+    }
     if (this.wavePanel?.active) this.wavePanel.setY(this.wavePanel.getData('layoutY') + row2Delta);
     if (this.waveText?.active) this.waveText.setY(this.waveText.getData('layoutY') + row2Delta);
     if (this.waveBarBg?.active) this.waveBarBg.setY(this.waveBarBg.getData('layoutY') + row2Delta);
@@ -199,13 +272,12 @@ export class BattleHud {
       this.pauseBtn.setInteractive({ useHandCursor: true });
     }
     this.pauseLabel = scene.add
-      .text(pauseX, row1Y, "⏸", {
-        fontFamily: "Kenney Future",
-        fontSize: "18px",
-        color: "#4A2C0A",
-      })
-      .setOrigin(0.5)
-      .setDepth(hudDepth);
+      .image(pauseX, row1Y, "icon_pause")
+      .setDisplaySize(18, 18)
+      .setTint(0x4a2c0a)
+      .setDepth(hudDepth + 1);
+    // Icon must not steal taps — keep hit target on the circle (larger touch radius).
+    this.pauseLabel.disableInteractive?.();
     this.pauseHint = scene.add
       .text(pauseX, row1Y + btnR + 2, "Pause", {
         fontFamily: "Kenney Future",
@@ -272,9 +344,8 @@ export class BattleHud {
       .setDepth(hudDepth - 1);
 
     this._hudStarIcon = scene.add
-      .image(sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot / 2, row1Y, "ui_uiStar")
+      .image(sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot / 2, row1Y, "ui_sunshine")
       .setDisplaySize(22, 22)
-      .setTint(0xffd700)
       .setDepth(hudDepth);
     this.pointsText.setPosition(
       sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot + sunGap,
@@ -315,8 +386,9 @@ export class BattleHud {
     this.speedBtn.on("pointerdown", toggleSpeed);
 
     this.pauseBtn.on("pointerdown", togglePause);
-    // Labels sit on top of circles — wire them so taps on the icon text still work.
-    for (const label of [this.pauseLabel, this.pauseHint, this.speedLabel, this.speedHint]) {
+    // Hint labels sit near the circles — wire them so taps still toggle.
+    // Pause icon itself is non-interactive so it cannot swallow the circle hit area.
+    for (const label of [this.pauseHint, this.speedLabel, this.speedHint]) {
       label.setInteractive({ useHandCursor: true });
       label.on("pointerdown", label === this.speedLabel || label === this.speedHint ? toggleSpeed : togglePause);
     }
@@ -546,6 +618,30 @@ export class BattleHud {
       heart.setAlpha(1);
     }
     this.resizeLivesPanelToContent();
+    this.updateStarMeter();
+  }
+
+  updateStarMeter() {
+    if (!this.starMeterText?.active) return;
+    this.starMeterText.setText(starMeterHint(this.scene.lives));
+    const stars = projectedStarsFromLives(this.scene.lives);
+    this._starMeterHearts?.forEach((h, i) => {
+      if (h?.active) h.setAlpha(i < stars ? 1 : 0.28);
+    });
+    // Keep panel width tight when the hint string changes length.
+    const startX = this._starMeterStartX ?? 20;
+    const meterPadX = this._starMeterPadX ?? 8;
+    const meterHeartGap = this._starMeterHeartGap ?? 15;
+    const heartsW = 3 * meterHeartGap;
+    const textX = startX + meterPadX + heartsW + 4;
+    this.starMeterText.setX(textX);
+    if (this.starMeterPanel?.active) {
+      const meterW = Math.ceil(
+        meterPadX + heartsW + 4 + this.starMeterText.width + meterPadX,
+      );
+      this.starMeterPanel.setSize(meterW, 22);
+      this.starMeterPanel.setPosition(startX + meterW / 2, this.starMeterPanel.y);
+    }
   }
 
   updateWaveProgress() {

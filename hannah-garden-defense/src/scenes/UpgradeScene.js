@@ -10,7 +10,7 @@ import {
 import { LevelUpBanner } from '../ui/LevelUpBanner.js';
 import { getUpgradeableTowerTypes, paginateTowerTypes, canPurchaseUpgradeTier } from '../utils/upgradeTowers.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
-import { TEXT_GOLD, TEXT_ON_DARK, TEXT_PILL_BG, TEXT_PILL_PAD, FONT_DISPLAY } from '../utils/textReadability.js';
+import { TEXT_GOLD, TEXT_ON_DARK, TEXT_PILL_BG, TEXT_PILL_PAD, FONT_DISPLAY, HUD_PANEL_FILL, HUD_PANEL_ALPHA } from '../utils/textReadability.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
 
 const COLORS = GameConfig.colors;
@@ -95,12 +95,15 @@ export class UpgradeScene extends Phaser.Scene {
     const coinBg = this.add.rectangle(width - 90, 30, 148, 38, 0x1a2e14, 0.94)
       .setStrokeStyle(2, COLORS.stars);
 
-    this.pointsDisplay = this.add.text(width - 90, 30, `☀️ ${this.sunshinePoints}`, {
+    this.pointsDisplay = this.add.text(width - 90, 30, `${this.sunshinePoints}`, {
       fontFamily: FONT_DISPLAY,
       fontSize: '22px',
       color: TEXT_GOLD,
       shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5);
+    if (this.textures.exists('ui_sunshine')) {
+      this.add.image(width - 145, 30, 'ui_sunshine').setDisplaySize(22, 22);
+    }
   }
 
   _createHannahXPBar(width) {
@@ -169,44 +172,73 @@ export class UpgradeScene extends Phaser.Scene {
     }
     let hintY = barY + barHeight + 32;
     if (nextUnlocks.length > 0) {
-      this.add.text(width / 2, hintY, `Lv.${this.hannahLevel + 1} unlocks: ${nextUnlocks.join(', ')}`, {
+      const unlockLine = `Lv.${this.hannahLevel + 1} unlocks: ${nextUnlocks.join(', ')}`;
+      const unlockText = this.add.text(width / 2, hintY, unlockLine, {
         fontFamily: FONT_DISPLAY,
-        fontSize: '17px',
+        fontSize: '20px',
         color: TEXT_GOLD,
-        wordWrap: { width: width * 0.85 },
+        wordWrap: { width: width * 0.78 },
         align: 'center',
         shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
-      }).setOrigin(0.5, 0);
-      hintY += 24;
+      }).setOrigin(0.5, 0).setDepth(6);
+      const panelW = Math.min(width * 0.88, Math.max(280, unlockText.width + 28));
+      const panelH = Math.max(28, unlockText.height + 12);
+      this.add.rectangle(width / 2, hintY + unlockText.height / 2, panelW, panelH, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
+        .setStrokeStyle(2, COLORS.outline)
+        .setDepth(5);
+      unlockText.setDepth(6);
+      hintY += panelH + 10;
     }
     if (nextZoneUnlocks.length > 0) {
       const zoneName = GameConfig.zones[this.unlockedZone + 1]?.name || `Zone ${this.unlockedZone + 2}`;
-      this.add.text(width / 2, hintY, `${zoneName} unlocks: ${nextZoneUnlocks.join(', ')}`, {
+      const zoneLine = `${zoneName} unlocks: ${nextZoneUnlocks.join(', ')}`;
+      const zoneText = this.add.text(width / 2, hintY, zoneLine, {
         fontFamily: FONT_DISPLAY,
-        fontSize: '17px',
-        color: '#E8F4F4',
-        wordWrap: { width: width * 0.85 },
+        fontSize: '20px',
+        color: TEXT_ON_DARK,
+        wordWrap: { width: width * 0.78 },
         align: 'center',
         shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
-      }).setOrigin(0.5, 0);
+      }).setOrigin(0.5, 0).setDepth(6);
+      const panelW = Math.min(width * 0.88, Math.max(280, zoneText.width + 28));
+      const panelH = Math.max(28, zoneText.height + 12);
+      this.add.rectangle(width / 2, hintY + zoneText.height / 2, panelW, panelH, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
+        .setStrokeStyle(2, COLORS.outline)
+        .setDepth(5);
     }
   }
 
   _buildUpgradeStatLines(upgrade, currentStats) {
     const lines = [];
-    if (upgrade.damage !== undefined) lines.push(`+${upgrade.damage - (currentStats.damage || 0)} dmg`);
-    if (upgrade.range !== undefined) lines.push(`+${upgrade.range - (currentStats.range || 0)} range`);
-    if (upgrade.slowPercent !== undefined) {
-      lines.push(`+${Math.round((upgrade.slowPercent - (currentStats.slowPercent || 0)) * 100)}% slow`);
+    if (upgrade.damage !== undefined) {
+      const d = upgrade.damage - (currentStats.damage || 0);
+      if (d > 0) lines.push('Hits harder');
     }
-    if (upgrade.hp !== undefined) lines.push(`+${upgrade.hp - (currentStats.hp || 0)} hp`);
-    if (upgrade.stunMs !== undefined) lines.push(`+${upgrade.stunMs - (currentStats.stunMs || 0)}ms stun`);
+    if (upgrade.range !== undefined) {
+      const d = upgrade.range - (currentStats.range || 0);
+      if (d > 0) lines.push('Sees farther');
+    }
+    if (upgrade.slowPercent !== undefined) {
+      const d = upgrade.slowPercent - (currentStats.slowPercent || 0);
+      if (d > 0) lines.push('Slows more');
+    }
+    if (upgrade.hp !== undefined) {
+      const d = upgrade.hp - (currentStats.hp || 0);
+      if (d > 0) lines.push('Tougher wall');
+    }
+    if (upgrade.stunMs !== undefined) {
+      const d = upgrade.stunMs - (currentStats.stunMs || 0);
+      if (d > 0) lines.push('Longer stun');
+    }
     if (upgrade.fireRate !== undefined && currentStats.fireRate) {
-      lines.push(`-${currentStats.fireRate - upgrade.fireRate}ms rate`);
+      const d = currentStats.fireRate - upgrade.fireRate;
+      if (d > 0) lines.push('Attacks faster');
     }
     if (upgrade.eggs !== undefined && upgrade.eggs !== currentStats.eggs) {
-      lines.push(`+${upgrade.eggs - (currentStats.eggs || 0)} eggs`);
+      const d = upgrade.eggs - (currentStats.eggs || 0);
+      if (d > 0) lines.push('More eggs');
     }
+    if (lines.length === 0) lines.push('Stronger!');
     return lines;
   }
 
@@ -359,9 +391,11 @@ export class UpgradeScene extends Phaser.Scene {
           fontSize: '16px',
           color: canAfford ? '#4A2C0A' : '#CCCCCC',
         }).setOrigin(0, 0.5);
-        const costIcon = this.textures.exists('ui_uiStar')
-          ? this.add.image(0, upgBtnY, 'ui_uiStar').setDisplaySize(16, 16).setTint(0xffd700)
-          : this.add.circle(0, upgBtnY, 7, COLORS.stars).setStrokeStyle(1, COLORS.outline);
+        const costIcon = this.textures.exists('ui_sunshine')
+          ? this.add.image(0, upgBtnY, 'ui_sunshine').setDisplaySize(16, 16)
+          : this.textures.exists('ui_uiStar')
+            ? this.add.image(0, upgBtnY, 'ui_uiStar').setDisplaySize(16, 16).setTint(0xffd700)
+            : this.add.circle(0, upgBtnY, 7, COLORS.stars).setStrokeStyle(1, COLORS.outline);
         const costClusterW = costIcon.displayWidth + 6 + btnText.width;
         costIcon.setPosition(upgBtnX - costClusterW / 2 + costIcon.displayWidth / 2, upgBtnY);
         btnText.setPosition(upgBtnX - costClusterW / 2 + costIcon.displayWidth + 6, upgBtnY);
@@ -402,7 +436,7 @@ export class UpgradeScene extends Phaser.Scene {
             this.towerUpgrades[type] = newTier;
             if (tower) tower.tier = newTier;
             this._persistProgress();
-            this.pointsDisplay.setText(`☀️ ${this.sunshinePoints}`);
+            this.pointsDisplay.setText(`${this.sunshinePoints}`);
             this.sound.play('levelUp', { volume: GameConfig.audio.sfxVolume });
 
             const sparkle = this.add.text(upgBtnX, upgBtnY - 20, '✨', { fontSize: '24px' })

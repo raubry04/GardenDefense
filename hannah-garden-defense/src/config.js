@@ -112,7 +112,7 @@ export const GameConfig = {
       cooldown: 30000,
       damage: 25,
       label: 'Sunshine Burst',
-      description: 'Zaps all ground enemies on the path for damage.',
+      description: 'Zaps all ground enemies on the path (not flying Parrots).',
     },
     GARDEN_RAIN: {
       cooldown: 45000,
@@ -191,6 +191,9 @@ export const GameConfig = {
   },
 
   enemyIntros: {
+    SNAKE: 'Snakes are basic pests — any tower works!',
+    FROG: 'Frogs split into Snakes when defeated!',
+    GORILLA: 'Gorillas ignore slows — stun or smash them!',
     COW: 'Cows are slow but tough!',
     HORSE: 'Horses are blisteringly fast!',
     BUFFALO: 'Buffalo charge through Pig Walls!',
@@ -199,6 +202,9 @@ export const GameConfig = {
     HIPPO: 'Hippos soak up tons of damage!',
     CROCODILE: 'Crocodiles lurk, then sprint at the gate!',
     ZEBRA: 'Zebras run in pairs — double trouble!',
+    BEAR: 'Bears leave the path to smash towers!',
+    MONKEY: 'Monkeys may steal Sunshine when hit!',
+    ELEPHANT: 'Elephant boss — armored and stompy!',
   },
 
   /** Per-zone map decoration prop keys (craftpixTiles CRAFTPIX_PROPS). */

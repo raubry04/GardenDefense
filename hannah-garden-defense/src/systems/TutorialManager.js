@@ -13,11 +13,11 @@ const TUTORIAL_DEPTH = 3000;
 const HINT_POOL = [
   'Rabbits slow enemies down — place them near the start!',
   'Chickens throw eggs far, but they cannot hit flying Parrots.',
-  'Dogs stun enemies for a moment — great against fast Gorillas!',
+  'Dogs stun enemies — great against fast runners and Gorillas (who ignore slows)!',
   'Tap a placed defender to see its range and sell it.',
   'Check the wave preview above Send Wave to plan your next defenders.',
   'Earn bonus Sunshine Points by starting waves early!',
-  'Gorillas are immune to slowing — use damage or stuns!',
+  'Gorillas ignore slowing — use Dog stuns or raw damage!',
   'Parrots fly over walls — bring Owls or Chickens on other targets.',
   'Tap Hannah\'s ability buttons on the right when things get tough!',
 ];
@@ -35,6 +35,44 @@ export class TutorialManager {
     this.active = false;
     this.currentStep = 0;
     this._objects = [];
+    this._actionListenersBound = false;
+  }
+
+  _bindActionListeners() {
+    if (this._actionListenersBound) return;
+    this._actionListenersBound = true;
+    const g = this.scene.game.events;
+    this._onSelectTower = () => this.notifyAction('select-tower');
+    this._onPlaceTower = () => this.notifyAction('place-tower');
+    this._onSendWave = () => this.notifyAction('send-wave');
+    g.on('tower-selected', this._onSelectTower);
+    g.on('tower-placed', this._onPlaceTower);
+    g.on('wave-started', this._onSendWave);
+    g.on('send-wave-early', this._onSendWave);
+  }
+
+  _unbindActionListeners() {
+    if (!this._actionListenersBound) return;
+    this._actionListenersBound = false;
+    const g = this.scene.game.events;
+    if (this._onSelectTower) g.off('tower-selected', this._onSelectTower);
+    if (this._onPlaceTower) g.off('tower-placed', this._onPlaceTower);
+    if (this._onSendWave) {
+      g.off('wave-started', this._onSendWave);
+      g.off('send-wave-early', this._onSendWave);
+    }
+    this._onSelectTower = null;
+    this._onPlaceTower = null;
+    this._onSendWave = null;
+  }
+
+  /** Advance gated steps when the player does the required action. */
+  notifyAction(action) {
+    if (!this.active) return;
+    const step = this.steps[this.currentStep];
+    if (!step?.requireAction) return;
+    if (step.requireAction !== action) return;
+    this.advance();
   }
 
   shouldShowTutorial() {
@@ -52,6 +90,7 @@ export class TutorialManager {
     if (!this.shouldShowTutorial()) return;
     this.active = true;
     this.currentStep = 0;
+    this._bindActionListeners();
     this._emitTutorialState(true);
     this._showStep();
   }
@@ -72,6 +111,7 @@ export class TutorialManager {
 
   complete() {
     this.active = false;
+    this._unbindActionListeners();
     this._emitTutorialState(false);
     this._clearOverlay();
     try {
@@ -140,8 +180,11 @@ export class TutorialManager {
     const overlay = this.scene.add.rectangle(
       centerX, centerY, GameConfig.canvas.width * 2, GameConfig.canvas.height * 2, 0x000000, 0.62,
     ).setDepth(TUTORIAL_DEPTH);
-    const allowTrayInput = step.target === 'towerTray' || step.target === 'validTile';
-    if (!allowTrayInput) {
+    const allowPlayInput = step.target === 'towerTray'
+      || step.target === 'validTile'
+      || step.target === 'waveButton'
+      || step.target === 'abilities';
+    if (!allowPlayInput) {
       overlay.setInteractive();
     }
     objects.push(overlay);
@@ -181,10 +224,13 @@ export class TutorialManager {
     objects.push(progress);
 
     const btnY = panelY + panelH / 2 - 24;
-    const nextLabel = this.currentStep >= this.steps.length - 1 ? 'Got it!' : 'Next';
-    const nextBtn = this.scene.add.rectangle(panelX + panelW / 2 - 70, btnY, 120, 44, COLORS.button)
+    const gated = !!step.requireAction;
+    const nextLabel = this.currentStep >= this.steps.length - 1
+      ? 'Got it!'
+      : (gated ? 'Try it!' : 'Next');
+    const nextBtn = this.scene.add.rectangle(panelX + panelW / 2 - 70, btnY, 120, 44, gated ? 0xA8DADC : COLORS.button)
       .setStrokeStyle(2, COLORS.outline)
-      .setInteractive({ useHandCursor: true })
+      .setInteractive({ useHandCursor: !gated })
       .setDepth(TUTORIAL_DEPTH + 3);
     const nextText = this.scene.add.text(panelX + panelW / 2 - 70, btnY, nextLabel, {
       fontFamily: 'Kenney Future',
@@ -217,8 +263,10 @@ export class TutorialManager {
 
     const dismiss = () => this.skip();
     const advance = () => this.advance();
-    nextBtn.on('pointerdown', advance);
-    nextText.setInteractive({ useHandCursor: true }).on('pointerdown', advance);
+    if (!gated) {
+      nextBtn.on('pointerdown', advance);
+      nextText.setInteractive({ useHandCursor: true }).on('pointerdown', advance);
+    }
     skipBg.on('pointerdown', dismiss);
     skipBtn.on('pointerdown', dismiss);
   }
@@ -281,11 +329,13 @@ export class TutorialManager {
     this._clearOverlay();
     this.active = true;
     this.currentStep = 0;
+    this._bindActionListeners();
     this._emitTutorialState(true);
     this._showStep();
   }
 
   destroy() {
+    this._unbindActionListeners();
     this._clearOverlay();
     this.active = false;
   }

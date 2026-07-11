@@ -20,6 +20,7 @@ import {
   battleTimeScaleWhenPaused,
   battleTimeScaleWhenRunning,
 } from '../battle/battlePause.js';
+import { isBattleTerminal } from '../battle/battleTerminal.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -140,9 +141,9 @@ export class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.paused) return;
-    // Battle decided (victory queued): freeze combat/enemy movement during the
-    // transition delay so a last-frame gate leak can't flip a win into a loss.
-    if (this._battleEnded) return;
+    // Battle decided (victory queued or defeat handled): freeze combat/enemy
+    // movement so a last-frame gate leak can't flip a win into a loss (or vice versa).
+    if (isBattleTerminal(this)) return;
 
     this.waveManager.update(time, delta);
     this._emitWaveCooldownIfChanged();
@@ -267,7 +268,19 @@ export class GameScene extends Phaser.Scene {
     return false;
   }
 
+  _isNearGate(cx, cy) {
+    const gx = this._gateX;
+    const gy = this._gateY;
+    if (gx == null || gy == null) {
+      const last = this.waypoints?.[this.waypoints.length - 1];
+      if (!last) return false;
+      return Math.hypot(cx - last.x, cy - last.y) < TILE * 1.6;
+    }
+    return Math.hypot(cx - gx, cy - gy) < TILE * 1.6;
+  }
+
   _drawTreeDecoration(cx, cy, rng) {
+    if (this._isNearGate(cx, cy)) return null;
     const key = this._pickPropKey(TREE_KEYS);
     if (!key) return null;
     const size = rng.between(56, 88);
@@ -280,6 +293,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   _drawBushDecoration(cx, cy, rng) {
+    if (this._isNearGate(cx, cy)) return null;
     const key = this._pickPropKey(BUSH_KEYS);
     if (!key) return null;
     const size = rng.between(36, 56);
@@ -293,6 +307,9 @@ export class GameScene extends Phaser.Scene {
 
   _addPropSway(img) {
     if (!this._swayDecor) this._swayDecor = [];
+    // Cap infinite sway tweens on mobile — still animate a subset for life.
+    const maxSway = 18;
+    if (this._swayDecor.length >= maxSway) return;
     const baseY = img.y;
     this._swayDecor.push(img);
     this.tweens.add({
@@ -319,6 +336,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   _drawDecorProp(cx, cy, rng) {
+    if (this._isNearGate(cx, cy)) return null;
     const key = this._pickPropKey(this._zoneDecorKeys());
     if (!key) return null;
     const size = rng.between(40, 64);
@@ -347,49 +365,46 @@ export class GameScene extends Phaser.Scene {
   }
 
   _drawPathEdgeDecals() {
-    const rows = this.tileGrid.length;
-    const cols = this.tileGrid[0].length;
-    const rng = new Phaser.Math.RandomDataGenerator([`decals-${this.zone}-${this.battle}`]);
-    const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (this.tileGrid[r][c] !== 'grass') continue;
-        let nearPath = false;
-        for (const [dc, dr] of dirs) {
-          const nc = c + dc;
-          const nr = r + dr;
-          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && this.tileGrid[nr][nc] === 'path') {
-            nearPath = true;
-            break;
-          }
-        }
-        if (!nearPath || rng.frac() > 0.35) continue;
-        const cx = c * TILE + TILE / 2 + rng.between(-8, 8);
-        const cy = r * TILE + TILE / 2 + rng.between(-8, 8);
-        if (!this.textures.exists('particle_magic')) continue;
-        this.add.image(cx, cy, 'particle_magic')
-          .setDisplaySize(10, 10).setTint(0x7ec850).setAlpha(0.45).setDepth(1);
-      }
-    }
+    // Path edges come from Craftpix autotile borders — skip magic speckles
+    // that read as green noise on grass.
   }
 
   _drawGardenGate() {
     const last = this.waypoints[this.waypoints.length - 1];
     const gx = last.x;
     const gy = last.y;
+    this._gateX = gx;
+    this._gateY = gy;
 
-    this.add.image(gx, gy - 8, 'cp_house')
-      .setDisplaySize(TILE * 1.4, TILE * 1.4)
-      .setDepth(5);
+    // Fence + banner reads as a garden gate (not a generic house).
+    // Depth above nearby trees/bushes so foliage can't cut through banner transparency.
+    if (this.textures.exists('cp_fenceHorizontal')) {
+      this.add.image(gx - TILE * 0.55, gy + 4, 'cp_fenceHorizontal')
+        .setDisplaySize(TILE * 0.85, TILE * 0.55)
+        .setDepth(12);
+      this.add.image(gx + TILE * 0.55, gy + 4, 'cp_fenceHorizontal')
+        .setDisplaySize(TILE * 0.85, TILE * 0.55)
+        .setDepth(12);
+    }
+    if (this.textures.exists('cp_blueBanner')) {
+      this.add.image(gx, gy - TILE * 0.35, 'cp_blueBanner')
+        .setDisplaySize(TILE * 0.7, TILE * 0.9)
+        .setDepth(14);
+    } else if (this.textures.exists('cp_house')) {
+      this.add.image(gx, gy - 8, 'cp_house')
+        .setDisplaySize(TILE * 1.4, TILE * 1.4)
+        .setDepth(12);
+    }
 
-    this.add.image(gx, gy - TILE / 2 - 6, 'icon_door')
-      .setDisplaySize(20, 20)
-      .setTint(0xFFD700)
-      .setDepth(7);
+    if (this.textures.exists('icon_door')) {
+      this.add.image(gx, gy + 2, 'icon_door')
+        .setDisplaySize(22, 22)
+        .setTint(0xFFD700)
+        .setDepth(15);
+    }
 
     const glow = this.add.circle(gx, gy, TILE * 0.6, 0xFFD700, 0.06)
-      .setDepth(4);
+      .setDepth(11);
     this.tweens.add({
       targets: glow,
       alpha: { from: 0.06, to: 0.12 },
@@ -406,29 +421,23 @@ export class GameScene extends Phaser.Scene {
   _drawEnemySpawnMarker() {
     const start = this.waypoints?.[0];
     if (!start) return;
-    const sx = start.x;
-    const sy = start.y;
-
-    // Soft green pulse (mirrors the gold gate glow, colour-coded start vs. end).
-    const glow = this.add.circle(sx, sy, TILE * 0.55, 0x7ec850, 0.10).setDepth(4);
-
-    // Small arrow pointing the way critters travel so the entry reads clearly.
     const next = this.waypoints[1] ?? start;
-    const angle = Math.atan2(next.y - sy, next.x - sx);
-    const arrow = this.add.triangle(sx, sy, 0, -6, 0, 6, 11, 0, 0x7ec850, 0.9)
-      .setRotation(angle)
-      .setDepth(6);
+    const angle = Math.atan2(next.y - start.y, next.x - start.x);
+    // Place just behind the spawn (off the path) so the stone base doesn't clip
+    // the path border; skip the pulsing green glow square artifact.
+    const sx = start.x - Math.cos(angle) * TILE * 0.65;
+    const sy = start.y - Math.sin(angle) * TILE * 0.65;
 
-    this._spawnMarkerGlowTween = this.tweens.add({
-      targets: glow,
-      alpha: { from: 0.10, to: 0.20 },
-      scaleX: { from: 1, to: 1.12 },
-      scaleY: { from: 1, to: 1.12 },
-      duration: 1600,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    if (this.textures.exists('cp_flag')) {
+      this.add.image(sx, sy - TILE * 0.15, 'cp_flag')
+        .setDisplaySize(TILE * 0.65, TILE * 0.85)
+        .setDepth(8);
+    }
+
+    const arrow = this.add.triangle(start.x, start.y, 0, -6, 0, 6, 11, 0, 0x7ec850, 0.85)
+      .setRotation(angle)
+      .setDepth(7);
+
     this._spawnMarkerArrowTween = this.tweens.add({
       targets: arrow,
       alpha: { from: 0.5, to: 0.95 },
@@ -478,7 +487,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.events.on('battle-complete', () => {
-      if (this._battleEnded) return;
+      if (isBattleTerminal(this)) return;
       this._battleEnded = true;
       this.game.events.emit('battle-complete');
       this.time.delayedCall(1500, () => {
@@ -589,11 +598,19 @@ export class GameScene extends Phaser.Scene {
   /* ─── Wave completion ─── */
 
   _checkWaveCompletion() {
+    if (isBattleTerminal(this)) return;
     if (!this.waveManager.isWaveActive()) return;
     if (this.waveManager.spawnQueue.length > 0) return;
 
-    const aliveEnemies = this.enemies.filter(e => e.alive);
-    if (aliveEnemies.length === 0) {
+    // Non-allocating scan (avoid filter() every frame).
+    let anyAlive = false;
+    for (let i = 0; i < this.enemies.length; i++) {
+      if (this.enemies[i].alive) {
+        anyAlive = true;
+        break;
+      }
+    }
+    if (!anyAlive) {
       this.waveManager.onAllEnemiesDefeated();
     }
   }
@@ -684,11 +701,12 @@ export class GameScene extends Phaser.Scene {
   /* ─── Pause ─── */
 
   _setupPauseMenu() {
-    this.game.events.on('toggle-pause', () => {
+    this._onTogglePause = () => {
       this._togglePause();
-    });
+    };
+    this.game.events.on('toggle-pause', this._onTogglePause);
 
-    this.input.keyboard?.on('keydown-ESC', () => {
+    this._onEscKey = () => {
       if (this.towerInspect?.isOpen()) {
         this.towerInspect.close();
         return;
@@ -696,7 +714,8 @@ export class GameScene extends Phaser.Scene {
       if (this.selectedTower) return;
       if (this.waveManager?.isBattleComplete()) return;
       this.game.events.emit('toggle-pause');
-    });
+    };
+    this.input.keyboard?.on('keydown-ESC', this._onEscKey);
   }
 
   _togglePause() {
@@ -714,12 +733,17 @@ export class GameScene extends Phaser.Scene {
         this.pauseOverlay.forEach(obj => obj.destroy());
         this.pauseOverlay = null;
       }
+      // Restore HUD above the world after the pause menu closes.
+      if (this.scene.isActive('UIScene')) this.scene.bringToTop('UIScene');
       return;
     }
 
     this.paused = true;
     this.waveManager?.setPaused(true);
     this.time.timeScale = battleTimeScaleWhenPaused();
+    // Pause UI lives on GameScene — bring it above UIScene or the menu is
+    // invisible under the HUD and taps look like a dead pause button.
+    this.scene.bringToTop();
     const objects = [];
 
     const overlay = this.add.rectangle(centerX, centerY, width * 2, height * 2, 0x000000, 0.7)
@@ -776,6 +800,7 @@ export class GameScene extends Phaser.Scene {
 
   _openPauseSettings() {
     import('../ui/SettingsPanel.js').then(({ createSettingsPanel }) => {
+      if (!this.sys?.isActive?.()) return;
       createSettingsPanel(this, { depth: 210 });
     });
   }
@@ -811,7 +836,14 @@ export class GameScene extends Phaser.Scene {
     this.game.events.off('tower-place-request');
     this.game.events.off('send-wave-early');
     this.game.events.off('ability-used');
-    this.game.events.off('toggle-pause');
+    if (this._onTogglePause) {
+      this.game.events.off('toggle-pause', this._onTogglePause);
+      this._onTogglePause = null;
+    } else {
+      this.game.events.off('toggle-pause');
+    }
+    this.input.keyboard?.off('keydown-ESC', this._onEscKey);
+    this._onEscKey = null;
     this.game.events.off('tutorial-state-changed');
     this.game.events.off('battle-speed-changed');
     this._spawnMarkerGlowTween?.remove();

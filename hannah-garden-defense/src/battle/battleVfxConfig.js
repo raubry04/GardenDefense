@@ -10,13 +10,13 @@ const PROJECTILE_MAP = {
 };
 
 const BURST_PRESETS = {
-  hit: { texture: 'particle_spark', count: 6, lifespan: 280, speed: { min: 40, max: 100 } },
-  death: { texture: 'particle_smoke', count: 8, lifespan: 450, speed: { min: 30, max: 80 } },
-  deathStar: { texture: 'particle_star', count: 4, lifespan: 350, speed: { min: 20, max: 60 } },
-  place: { texture: 'particle_magic', count: 10, lifespan: 400, speed: { min: 35, max: 90 } },
-  gate: { texture: 'particle_flame', count: 12, lifespan: 500, speed: { min: 25, max: 70 } },
-  abilityStar: { texture: 'particle_star', count: 14, lifespan: 500, speed: { min: 40, max: 120 } },
-  abilityFlame: { texture: 'particle_flame', count: 10, lifespan: 400, speed: { min: 30, max: 90 } },
+  hit: { texture: 'particle_spark', count: 5, lifespan: 260, speed: { min: 35, max: 90 }, alpha: { start: 1, end: 0 } },
+  death: { texture: 'particle_smoke', count: 6, lifespan: 400, speed: { min: 25, max: 70 }, alpha: { start: 0.95, end: 0 } },
+  deathStar: { texture: 'particle_star', count: 3, lifespan: 320, speed: { min: 18, max: 55 }, alpha: { start: 1, end: 0 } },
+  place: { texture: 'particle_magic', count: 8, lifespan: 380, speed: { min: 30, max: 80 }, alpha: { start: 0.95, end: 0 } },
+  gate: { texture: 'particle_flame', count: 10, lifespan: 450, speed: { min: 22, max: 65 }, alpha: { start: 1, end: 0 } },
+  abilityStar: { texture: 'particle_star', count: 12, lifespan: 450, speed: { min: 35, max: 110 }, alpha: { start: 1, end: 0 } },
+  abilityFlame: { texture: 'particle_flame', count: 8, lifespan: 380, speed: { min: 28, max: 80 }, alpha: { start: 1, end: 0 } },
 };
 
 export function getProjectileStyle(towerType) {

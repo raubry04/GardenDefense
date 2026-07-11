@@ -54,12 +54,13 @@ export class UIScene extends Phaser.Scene {
     // that looked like a depth bug even when UIScene was already on top.
     // BattleHud now uses an opaque wave/sun panel; keep bringToTop as belt+suspenders.
     this._bringUiAboveWorld = () => {
-      if (this.sys?.isActive?.()) this.scene.bringToTop();
+      if (!this.sys?.isActive?.()) return;
+      // Don't cover the pause menu while GameScene owns the overlay.
+      const game = this.game.scene.getScene('GameScene');
+      if (game?.paused) return;
+      this.scene.bringToTop();
     };
     this.game.events.on("viewport-relayout", this._bringUiAboveWorld);
-    this.events.once("shutdown", () => {
-      this.game.events.off("viewport-relayout", this._bringUiAboveWorld);
-    });
 
     this.tutorial = new TutorialManager(this, { zone: this.zone, battle: this.battle });
     this.time.delayedCall(400, () => this.tutorial.start());
@@ -112,10 +113,6 @@ export class UIScene extends Phaser.Scene {
     this._onRelayout = () => apply();
     this.scale.on("resize", this._onRelayout);
     this.game.events.on("viewport-relayout", this._onRelayout);
-    this.events.once("shutdown", () => {
-      this.scale.off("resize", this._onRelayout);
-      this.game.events.off("viewport-relayout", this._onRelayout);
-    });
   }
 
   _on(event, handler) {
@@ -170,6 +167,7 @@ export class UIScene extends Phaser.Scene {
       this.hud.livesText.setText(this.hud.livesLabel());
       this.hud.resizeLivesPanelToContent();
       this.hud.startLowHealthPulse();
+      this.hud.updateStarMeter?.();
     });
 
     this._on("points-changed", (data) => {
@@ -292,21 +290,38 @@ export class UIScene extends Phaser.Scene {
       this.tutorial?.replay();
     });
 
-    this.events.on("shutdown", () => {
-      if (this._onTouchDismiss) {
-        this.input.off('pointerdown', this._onTouchDismiss);
-        this._onTouchDismiss = null;
-      }
-      clearToastQueue(this);
-      for (const [event, handler] of Object.entries(this._boundHandlers)) {
-        this.game.events.off(event, handler);
-      }
-      this._boundHandlers = {};
-      this.tutorial?.destroy?.();
-      this.wavePreview?.destroy();
-      this.tray.destroy();
-      this.abilityBar.destroy();
-      this.hud.destroy();
-    });
+    // Single shutdown path — avoid stacking once/on handlers across scene reuse.
+    if (this._onShutdown) {
+      this.events.off("shutdown", this._onShutdown);
+    }
+    this._onShutdown = () => this._cleanupOnShutdown();
+    this.events.once("shutdown", this._onShutdown);
+  }
+
+  _cleanupOnShutdown() {
+    this._onShutdown = null;
+    if (this._onTouchDismiss) {
+      this.input.off('pointerdown', this._onTouchDismiss);
+      this._onTouchDismiss = null;
+    }
+    if (this._bringUiAboveWorld) {
+      this.game.events.off("viewport-relayout", this._bringUiAboveWorld);
+      this._bringUiAboveWorld = null;
+    }
+    if (this._onRelayout) {
+      this.scale.off("resize", this._onRelayout);
+      this.game.events.off("viewport-relayout", this._onRelayout);
+      this._onRelayout = null;
+    }
+    clearToastQueue(this);
+    for (const [event, handler] of Object.entries(this._boundHandlers)) {
+      this.game.events.off(event, handler);
+    }
+    this._boundHandlers = {};
+    this.tutorial?.destroy?.();
+    this.wavePreview?.destroy();
+    this.tray?.destroy();
+    this.abilityBar?.destroy();
+    this.hud?.destroy();
   }
 }

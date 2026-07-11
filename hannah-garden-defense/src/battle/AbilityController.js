@@ -7,6 +7,8 @@ export class AbilityController {
     this.scene = scene;
     this._flowerBombAimGfx = null;
     this._flowerBombCleanup = null;
+    this._flowerBombArmTimer = null;
+    this._flowerBombAutoTimer = null;
   }
 
   setupAbilities() {
@@ -163,7 +165,8 @@ export class AbilityController {
     };
 
     s.input.on('pointermove', onMove);
-    s.time.delayedCall(50, () => {
+    this._flowerBombArmTimer = s.time.delayedCall(50, () => {
+      this._flowerBombArmTimer = null;
       if (s._flowerBombAiming) s.input.once('pointerdown', onTap);
     });
 
@@ -177,10 +180,6 @@ export class AbilityController {
   destroy() {
     const s = this.scene;
     this._clearFlowerBombAim();
-    if (this._flowerBombAutoTimer?.remove) {
-      this._flowerBombAutoTimer.remove(false);
-      this._flowerBombAutoTimer = null;
-    }
     if (this._onAbilityUsed) {
       s.game.events.off('ability-used', this._onAbilityUsed);
       this._onAbilityUsed = null;
@@ -189,6 +188,10 @@ export class AbilityController {
 
   _clearFlowerBombAim() {
     const s = this.scene;
+    if (this._flowerBombArmTimer?.remove) {
+      this._flowerBombArmTimer.remove(false);
+      this._flowerBombArmTimer = null;
+    }
     if (this._flowerBombAutoTimer?.remove) {
       this._flowerBombAutoTimer.remove(false);
       this._flowerBombAutoTimer = null;
