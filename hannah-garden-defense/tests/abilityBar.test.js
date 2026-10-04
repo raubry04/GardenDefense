@@ -1,10 +1,21 @@
 import { describe, it, expect } from 'vitest';
+import { GameConfig } from '../src/config.js';
 import { AbilityBar, isNextWaveLabel } from '../src/ui/AbilityBar.js';
 
 describe('AbilityBar send wave labels', () => {
   it('isNextWaveLabel identifies between-wave state', () => {
     expect(isNextWaveLabel('NEXT WAVE')).toBe(true);
     expect(isNextWaveLabel('SEND WAVE')).toBe(false);
+  });
+
+  it('early-wave bonus UI uses GameConfig.earlyWaveBonusPoints (not hardcoded +10)', () => {
+    const bar = Object.create(AbilityBar.prototype);
+    bar.scene = { _uiMetrics: { ui: { compact: true } } };
+    const pts = GameConfig.earlyWaveBonusPoints;
+    expect(pts).toBeGreaterThanOrEqual(20);
+    expect(bar._earlyBonusLabel()).toBe(`+${pts} BONUS`);
+    expect(bar._compactBonusText(8, true)).toContain(`+${pts}`);
+    expect(bar._compactBonusText(8, true)).not.toContain('+10');
   });
 
   it('updateSendWaveCooldown preserves NEXT WAVE during countdown', () => {
@@ -38,10 +49,8 @@ describe('AbilityBar send wave labels', () => {
     expect(bar.sendWaveBonusText.text).toContain('8');
   });
 
-  it('fits bonus pill to wrap the full bonus text', () => {
+  it('fits bonus label without requiring a backing pill', () => {
     const bar = Object.create(AbilityBar.prototype);
-    let size = null;
-    let pos = null;
     bar.sendWaveBonusText = {
       active: true,
       x: 640,
@@ -49,14 +58,8 @@ describe('AbilityBar send wave labels', () => {
       width: 300,
       height: 14,
     };
-    bar.sendWaveBonusBg = {
-      active: true,
-      setSize(w, h) { size = { w, h }; },
-      setPosition(x, y) { pos = { x, y }; },
-    };
-    bar._fitSendWaveBonusBg();
-    expect(size.w).toBeGreaterThanOrEqual(300);
-    expect(pos).toEqual({ x: 640, y: 560 });
+    bar.sendWaveBonusBg = null;
+    expect(() => bar._fitSendWaveBonusBg()).not.toThrow();
   });
 });
 

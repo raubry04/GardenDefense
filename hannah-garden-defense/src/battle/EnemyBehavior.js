@@ -1,4 +1,6 @@
 import { GameConfig } from '../config.js';
+import { sfxVol } from '../utils/audioMix.js';
+import { playSfxSafe } from '../utils/SceneMusicManager.js';
 import { TILE } from './battleConstants.js';
 import { updateEnemyStatusFx, updateStatusRing } from './EnemyStatusFx.js';
 
@@ -71,10 +73,16 @@ export class EnemyBehavior {
           for (const tower of s.towers) {
             if (tower.hp <= 0) continue;
             if (Phaser.Math.Distance.Between(enemy.x, enemy.y, tower.x, tower.y) <= stompRange) {
+              const until = (s.time?.now ?? 0) + stompSlowMs;
+              tower.stompUntil = Math.max(tower.stompUntil || 0, until);
               tower.fireRateMultiplier = 2;
               stomped = true;
+              const token = tower.stompUntil;
               s.time.delayedCall(stompSlowMs, () => {
-                if (tower.hp > 0) tower.fireRateMultiplier = 1;
+                if (tower.hp <= 0) return;
+                if ((tower.stompUntil || 0) > token) return;
+                if ((s.time?.now ?? 0) < (tower.stompUntil || 0)) return;
+                tower.fireRateMultiplier = 1;
               });
             }
           }
@@ -235,6 +243,7 @@ export class EnemyBehavior {
     if (s.towerPlacement?.showFloatingText) {
       s.towerPlacement.showFloatingText(gate.x, gate.y - TILE * 0.9, label, '#E63946');
     }
+    playSfxSafe(s, 'invalidAction', { volume: sfxVol('invalidAction') });
   }
 
   damageTower(tower, damage) {

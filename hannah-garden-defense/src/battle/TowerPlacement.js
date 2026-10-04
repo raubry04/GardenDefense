@@ -350,13 +350,13 @@ export class TowerPlacement {
     const refund = Math.floor(tower.cost * GameConfig.sellRefundPercent);
     const objects = [];
 
-    const bg = s.add.rectangle(tower.x, tower.y - 30, 112, 40, 0x1a2e14, 0.96)
-      .setStrokeStyle(2, COLORS.stars).setDepth(200).setInteractive({ useHandCursor: true });
+    const bg = s.add.rectangle(tower.x, tower.y - 30, 112, 40, 0xFFF9E6, 0.95)
+      .setStrokeStyle(2, 0x4A2C0A).setDepth(200).setInteractive({ useHandCursor: true });
     objects.push(bg);
 
     const text = s.add.text(tower.x, tower.y - 30, `SELL +${refund}`, {
-      fontFamily: 'Kenney Future', fontSize: '15px', color: '#FFD700',
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
+      fontFamily: 'Kenney Future', fontSize: '15px', color: '#4A2C0A',
+      shadow: { offsetX: 1, offsetY: 1, color: '#C8B890', blur: 0, fill: true },
     }).setOrigin(0.5).setDepth(201);
     objects.push(text);
 

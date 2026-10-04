@@ -24,6 +24,44 @@ describe('buildCanvasMapData', () => {
     expect(grassCells).toBeGreaterThan(0);
     expect(Object.keys(pathTileMap).length).toBe(pathCells);
   });
+
+  it('bottomReserveRows lifts path waypoints above the tray band', () => {
+    const cols = 20;
+    const rows = 14;
+    const tile = 64;
+    const without = buildCanvasMapData(0, cols, rows, tile, {
+      centerLayout: true,
+      bottomReserveRows: 0,
+    });
+    const withReserve = buildCanvasMapData(0, cols, rows, tile, {
+      centerLayout: true,
+      bottomReserveRows: 3,
+    });
+    const maxY = (map) => Math.max(...map.waypoints.map((w) => w.y));
+    expect(maxY(withReserve)).toBeLessThan(maxY(without));
+    expect(withReserve.rowOffset).toBeLessThanOrEqual(without.rowOffset);
+    // Reserved band stays clear of path cells.
+    const reserveStart = rows - 3;
+    for (let r = reserveStart; r < rows; r++) {
+      expect(withReserve.grid[r].every((c) => c !== 'path')).toBe(true);
+    }
+  });
+
+  it('bottomReserveRows clears tray band on battle-sized grids', () => {
+    const cols = Math.ceil(1280 / 64);
+    const rows = Math.ceil(720 / 64);
+    const withReserve = buildCanvasMapData(1, cols, rows, 64, {
+      centerLayout: true,
+      bottomReserveRows: 3,
+    });
+    const maxPathRow = Math.max(
+      ...[...withReserve.pathSet].map((k) => Number(k.split(',')[1])),
+    );
+    expect(maxPathRow).toBeLessThan(rows - 3);
+    expect(Math.max(...withReserve.waypoints.map((w) => w.y))).toBeLessThan(
+      (rows - 3) * 64,
+    );
+  });
 });
 
 describe('pathCoordsToWaypoints', () => {

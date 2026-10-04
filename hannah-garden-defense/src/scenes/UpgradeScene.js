@@ -10,7 +10,7 @@ import {
 import { LevelUpBanner } from '../ui/LevelUpBanner.js';
 import { getUpgradeableTowerTypes, paginateTowerTypes, canPurchaseUpgradeTier } from '../utils/upgradeTowers.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
-import { TEXT_GOLD, TEXT_ON_DARK, TEXT_PILL_BG, TEXT_PILL_PAD, FONT_DISPLAY, HUD_PANEL_FILL, HUD_PANEL_ALPHA } from '../utils/textReadability.js';
+import { TEXT_GOLD, TEXT_ON_LIGHT, TEXT_GARDEN, FONT_DISPLAY, readableHudStyle, readableCaptionStyle } from '../utils/textReadability.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
 
 const COLORS = GameConfig.colors;
@@ -92,14 +92,9 @@ export class UpgradeScene extends Phaser.Scene {
       strokeThickness: 4,
     }).setOrigin(0.5);
 
-    const coinBg = this.add.rectangle(width - 90, 30, 148, 38, 0x1a2e14, 0.94)
-      .setStrokeStyle(2, COLORS.stars);
-
     this.pointsDisplay = this.add.text(width - 90, 30, `${this.sunshinePoints}`, {
+      ...readableHudStyle('22px', TEXT_GOLD),
       fontFamily: FONT_DISPLAY,
-      fontSize: '22px',
-      color: TEXT_GOLD,
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5);
     if (this.textures.exists('ui_sunshine')) {
       this.add.image(width - 145, 30, 'ui_sunshine').setDisplaySize(22, 22);
@@ -112,12 +107,8 @@ export class UpgradeScene extends Phaser.Scene {
     const barHeight = 22;
 
     this.add.text(width / 2, barY - 2, `Hannah Level ${this.hannahLevel}`, {
+      ...readableHudStyle('20px', TEXT_ON_LIGHT),
       fontFamily: FONT_DISPLAY,
-      fontSize: '20px',
-      color: TEXT_ON_DARK,
-      backgroundColor: TEXT_PILL_BG,
-      padding: TEXT_PILL_PAD,
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     }).setOrigin(0.5, 1);
 
     const thresholds = GameConfig.hannahXpThresholds;
@@ -174,37 +165,22 @@ export class UpgradeScene extends Phaser.Scene {
     if (nextUnlocks.length > 0) {
       const unlockLine = `Lv.${this.hannahLevel + 1} unlocks: ${nextUnlocks.join(', ')}`;
       const unlockText = this.add.text(width / 2, hintY, unlockLine, {
+        ...readableCaptionStyle('20px', TEXT_GARDEN),
         fontFamily: FONT_DISPLAY,
-        fontSize: '20px',
-        color: TEXT_GOLD,
         wordWrap: { width: width * 0.78 },
         align: 'center',
-        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
       }).setOrigin(0.5, 0).setDepth(6);
-      const panelW = Math.min(width * 0.88, Math.max(280, unlockText.width + 28));
-      const panelH = Math.max(28, unlockText.height + 12);
-      this.add.rectangle(width / 2, hintY + unlockText.height / 2, panelW, panelH, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
-        .setStrokeStyle(2, COLORS.outline)
-        .setDepth(5);
-      unlockText.setDepth(6);
-      hintY += panelH + 10;
+      hintY += Math.max(28, unlockText.height + 12) + 10;
     }
     if (nextZoneUnlocks.length > 0) {
       const zoneName = GameConfig.zones[this.unlockedZone + 1]?.name || `Zone ${this.unlockedZone + 2}`;
       const zoneLine = `${zoneName} unlocks: ${nextZoneUnlocks.join(', ')}`;
-      const zoneText = this.add.text(width / 2, hintY, zoneLine, {
+      this.add.text(width / 2, hintY, zoneLine, {
+        ...readableCaptionStyle('20px', TEXT_ON_LIGHT),
         fontFamily: FONT_DISPLAY,
-        fontSize: '20px',
-        color: TEXT_ON_DARK,
         wordWrap: { width: width * 0.78 },
         align: 'center',
-        shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
       }).setOrigin(0.5, 0).setDepth(6);
-      const panelW = Math.min(width * 0.88, Math.max(280, zoneText.width + 28));
-      const panelH = Math.max(28, zoneText.height + 12);
-      this.add.rectangle(width / 2, hintY + zoneText.height / 2, panelW, panelH, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
-        .setStrokeStyle(2, COLORS.outline)
-        .setDepth(5);
     }
   }
 

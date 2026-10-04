@@ -1,6 +1,6 @@
 import { ENEMY_SPRITES } from '../utils/AssetRegistry.js';
 import { GameConfig } from '../config.js';
-import { TEXT_GOLD, TEXT_ON_DARK, TEXT_PILL_BG } from '../utils/textReadability.js';
+import { TEXT_GOLD, TEXT_ON_LIGHT, readableCaptionStyle, readableHudStyle } from '../utils/textReadability.js';
 
 /**
  * Colour-blind-safe symbol badges for enemy threat tags. Keys match
@@ -46,16 +46,15 @@ export class WavePreview {
     this._lastPreview = null;
   }
 
+  _waveCenterX() {
+    return this.hud.waveText?.x ?? this.hud._waveCenterX ?? this.hud.wavePanel?.x ?? 0;
+  }
+
   create() {
     const scene = this.scene;
     const y = this.hud._hudRow2Y - 28;
-    this._label = scene.add.text(this.hud.wavePanel.x, y, 'Next:', {
-      fontFamily: 'Kenney Future',
-      fontSize: '14px',
-      color: TEXT_ON_DARK,
-      backgroundColor: TEXT_PILL_BG,
-      padding: { x: 6, y: 3 },
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
+    this._label = scene.add.text(this._waveCenterX(), y, 'Next:', {
+      ...readableCaptionStyle('14px', TEXT_ON_LIGHT),
     }).setOrigin(0.5, 1).setDepth(HUD_DEPTH).setVisible(false);
   }
 
@@ -83,7 +82,9 @@ export class WavePreview {
     const overflow = entries.length > MAX_ICONS ? entries.length - MAX_ICONS : 0;
     const shown = overflow > 0 ? entries.slice(0, MAX_ICONS) : entries;
     const iconCount = shown.length + (overflow > 0 ? 1 : 0);
-    const startX = this.hud.wavePanel.x - (iconCount * ICON_STEP) / 2;
+    const centerX = this._waveCenterX();
+    this._label?.setX(centerX);
+    const startX = centerX - (iconCount * ICON_STEP) / 2;
     const y = this._previewY ?? this.hud._hudRow2Y - 14;
 
     shown.forEach(([type, count], i) => {
@@ -93,11 +94,7 @@ export class WavePreview {
     if (overflow > 0) {
       const x = startX + shown.length * ICON_STEP + 10;
       const overflowLabel = this.scene.add.text(x, y, `+${overflow}`, {
-        fontFamily: 'Kenney Future',
-        fontSize: '14px',
-        color: TEXT_GOLD,
-        stroke: '#000000',
-        strokeThickness: 3,
+        ...readableHudStyle('14px', TEXT_GOLD),
       }).setOrigin(0.5).setDepth(HUD_DEPTH);
       this._icons.push(overflowLabel);
     }
@@ -125,11 +122,8 @@ export class WavePreview {
       this._icons.push(badge);
     }
     const countText = this.scene.add.text(x + 10, y + 6, `×${count}`, {
-      fontFamily: 'Kenney Future',
-      fontSize: '13px',
-      color: TEXT_ON_DARK,
-      stroke: '#000000',
-      strokeThickness: 3,
+      ...readableCaptionStyle('13px', '#FFF9E6'),
+      stroke: '#3D5A1F',
     }).setOrigin(0, 0.5).setDepth(HUD_DEPTH);
     this._icons.push(icon, countText);
   }

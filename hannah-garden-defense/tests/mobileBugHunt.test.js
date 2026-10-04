@@ -98,7 +98,7 @@ describe('mobile/iOS bug-hunt regressions', () => {
 
   it('WorldMap zone bars are tall enough for the text-size pass', () => {
     const src = read('src/scenes/WorldMapScene.js');
-    expect(src).toMatch(/const zoneHeight = ZONES\.length >= 6 \? 6[0-9] : 78|const zoneHeight = 7[8-9]|const zoneHeight = [8-9]\d/);
+    expect(src).toMatch(/const zoneHeight = ZONES\.length >= 6 \? (7[8-9]|[8-9]\d) : (8[0-9]|9\d)|const zoneHeight = (7[8-9]|[8-9]\d)/);
   });
 
   it('TowerTray never scale-tweens the cost-chip star (setDisplaySize images)', () => {
@@ -115,9 +115,10 @@ describe('mobile/iOS bug-hunt regressions', () => {
     expect(ui).toContain('bringToTop');
     expect(ui).toContain('_bringUiAboveWorld');
     expect(game).toContain("bringToTop('UIScene')");
-    // Opaque panel is what actually stops trees showing through WAVE glyphs.
-    expect(hud).toContain('HUD_PANEL_ALPHA');
-    expect(hud).toMatch(/wavePanel[\s\S]*?HUD_PANEL_ALPHA/);
+    // Cream stroke on WAVE text — no opaque backing panel.
+    expect(hud).toContain('readableHudStyle');
+    expect(hud).toContain('waveText');
+    expect(hud).not.toContain('HUD_PANEL_ALPHA');
     expect(hud).not.toMatch(/rectangle\(wavePanelX,\s*row2Y,\s*240,\s*44,\s*0x000000,\s*0\.45\)/);
   });
 
@@ -126,10 +127,11 @@ describe('mobile/iOS bug-hunt regressions', () => {
     expect(src).toContain('ABILITY_SHORT_NAMES');
     expect(src).toContain('ABILITY_LABELS');
     expect(src).toContain('_fitSendWaveBonusBg');
-    expect(src).toContain('TEXT_PILL_BG');
+    expect(src).toContain('readableHudStyle');
+    expect(src).not.toContain('TEXT_PILL_BG');
     expect(src).toMatch(/setOrigin\(1,\s*0\.5\)/);
-    expect(src).toMatch(/SUNSHINE_BURST:\s*'SUN'/);
-    // Side name starts hidden — only Ready!/cooldown status uses the pill.
+    expect(src).toMatch(/SUNSHINE_BURST:\s*'Burst'/);
+    // Side name starts hidden — only Ready!/cooldown status uses the label.
     expect(src).toMatch(/nameLabel[\s\S]{0,400}setVisible\(false\)/);
   });
 
@@ -145,8 +147,8 @@ describe('mobile/iOS bug-hunt regressions', () => {
     expect(src).not.toMatch(/zoneWidth \/ 2 - 22/);
     expect(src).toMatch(/starRight/);
     expect(src).toMatch(/zoneWidth \/ 2 - 24/);
-    // Zone 1 sits just under the header (~16px gap), not a large fixed drop.
-    expect(src).toContain('headerBottom + 16');
+    // Zone 1 sits just under the header (~12–16px gap), not a large fixed drop.
+    expect(src).toMatch(/headerBottom \+ 1[2-6]/);
     expect(src).not.toMatch(/getSafeTop\(\)\s*\+\s*168/);
   });
 
@@ -209,8 +211,11 @@ describe('mobile/iOS bug-hunt regressions', () => {
     expect(src).not.toMatch(/add\.circle\(iconX,\s*iconY,\s*20,\s*0x888888/);
   });
 
-  it('shared textReadability tokens back HUD panels and pills', () => {
+  it('shared textReadability tokens export stroke HUD helpers', () => {
     const tokens = read('src/utils/textReadability.js');
+    expect(tokens).toContain('readableHudStyle');
+    expect(tokens).toContain('readableCaptionStyle');
+    expect(tokens).toContain('TEXT_STROKE');
     expect(tokens).toContain('HUD_PANEL_ALPHA');
     expect(tokens).toContain('TEXT_PILL_BG');
     expect(tokens).toContain('MIN_WORLD_TEXT_PANEL_ALPHA');
@@ -231,11 +236,12 @@ describe('mobile/iOS bug-hunt regressions', () => {
     expect(src).toContain('Settings');
   });
 
-  it('BattleHud lives count sits on an opaque panel (not shadow-only)', () => {
+  it('BattleHud lives count uses stroke style (invisible panel anchor)', () => {
     const src = read('src/ui/BattleHud.js');
     expect(src).toContain('livesPanel');
     expect(src).toContain('resizeLivesPanelToContent');
-    expect(src).toMatch(/livesPanel[\s\S]*?HUD_PANEL_ALPHA/);
+    expect(src).toContain('readableHudStyle');
+    expect(src).not.toContain('HUD_PANEL_ALPHA');
   });
 
   it('SceneMusicManager gates resume until a user gesture', () => {

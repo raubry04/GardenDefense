@@ -1,12 +1,11 @@
 import { GameConfig } from "../config.js";
 import { setTouchFriendlyCircleHit } from "../utils/battleInput.js";
 import {
-  HUD_PANEL_ALPHA,
-  HUD_PANEL_FILL,
-  TEXT_ON_DARK,
+  TEXT_ON_LIGHT,
+  TEXT_GARDEN,
   TEXT_GOLD,
-  TEXT_PILL_BG,
-  TEXT_PILL_PAD,
+  readableHudStyle,
+  readableCaptionStyle,
 } from "../utils/textReadability.js";
 import {
   projectedStarsFromLives,
@@ -65,28 +64,21 @@ export class BattleHud {
       this.heartIcons.push(heart);
     }
 
-    // Opaque pill behind hearts + count — shadow-only digits were hard to read over grass.
     this.livesText = scene.add
       .text(0, row1Y - 10, this.livesLabel(), {
-        fontFamily: "Kenney Future",
-        fontSize: "24px",
-        color: TEXT_ON_DARK,
-        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+        ...readableHudStyle('24px', TEXT_ON_LIGHT),
       })
       .setDepth(hudDepth);
     this._livesPadX = livesPadX;
     this._livesGap = livesGap;
     this._livesStartX = startX;
     this._livesHeartSpacing = heartSpacing;
-    // Placeholder panel; sized immediately below once text width is known.
+    // Invisible layout/hit anchor — no cream backing box.
     this.livesPanel = scene.add
-      .rectangle(startX, row1Y, 40, 36, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
-      .setStrokeStyle(2, COLORS.outline)
+      .rectangle(startX, row1Y, 40, 36, 0x000000, 0)
       .setDepth(hudDepth - 1);
     this.resizeLivesPanelToContent();
 
-    // Opaque panel + heart icons + text (no Text backgroundColor / panelBorder —
-    // those smeared into white L-brackets and crushed heart fragments on mobile).
     this._starMeterHearts = [];
     const meterY = row1Y + 28;
     const meterHeartSize = 14;
@@ -95,10 +87,7 @@ export class BattleHud {
     const meterText = starMeterHint(scene.lives);
     this.starMeterText = scene.add
       .text(0, meterY, meterText, {
-        fontFamily: "Kenney Future",
-        fontSize: "13px",
-        color: TEXT_GOLD,
-        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+        ...readableCaptionStyle('13px', TEXT_GARDEN),
       })
       .setOrigin(0, 0.5)
       .setDepth(hudDepth);
@@ -119,9 +108,9 @@ export class BattleHud {
     const meterW = Math.ceil(
       meterPadX + heartsW + 4 + this.starMeterText.width + meterPadX,
     );
+    // Invisible layout anchor only.
     this.starMeterPanel = scene.add
-      .rectangle(startX + meterW / 2, meterY, meterW, 22, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
-      .setStrokeStyle(2, COLORS.outline)
+      .rectangle(startX + meterW / 2, meterY, meterW, 22, 0x000000, 0)
       .setDepth(hudDepth - 1);
     this._starMeterPadX = meterPadX;
     this._starMeterHeartGap = meterHeartGap;
@@ -130,21 +119,16 @@ export class BattleHud {
     this.startLowHealthPulse();
 
     const wavePanelX = width / 2;
-    // Opaque panel (not ~0.45 alpha): GameScene props composite underneath
-    // UIScene, so a translucent bar lets trees show through Kenney Future's
-    // sparse glyph pixels and look like world depth is above the WAVE text.
+    this._waveCenterX = wavePanelX;
+    // Invisible layout anchor — wave text uses cream stroke for readability.
     this.wavePanel = scene.add
-      .rectangle(wavePanelX, row2Y, 248, 48, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
-      .setStrokeStyle(2, COLORS.outline)
+      .rectangle(wavePanelX, row2Y, 248, 48, 0x000000, 0)
       .setDepth(hudDepth);
     this.wavePanel.setOrigin(0.5);
 
     this.waveText = scene.add
       .text(wavePanelX, row2Y - 18, formatWaveHudLabel(0, scene.totalWaves), {
-        fontFamily: "Kenney Future",
-        fontSize: "26px",
-        color: TEXT_GOLD,
-        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 3, fill: true },
+        ...readableHudStyle('26px', TEXT_GARDEN),
       })
       .setOrigin(0.5, 0)
       .setDepth(hudDepth);
@@ -166,11 +150,7 @@ export class BattleHud {
     if (modLabel) {
       this.modifierText = scene.add
         .text(wavePanelX, row2Y + 28, modLabel, {
-          fontFamily: "Kenney Future",
-          fontSize: "14px",
-          color: TEXT_GOLD,
-          backgroundColor: TEXT_PILL_BG,
-          padding: TEXT_PILL_PAD,
+          ...readableCaptionStyle('13px', TEXT_GARDEN),
         })
         .setOrigin(0.5, 0)
         .setDepth(hudDepth);
@@ -250,9 +230,10 @@ export class BattleHud {
 
   pulseWavePanel() {
     const scene = this.scene;
-    if (!this.wavePanel?.active) return;
+    const target = this.waveText?.active ? this.waveText : this.wavePanel;
+    if (!target?.active) return;
     scene.tweens.add({
-      targets: this.wavePanel,
+      targets: target,
       scaleX: 1.06,
       scaleY: 1.06,
       duration: 150,
@@ -292,12 +273,7 @@ export class BattleHud {
     this.pauseLabel.disableInteractive?.();
     this.pauseHint = scene.add
       .text(pauseX, row1Y + btnR + 2, "Pause", {
-        fontFamily: "Kenney Future",
-        fontSize: "13px",
-        color: TEXT_ON_DARK,
-        backgroundColor: TEXT_PILL_BG,
-        padding: { x: 5, y: 2 },
-        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+        ...readableCaptionStyle('12px', TEXT_ON_LIGHT),
       })
       .setOrigin(0.5, 0)
       .setDepth(hudDepth);
@@ -322,25 +298,16 @@ export class BattleHud {
       .setDepth(hudDepth);
     this.speedHint = scene.add
       .text(speedX, row1Y + btnR + 2, "Speed", {
-        fontFamily: "Kenney Future",
-        fontSize: "13px",
-        color: TEXT_ON_DARK,
-        backgroundColor: TEXT_PILL_BG,
-        padding: { x: 5, y: 2 },
-        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+        ...readableCaptionStyle('12px', TEXT_ON_LIGHT),
       })
       .setOrigin(0.5, 0)
       .setDepth(hudDepth);
     this._battleSpeed = 1;
 
     const sunPanelRight = speedX - btnR - 12;
-    // Size panel to icon + digits (avoid a wide empty right pad).
     this.pointsText = scene.add
       .text(0, row1Y - 10, `${scene.sunshinePoints}`, {
-        fontFamily: "Kenney Future",
-        fontSize: "24px",
-        color: TEXT_GOLD,
-        shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+        ...readableHudStyle('24px', TEXT_GOLD),
       })
       .setDepth(hudDepth);
     const sunPadX = 10;
@@ -350,9 +317,9 @@ export class BattleHud {
       sunPadX + sunIconSlot + sunGap + this.pointsText.width + sunPadX,
     );
     const sunPanelX = sunPanelRight - sunPanelW / 2;
+    // Invisible hit/layout rect for sunshine cluster.
     this.sunPanel = scene.add
-      .rectangle(sunPanelX, row1Y, sunPanelW, 36, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
-      .setStrokeStyle(2, COLORS.outline)
+      .rectangle(sunPanelX, row1Y, sunPanelW, 36, 0x000000, 0)
       .setDepth(hudDepth - 1);
 
     this._hudStarIcon = scene.add
@@ -369,11 +336,7 @@ export class BattleHud {
 
     const speedTooltip = scene.add
       .text(speedX, row1Y - btnR - 6, "Toggle 1× / 2× speed", {
-        fontFamily: "Kenney Future",
-        fontSize: "13px",
-        color: TEXT_ON_DARK,
-        backgroundColor: TEXT_PILL_BG,
-        padding: TEXT_PILL_PAD,
+        ...readableCaptionStyle('13px', TEXT_ON_LIGHT),
       })
       .setOrigin(0.5, 1)
       .setVisible(false)
@@ -439,9 +402,9 @@ export class BattleHud {
     );
   }
 
-  /** Keep sunshine panel width tight when the point total gains/loses digits. */
+  /** Keep sunshine cluster width tight when the point total gains/loses digits. */
   resizeSunPanelToContent() {
-    if (!this.sunPanel?.active || !this.pointsText?.active) return;
+    if (!this.pointsText?.active) return;
     const sunPadX = this._sunPadX ?? 10;
     const sunIconSlot = this._sunIconSlot ?? 26;
     const sunGap = this._sunGap ?? 6;
@@ -449,12 +412,17 @@ export class BattleHud {
       sunPadX + sunIconSlot + sunGap + this.pointsText.width + sunPadX,
     );
     // Anchor to the panel's current right edge so it stays flush with speed/pause.
-    const panelRight = this.sunPanel.x + (this._sunPanelW ?? this.sunPanel.width) / 2;
+    const anchor = this.sunPanel?.active ? this.sunPanel : null;
+    const panelRight = anchor
+      ? anchor.x + (this._sunPanelW ?? anchor.width) / 2
+      : (this.pointsText.x + this.pointsText.width);
     const sunPanelX = panelRight - sunPanelW / 2;
     this._sunPanelW = sunPanelW;
-    this.sunPanel.setSize(sunPanelW, 36);
-    this.sunPanel.setPosition(sunPanelX, this.sunPanel.y);
-    const row1Y = this.sunPanel.y;
+    const row1Y = anchor?.y ?? this._hudRow1Y ?? 42;
+    if (anchor) {
+      anchor.setSize(sunPanelW, 36);
+      anchor.setPosition(sunPanelX, row1Y);
+    }
     this._hudStarIcon?.setPosition(
       sunPanelX - sunPanelW / 2 + sunPadX + sunIconSlot / 2,
       row1Y,
@@ -546,16 +514,7 @@ export class BattleHud {
           this.pointsText.y - 4,
           `+${delta}`,
           {
-            fontFamily: "Kenney Future",
-            fontSize: "16px",
-            color: "#FFFF00",
-            shadow: {
-              offsetX: 1,
-              offsetY: 1,
-              color: "#000",
-              blur: 2,
-              fill: true,
-            },
+            ...readableHudStyle('16px', '#FFFF00'),
           },
         )
         .setOrigin(0.5, 1);
@@ -591,9 +550,9 @@ export class BattleHud {
     return this.scene.lives > maxIcons ? `×${this.scene.lives}` : `${this.scene.lives}`;
   }
 
-  /** Keep the lives pill tight when the digit count changes. */
+  /** Keep lives icons + digit cluster tight when the digit count changes. */
   resizeLivesPanelToContent() {
-    if (!this.livesPanel?.active || !this.livesText?.active) return;
+    if (!this.livesText?.active) return;
     const livesPadX = this._livesPadX ?? 8;
     const livesGap = this._livesGap ?? 6;
     const startX = this._livesStartX ?? 20;
@@ -610,8 +569,10 @@ export class BattleHud {
       : Math.ceil(this.livesText.width + livesPadX * 2);
     const livesPanelX = startX - livesPadX + panelW / 2;
     this._livesPanelW = panelW;
-    this.livesPanel.setSize(panelW, 36);
-    this.livesPanel.setPosition(livesPanelX, this.livesPanel.y);
+    if (this.livesPanel?.active) {
+      this.livesPanel.setSize(panelW, 36);
+      this.livesPanel.setPosition(livesPanelX, this.livesPanel.y);
+    }
     const livesTextX = visibleHearts > 0
       ? lastHeartRight + livesGap
       : livesPanelX - this.livesText.width / 2;
@@ -640,7 +601,7 @@ export class BattleHud {
     this._starMeterHearts?.forEach((h, i) => {
       if (h?.active) h.setAlpha(i < stars ? 1 : 0.28);
     });
-    // Keep panel width tight when the hint string changes length.
+    // Keep layout width tight when the hint string changes length.
     const startX = this._starMeterStartX ?? 20;
     const meterPadX = this._starMeterPadX ?? 8;
     const meterHeartGap = this._starMeterHeartGap ?? 15;

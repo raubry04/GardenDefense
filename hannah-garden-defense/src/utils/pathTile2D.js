@@ -51,6 +51,7 @@ function reversePathCoords(coords) {
  * @param {{
  *   centerLayout?: boolean,
  *   expandPlayable?: boolean,
+ *   bottomReserveRows?: number,
  *   colOffset?: number,
  *   rowOffset?: number,
  *   reversePath?: boolean,
@@ -63,11 +64,28 @@ export function buildCanvasMapData(zone, cols, rows, tileSize = 64, opts = {}) {
   const {
     centerLayout = false,
     expandPlayable = false,
-    colOffset = centerLayout ? Math.floor((cols - layout.gridW) / 2) : 0,
-    rowOffset = centerLayout ? Math.floor((rows - layout.gridH) / 2) : 0,
+    bottomReserveRows = 0,
     reversePath = false,
     mirrorPath = false,
   } = opts;
+
+  const colOffset = opts.colOffset ?? (centerLayout
+    ? Math.floor((cols - layout.gridW) / 2)
+    : 0);
+  let rowOffset = opts.rowOffset ?? (centerLayout
+    ? Math.max(0, Math.floor((rows - bottomReserveRows - layout.gridH) / 2))
+    : 0);
+
+  // When the layout is as tall as the canvas, the formula above yields 0 and
+  // high-z paths still sit under the tower tray — nudge up so path clears reserve.
+  if (centerLayout && bottomReserveRows > 0 && opts.rowOffset == null && layout.pathCoords.length) {
+    const maxZ = Math.max(...layout.pathCoords.map((c) => c.z));
+    const pathBottom = rowOffset + maxZ;
+    const lastPlayable = rows - bottomReserveRows - 1;
+    if (pathBottom > lastPlayable) {
+      rowOffset -= pathBottom - lastPlayable;
+    }
+  }
 
   let pathCoords = layout.pathCoords;
   if (mirrorPath) pathCoords = mirrorPathCoords(pathCoords, layout.gridW);

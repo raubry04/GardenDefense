@@ -1,5 +1,5 @@
 import { GameConfig } from '../config.js';
-import { TEXT_ON_DARK, TEXT_PILL_BG, TEXT_PILL_PAD } from '../utils/textReadability.js';
+import { TEXT_ON_LIGHT, readableHudStyle } from '../utils/textReadability.js';
 
 /** Brief HUD toast message (design-space coords). */
 const _queue = new WeakMap();
@@ -36,14 +36,9 @@ function _showToastNow(scene, message, durationMs, state) {
 
   const toast = scene.add
     .text(width / 2, y, message, {
-      fontFamily: 'Kenney Future',
-      fontSize: '18px',
-      color: TEXT_ON_DARK,
-      backgroundColor: TEXT_PILL_BG,
-      padding: { x: Math.max(12, TEXT_PILL_PAD.x + 4), y: Math.max(8, TEXT_PILL_PAD.y + 2) },
+      ...readableHudStyle('18px', TEXT_ON_LIGHT),
       wordWrap: { width: Math.min(420, width - 48) },
       align: 'center',
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
     })
     .setOrigin(0.5, 0)
     .setDepth(250);

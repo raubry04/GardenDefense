@@ -6,6 +6,47 @@ import { updateEnemyStatusFx } from './EnemyStatusFx.js';
 import { TILE, COLORS } from './battleConstants.js';
 import { isBattleTerminal } from './battleTerminal.js';
 
+/**
+ * Owl targeting: prefer flyers in range (closest to gate), else ground by path progress.
+ * Flyers never advance waypointIndex, so highest-waypoint alone ignores Parrots.
+ * @param {Array<{ alive?: boolean, flies?: boolean, waypointIndex?: number, x: number, y: number }>} inRange
+ * @param {{ x: number, y: number } | null | undefined} gate
+ * @returns {object | null}
+ */
+export function pickOwlTarget(inRange, gate) {
+  if (!inRange?.length) return null;
+  const flyers = [];
+  for (const enemy of inRange) {
+    if (enemy?.alive === false) continue;
+    if (enemy.flies) flyers.push(enemy);
+  }
+  if (flyers.length > 0 && gate) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const enemy of flyers) {
+      const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, gate.x, gate.y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = enemy;
+      }
+    }
+    return best;
+  }
+  if (flyers.length > 0) return flyers[0];
+
+  let target = null;
+  let bestProgress = -1;
+  for (const enemy of inRange) {
+    if (enemy?.alive === false) continue;
+    const progress = enemy.waypointIndex ?? 0;
+    if (progress > bestProgress) {
+      bestProgress = progress;
+      target = enemy;
+    }
+  }
+  return target;
+}
+
 export class TowerCombat {
   constructor(scene) {
     this.scene = scene;
@@ -79,19 +120,13 @@ export class TowerCombat {
         let target = null;
         const inRange = this._getEnemiesInRange(tower, tower.range);
         if (tower.type === 'OWL') {
-          let bestProgress = -1;
-          for (const enemy of inRange) {
-            const progress = enemy.waypointIndex ?? 0;
-            if (progress > bestProgress) {
-              bestProgress = progress;
-              target = enemy;
-            }
-          }
+          const gate = s.waypoints?.[s.waypoints.length - 1];
+          target = pickOwlTarget(inRange, gate);
         } else {
           let closestDist = tower.range;
           for (const enemy of inRange) {
             if (tower.type === 'CHICKEN' && enemy.flies) continue;
-            if (tower.type === 'CHICKEN' && enemy.type === 'ELEPHANT') continue;
+            if (tower.type === 'CHICKEN' && GameConfig.enemies[enemy.type]?.armored) continue;
             const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
             if (dist <= closestDist) {
               closestDist = dist;
@@ -122,15 +157,26 @@ export class TowerCombat {
       }
       if (tower.freezeMs > 0 && !GameConfig.enemies[target.type]?.immuneToStun) {
         target.stunTimer = Math.max(target.stunTimer || 0, tower.freezeMs);
-        target.frozen = true;
-        const freeze = tower.freezeMs;
-        s.time.delayedCall(freeze, () => {
-          if (target.alive) target.frozen = false;
-        });
+        this._applyFreeze(target, tower.freezeMs);
       }
     }
 
     s.sound.play('towerFires', { volume: sfxVol('towerFires') });
+  }
+
+  /** Freeze until-timestamp so a later re-apply is not cleared by an earlier delayedCall. */
+  _applyFreeze(target, freezeMs) {
+    const s = this.scene;
+    const until = (s.time?.now ?? 0) + freezeMs;
+    target.frozenUntil = Math.max(target.frozenUntil || 0, until);
+    target.frozen = true;
+    const token = target.frozenUntil;
+    s.time.delayedCall(freezeMs, () => {
+      if (!target.alive) return;
+      if ((target.frozenUntil || 0) > token) return;
+      if ((s.time?.now ?? 0) < (target.frozenUntil || 0)) return;
+      target.frozen = false;
+    });
   }
 
   showAoEPulse(tower) {
@@ -201,11 +247,7 @@ export class TowerCombat {
 
     if (tower.freezeMs > 0 && !GameConfig.enemies[target.type]?.immuneToStun) {
       target.stunTimer = Math.max(target.stunTimer || 0, tower.freezeMs);
-      target.frozen = true;
-      const freeze = tower.freezeMs;
-      s.time.delayedCall(freeze, () => {
-        if (target.alive) target.frozen = false;
-      });
+      this._applyFreeze(target, tower.freezeMs);
     }
   }
 
@@ -580,8 +622,24 @@ export class TowerCombat {
     const s = this.scene;
     const config = GameConfig.enemies[type];
     const spriteKey = ENEMY_SPRITES[type];
+    if (!config || !spriteKey) {
+      console.warn(`[TowerCombat] Cannot spawn split "${type}": missing config/sprite.`);
+      return;
+    }
     const sx = x + Phaser.Math.FloatBetween(-8, 8);
     const sy = y + Phaser.Math.FloatBetween(-8, 8);
+
+    let hp = config.hp;
+    let speed = config.speed * (config.speedBonus ?? 1);
+    const zone = s.zone;
+    if (zone < GameConfig.zones.length) {
+      const scale = GameConfig.campaignHpScale;
+      const zoneMult = scale?.perZone?.[zone] ?? 1;
+      const battleMult = 1 + (s.battle ?? 0) * (scale?.perBattleInZone ?? 0);
+      hp = Math.round(hp * zoneMult * battleMult);
+    }
+    const windMult = s.battleModifiers?.wind ? (s.battleModifiers.windSpeedMult ?? 1.15) : 1;
+    speed *= windMult;
 
     const sprite = s.add.image(sx, sy, spriteKey)
       .setDisplaySize(TILE - 12, TILE - 12)
@@ -590,9 +648,9 @@ export class TowerCombat {
     const enemy = {
       type,
       sprite,
-      hp: config.hp,
-      maxHp: config.hp,
-      speed: config.speed,
+      hp,
+      maxHp: hp,
+      speed,
       reward: config.reward,
       damage: config.damage,
       x: sx,
@@ -601,6 +659,7 @@ export class TowerCombat {
       slowTimer: 0,
       slowPercent: 0,
       stunTimer: 0,
+      frozen: false,
       alive: true,
       attackTimer: 0,
       flies: config.flies ?? false,

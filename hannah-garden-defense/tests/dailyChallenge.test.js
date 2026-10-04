@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { dailyChallengeDateKey, dailyChallengeSeed, dailyChallengeMap } from '../src/utils/dailyChallenge.js';
+import {
+  dailyChallengeDateKey,
+  dailyChallengeSeed,
+  dailyChallengeMap,
+  clampDailyMapToUnlocked,
+} from '../src/utils/dailyChallenge.js';
 
 describe('dailyChallenge', () => {
   it('uses local YYYY-MM-DD date key', () => {
@@ -22,5 +27,11 @@ describe('dailyChallenge', () => {
     const a = dailyChallengeMap(new Date(2026, 6, 5));
     const b = dailyChallengeMap(new Date(2026, 6, 6));
     expect(`${a.zone}-${a.battle}`).not.toBe(`${b.zone}-${b.battle}`);
+  });
+
+  it('clamps daily maps to unlocked zones (no Berry/Orchard early)', () => {
+    expect(clampDailyMapToUnlocked({ zone: 4, battle: 0 }, 2)).toEqual({ zone: 2, battle: 0 });
+    expect(clampDailyMapToUnlocked({ zone: 3, battle: 2 }, 2).zone).toBe(2);
+    expect(dailyChallengeMap(new Date(2026, 6, 4), { maxUnlockedZone: 2 }).zone).toBeLessThanOrEqual(2);
   });
 });

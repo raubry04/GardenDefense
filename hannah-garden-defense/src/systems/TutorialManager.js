@@ -351,7 +351,7 @@ export class TutorialManager {
     this.active = true;
     this.currentStep = 0;
     this._bindActionListeners();
-    // Pause-menu HOW TO PLAY must unpause so place/drag still works.
+    // Close pause chrome for place/drag; GameScene keeps combat frozen.
     this.scene.game.events.emit('tutorial-replay-request');
     this._emitTutorialState(true);
     this._showStep();

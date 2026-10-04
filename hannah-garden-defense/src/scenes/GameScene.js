@@ -31,8 +31,13 @@ export class GameScene extends Phaser.Scene {
 
   init(data) {
     this.mode = data.mode ?? 'campaign';
+    this.playerName = data.playerName || 'Player';
+    const progress = loadLocalProgress(this.playerName);
+
     if (this.mode === 'daily') {
-      const daily = dailyChallengeParams();
+      const daily = dailyChallengeParams(new Date(), {
+        maxUnlockedZone: progress.unlockedZone ?? 0,
+      });
       this.zone = daily.zone;
       this.battle = daily.battle;
       this._waveSeed = daily.seed;
@@ -41,9 +46,6 @@ export class GameScene extends Phaser.Scene {
       this.zone = data.zone ?? 0;
       this.battle = data.battle ?? 0;
     }
-    this.playerName = data.playerName || 'Player';
-
-    const progress = loadLocalProgress(this.playerName);
     this.hannahLevel = progress.hannahLevel ?? hannahLevelFromXp(progress.hannahXp ?? 0);
     this.hannahXp = 0;
     this.battleXpStart = progress.hannahXp ?? 0;
@@ -164,7 +166,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    if (this.paused) return;
+    // Tutorial freezes combat (placement still allowed via TowerPlacement).
+    if (this.paused || this._tutorialActive) return;
     // Battle decided (victory queued or defeat handled): freeze combat/enemy
     // movement so a last-frame gate leak can't flip a win into a loss (or vice versa).
     if (isBattleTerminal(this)) return;
@@ -188,6 +191,7 @@ export class GameScene extends Phaser.Scene {
     return buildCanvasMapData(this.zone, cols, rows, TILE, {
       centerLayout: true,
       expandPlayable: false,
+      bottomReserveRows: 3,
       reversePath: !!mods.reversePath,
       mirrorPath: !!mods.mirrorPath,
       layoutId: mods.layoutId || null,
@@ -244,13 +248,14 @@ export class GameScene extends Phaser.Scene {
         const roll = rng.frac();
         // Grass exists only in a narrow ring around the path — skip large trees on
         // path-adjacent tiles only; other props fill the lawn normally.
-        if (roll < 0.16 && !this._isAdjacentToPath(r, c)) {
+        const pathAdj = this._isAdjacentToPath(r, c);
+        if (roll < 0.16 && !pathAdj) {
           this._drawTreeDecoration(cx, cy, rng);
-        } else if (roll < 0.34) {
+        } else if (roll < 0.34 && !pathAdj) {
           this._drawBushDecoration(cx, cy, rng);
-        } else if (roll < 0.42) {
+        } else if (roll < 0.42 && !pathAdj) {
           this._drawRockDecoration(cx, cy, rng);
-        } else if (roll < 0.55) {
+        } else if (roll < 0.55 && !pathAdj) {
           this._drawDecorProp(cx, cy, rng);
         }
       }
@@ -352,6 +357,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   _drawRockDecoration(cx, cy, rng) {
+    if (this._isNearGate(cx, cy)) return null;
     const key = this._pickPropKey(ROCK_KEYS);
     if (!key) return null;
     // Keep rocks large enough to read as rocks, not grey dots.
@@ -379,6 +385,8 @@ export class GameScene extends Phaser.Scene {
   /* ─── Garden gate ─── */
 
   _drawZoneMoodOverlay() {
+    // Above grass/décor (depth 0–2), below gate/spawn/units (11+).
+    const moodDepth = 5;
     const mods = this.battleModifiers;
     if (mods?.nightTint) {
       this.add.rectangle(
@@ -386,7 +394,7 @@ export class GameScene extends Phaser.Scene {
         this.worldWidth, this.worldHeight,
         mods.nightTintColor ?? 0x1a2848,
         mods.nightTintAlpha ?? 0.22,
-      ).setDepth(1).setScrollFactor(1);
+      ).setDepth(moodDepth).setScrollFactor(1);
       return;
     }
     const tints = GameConfig.zoneMoodTints ?? [];
@@ -399,7 +407,7 @@ export class GameScene extends Phaser.Scene {
       this.worldWidth / 2, this.worldHeight / 2,
       this.worldWidth, this.worldHeight,
       color, 0.06,
-    ).setDepth(1).setScrollFactor(1);
+    ).setDepth(moodDepth).setScrollFactor(1);
   }
 
   _drawPathEdgeDecals() {
@@ -558,75 +566,112 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
-    this.game.events.on('tower-selected', (towerType) => {
-      this.selectedTower = towerType;
-      this.towerPlacement.createGhostPreview(towerType);
-    });
-
-    this.game.events.on('tower-deselected', () => {
-      this.towerPlacement.clearTowerSelection();
-    });
-
-    this.game.events.on('tower-drag-start', (towerType) => {
-      this.selectedTower = towerType;
-      this.towerPlacement.createGhostPreview(towerType);
-    });
-
-    this.game.events.on('tower-drag-move', (pointer) => {
-      if (!this.selectedTower || !pointer) return;
-      this.towerPlacement.ensureGhostPreview();
-      const { col, row } = this.towerPlacement.placementTileFromPointer(pointer);
-      this.towerPlacement.updateGhostAt(col, row);
-    });
-
-    this.game.events.on('tower-drag-end', (pointer) => {
-      if (!this.selectedTower || !pointer) return;
-      this.towerPlacement.handleTowerPlacement(pointer);
-      this.towerPlacement.clearTowerSelection();
-    });
-
-    this.game.events.on('tower-drag-cancel', () => {
-      this.towerPlacement.clearTowerSelection();
-    });
-
-    this.game.events.on('tower-place-request', (pointer) => {
-      if (this.towerInspect?.isOpen()) return;
-      if (!this.selectedTower || !pointer) return;
-      const placed = this.towerPlacement.handleTowerPlacement(pointer);
-      if (placed) this.towerPlacement.clearTowerSelection();
-    });
-
-    this.game.events.on('send-wave-early', () => {
-      const sent = this.waveManager.sendWaveEarly();
-      if (!sent) {
-        this.game.events.emit('wave-send-rejected', { reason: 'not-ready' });
-      }
-    });
-
-    this.game.events.on('tutorial-state-changed', (data) => {
-      this._tutorialActive = !!data.active;
-      this.waveManager?.setPaused(data.active);
-    });
-
-    this.game.events.on('tutorial-replay-request', () => {
-      // Close pause menu so gated place/drag can reach the board.
-      if (this.paused) this._togglePause();
-    });
-
-    this.game.events.on('battle-speed-changed', (data) => {
-      this._battleSpeed = data.speed ?? 1;
-      if (!this.paused) {
-        this.time.timeScale = this._battleSpeed;
-      }
-    });
-
+    this.game.events.on('tower-selected', this._onTowerSelected);
+    this.game.events.on('tower-deselected', this._onTowerDeselected);
+    this.game.events.on('tower-drag-start', this._onTowerDragStart);
+    this.game.events.on('tower-drag-move', this._onTowerDragMove);
+    this.game.events.on('tower-drag-end', this._onTowerDragEnd);
+    this.game.events.on('tower-drag-cancel', this._onTowerDragCancel);
+    this.game.events.on('tower-place-request', this._onTowerPlaceRequest);
+    this.game.events.on('send-wave-early', this._onSendWaveEarly);
+    this.game.events.on('tutorial-state-changed', this._onTutorialStateChanged);
+    this.game.events.on('tutorial-replay-request', this._onTutorialReplayRequest);
+    this.game.events.on('battle-speed-changed', this._onBattleSpeedChanged);
     this.game.events.on('hannah-level-changed', this._onHannahLevelChanged);
   }
+
+  _onTowerSelected = (towerType) => {
+    this.selectedTower = towerType;
+    this.towerPlacement.createGhostPreview(towerType);
+  };
+
+  _onTowerDeselected = () => {
+    this.towerPlacement.clearTowerSelection();
+  };
+
+  _onTowerDragStart = (towerType) => {
+    this.selectedTower = towerType;
+    this.towerPlacement.createGhostPreview(towerType);
+  };
+
+  _onTowerDragMove = (pointer) => {
+    if (!this.selectedTower || !pointer) return;
+    this.towerPlacement.ensureGhostPreview();
+    const { col, row } = this.towerPlacement.placementTileFromPointer(pointer);
+    this.towerPlacement.updateGhostAt(col, row);
+  };
+
+  _onTowerDragEnd = (pointer) => {
+    if (!this.selectedTower || !pointer) return;
+    this.towerPlacement.handleTowerPlacement(pointer);
+    this.towerPlacement.clearTowerSelection();
+  };
+
+  _onTowerDragCancel = () => {
+    this.towerPlacement.clearTowerSelection();
+  };
+
+  _onTowerPlaceRequest = (pointer) => {
+    if (this.towerInspect?.isOpen()) return;
+    if (!this.selectedTower || !pointer) return;
+    const placed = this.towerPlacement.handleTowerPlacement(pointer);
+    if (placed) this.towerPlacement.clearTowerSelection();
+  };
+
+  _onSendWaveEarly = () => {
+    const sent = this.waveManager.sendWaveEarly();
+    if (!sent) {
+      this.game.events.emit('wave-send-rejected', { reason: 'not-ready' });
+    }
+  };
+
+  _onTutorialStateChanged = (data) => {
+    const active = !!data?.active;
+    if (active && !this._tutorialActive) {
+      this._timeScaleBeforeTutorial = this.time.timeScale;
+      this.time.timeScale = battleTimeScaleWhenPaused();
+      // Tutorial owns combat freeze — clear menu-pause if chrome already closed
+      // so ESC/pause can open the menu again mid-guide.
+      if (!this.pauseOverlay) this.paused = false;
+    } else if (!active && this._tutorialActive) {
+      if (this.paused) {
+        this.time.timeScale = battleTimeScaleWhenPaused();
+      } else {
+        this.time.timeScale = battleTimeScaleWhenRunning(this._battleSpeed);
+      }
+      this._timeScaleBeforeTutorial = null;
+    }
+    this._tutorialActive = active;
+    this.waveManager?.setPaused(!!this._tutorialActive || this.paused);
+  };
+
+  _onTutorialReplayRequest = () => {
+    // Close pause chrome so place/drag can reach the board — do NOT unpause combat.
+    // Enemies stay frozen via upcoming tutorial-state-changed (_tutorialActive).
+    this._closePauseOverlayOnly();
+  };
+
+  _onBattleSpeedChanged = (data) => {
+    this._battleSpeed = data.speed ?? 1;
+    if (!this.paused && !this._tutorialActive) {
+      this.time.timeScale = this._battleSpeed;
+    }
+  };
 
   _onHannahLevelChanged = (data) => {
     this.hannahLevel = data.level ?? this.hannahLevel;
     this.hannahPassives = this._computeHannahPassives(this.hannahLevel);
   };
+
+  /** Drop pause menu UI without resuming combat (used by mid-battle HOW TO PLAY). */
+  _closePauseOverlayOnly() {
+    if (this.pauseOverlay) {
+      this.pauseOverlay.forEach((obj) => obj.destroy());
+      this.pauseOverlay = null;
+    }
+    this._teardownPauseSettings();
+    if (this.scene.isActive('UIScene')) this.scene.bringToTop('UIScene');
+  }
 
   _emitWaveCooldownIfChanged() {
     const wm = this.waveManager;
@@ -780,9 +825,15 @@ export class GameScene extends Phaser.Scene {
     const centerY = view.centerY;
 
     if (this.paused) {
+      this._teardownPauseSettings();
       this.paused = false;
-      this.time.timeScale = battleTimeScaleWhenRunning(this._battleSpeed);
-      this.waveManager?.setPaused(false);
+      // Resume must not clear wave/combat freeze while the tutorial is still active.
+      if (this._tutorialActive) {
+        this.time.timeScale = battleTimeScaleWhenPaused();
+      } else {
+        this.time.timeScale = battleTimeScaleWhenRunning(this._battleSpeed);
+      }
+      this.waveManager?.setPaused(!!this._tutorialActive || this.paused);
       if (this.pauseOverlay) {
         this.pauseOverlay.forEach(obj => obj.destroy());
         this.pauseOverlay = null;
@@ -793,7 +844,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.paused = true;
-    this.waveManager?.setPaused(true);
+    this.waveManager?.setPaused(!!this._tutorialActive || this.paused);
     this.time.timeScale = battleTimeScaleWhenPaused();
     // Pause UI lives on GameScene — bring it above UIScene or the menu is
     // invisible under the HUD and taps look like a dead pause button.
@@ -855,14 +906,21 @@ export class GameScene extends Phaser.Scene {
   _openPauseSettings() {
     import('../ui/SettingsPanel.js').then(({ createSettingsPanel }) => {
       if (!this.sys?.isActive?.()) return;
-      createSettingsPanel(this, { depth: 210 });
+      this._teardownPauseSettings();
+      this._pauseSettingsPanel = createSettingsPanel(this, { depth: 210 });
     });
+  }
+
+  _teardownPauseSettings() {
+    this._pauseSettingsPanel?.destroy?.();
+    this._pauseSettingsPanel = null;
   }
 
   /* ─── Cleanup ─── */
 
   shutdown() {
     SceneMusicManager.restore(this);
+    this._teardownPauseSettings();
     this.abilityController?.destroy();
     this.battleVfx?.destroy();
     this.bossBanner?.destroy();
@@ -871,9 +929,6 @@ export class GameScene extends Phaser.Scene {
     if (this.selectedTower) {
       this.game.events.emit('tower-deselected');
     }
-    if (this._onHannahLevelChanged) {
-      this.game.events.off('hannah-level-changed', this._onHannahLevelChanged);
-    }
     // Scene-local events are NOT auto-cleared by Phaser on shutdown (only on destroy).
     // The scene instance is reused across battles, so these must be removed or they
     // duplicate on replay (double enemy spawns, double wave bonuses, etc.).
@@ -881,14 +936,18 @@ export class GameScene extends Phaser.Scene {
     this.events.off('wave-start');
     this.events.off('wave-complete');
     this.events.off('battle-complete');
-    this.game.events.off('tower-selected');
-    this.game.events.off('tower-deselected');
-    this.game.events.off('tower-drag-start');
-    this.game.events.off('tower-drag-move');
-    this.game.events.off('tower-drag-end');
-    this.game.events.off('tower-drag-cancel');
-    this.game.events.off('tower-place-request');
-    this.game.events.off('send-wave-early');
+    this.game.events.off('tower-selected', this._onTowerSelected);
+    this.game.events.off('tower-deselected', this._onTowerDeselected);
+    this.game.events.off('tower-drag-start', this._onTowerDragStart);
+    this.game.events.off('tower-drag-move', this._onTowerDragMove);
+    this.game.events.off('tower-drag-end', this._onTowerDragEnd);
+    this.game.events.off('tower-drag-cancel', this._onTowerDragCancel);
+    this.game.events.off('tower-place-request', this._onTowerPlaceRequest);
+    this.game.events.off('send-wave-early', this._onSendWaveEarly);
+    this.game.events.off('tutorial-state-changed', this._onTutorialStateChanged);
+    this.game.events.off('tutorial-replay-request', this._onTutorialReplayRequest);
+    this.game.events.off('battle-speed-changed', this._onBattleSpeedChanged);
+    this.game.events.off('hannah-level-changed', this._onHannahLevelChanged);
     this.game.events.off('ability-used');
     if (this._onTogglePause) {
       this.game.events.off('toggle-pause', this._onTogglePause);
@@ -898,9 +957,6 @@ export class GameScene extends Phaser.Scene {
     }
     this.input.keyboard?.off('keydown-ESC', this._onEscKey);
     this._onEscKey = null;
-    this.game.events.off('tutorial-state-changed');
-    this.game.events.off('tutorial-replay-request');
-    this.game.events.off('battle-speed-changed');
     this._tutorialActive = false;
     this._spawnMarkerGlowTween?.remove();
     this._spawnMarkerArrowTween?.remove();

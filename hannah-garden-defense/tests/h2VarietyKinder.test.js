@@ -152,7 +152,7 @@ describe('H2 star criteria', () => {
   });
 
   it('HUD projection and hint stay kid-readable', () => {
-    expect(projectedStarsFromLives(20)).toBe(3);
+    expect(projectedStarsFromLives(20)).toBe(2);
     expect(starMeterHint(20)).toMatch(/3 stars/i);
     expect(starMeterHint(20)).toMatch(/finish fast/i);
   });

@@ -1,5 +1,5 @@
 import { GameConfig } from '../config.js';
-import { HUD_PANEL_ALPHA, TEXT_GOLD, TEXT_ON_DARK } from '../utils/textReadability.js';
+import { HUD_PANEL_ALPHA, HUD_PANEL_FILL, HUD_PANEL_STROKE, TEXT_ON_LIGHT, TEXT_GARDEN } from '../utils/textReadability.js';
 import { formatTowerStats, towerDisplayName } from './towerStats.js';
 import { TILE, COLORS } from './battleConstants.js';
 
@@ -52,35 +52,35 @@ export class TowerInspect {
     const name = towerDisplayName(tower.type);
     const tierStars = tower.tier > 0 ? ' ' + '★'.repeat(Math.min(tower.tier, 3)) : '';
 
-    const bg = s.add.rectangle(panelX, panelY, PANEL_W, PANEL_H, 0x1a2e14, HUD_PANEL_ALPHA)
-      .setStrokeStyle(2, COLORS.stars)
+    const bg = s.add.rectangle(panelX, panelY, PANEL_W, PANEL_H, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
+      .setStrokeStyle(2, HUD_PANEL_STROKE)
       .setDepth(210);
     this._objects.push(bg);
 
     const title = s.add.text(panelX, panelY - 58, `${name}${tierStars}`, {
       fontFamily: 'Kenney Future',
       fontSize: '16px',
-      color: TEXT_GOLD,
+      color: TEXT_GARDEN,
       align: 'center',
       wordWrap: { width: 170 },
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
+      shadow: { offsetX: 1, offsetY: 1, color: '#C8B890', blur: 0, fill: true },
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(title);
 
     const statText = s.add.text(panelX, panelY - 30, stats.join('\n'), {
       fontFamily: 'Kenney Future',
       fontSize: '13px',
-      color: TEXT_ON_DARK,
+      color: TEXT_ON_LIGHT,
       align: 'center',
       lineSpacing: 3,
-      shadow: { offsetX: 1, offsetY: 1, color: '#000', blur: 2, fill: true },
+      shadow: { offsetX: 1, offsetY: 1, color: '#C8B890', blur: 0, fill: true },
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(statText);
 
     const note = s.add.text(panelX, panelY + 34, 'Upgrade after battle', {
       fontFamily: 'Kenney Future',
       fontSize: '12px',
-      color: '#A8DADC',
+      color: TEXT_GARDEN,
       align: 'center',
     }).setOrigin(0.5, 0).setDepth(211);
     this._objects.push(note);

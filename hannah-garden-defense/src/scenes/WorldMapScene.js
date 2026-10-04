@@ -3,7 +3,16 @@ import { setupResponsiveCamera, DESIGN, getSafeTop } from '../utils/responsiveCa
 import { getSafeInsets } from '../utils/mobileViewport.js';
 import { loadLocalProgress, loadProgress, loadPlayerName, availableMetaBank } from '../utils/hannahProgress.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
-import { TEXT_ON_DARK, FONT_DISPLAY, FONT_HUD, TEXT_SOFT_SHADOW } from '../utils/textReadability.js';
+import {
+  TEXT_ON_LIGHT,
+  TEXT_ON_DARK,
+  TEXT_GOLD,
+  FONT_DISPLAY,
+  FONT_HUD,
+  crispUiStyle,
+  snapText,
+  addCreamTextChip,
+} from '../utils/textReadability.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
 import { showToast } from '../ui/Toast.js';
 import { isExtraModesUnlocked, extraModesLockMessage } from '../utils/modesUnlock.js';
@@ -12,7 +21,7 @@ import { dailyChallengeParams } from '../utils/dailyChallenge.js';
 
 const COLORS = GameConfig.colors;
 const ZONES = GameConfig.zones;
-/** Locked zone / mode labels — cream on dark bars (not mid-grey). */
+/** Locked zone / mode labels — cream on colored zone bars. */
 const LOCKED_LABEL = TEXT_ON_DARK;
 
 export class WorldMapScene extends Phaser.Scene {
@@ -101,34 +110,27 @@ export class WorldMapScene extends Phaser.Scene {
   _drawHeader(width, progress) {
     const startIdx = this.children.list.length;
     // Tight top margin — header sits just under the safe inset (not dropped).
-    const headerH = 72;
-    const headerTop = getSafeTop() + 6;
-    const headerY = headerTop + headerH / 2;
+    // Tall enough for Hannah Lv under the name line in landscape.
+    const headerH = 84;
+    const headerTop = Math.round(getSafeTop() + 6);
+    const headerY = Math.round(headerTop + headerH / 2);
     const uiDepth = 20;
-
-    this.add.rectangle(width / 2, headerY, width - 32, headerH, 0x1a2e14, 0.96)
-      .setStrokeStyle(3, 0x4C9A2A)
-      .setDepth(uiDepth);
 
     this.add.circle(52, headerY, 22, COLORS.primary)
       .setStrokeStyle(2, COLORS.outline)
       .setDepth(uiDepth + 1);
     const avatarInitial = (this.playerName || 'H').charAt(0).toUpperCase();
-    this.add.text(52, headerY, avatarInitial, {
-      fontFamily: FONT_DISPLAY,
-      fontSize: '22px',
-      color: '#FFF9E6',
-    }).setOrigin(0.5).setDepth(uiDepth + 2);
+    snapText(this.add.text(52, headerY, avatarInitial, {
+      ...crispUiStyle('22px', '#FFF9E6'),
+    }).setOrigin(0.5).setDepth(uiDepth + 2));
 
-    // Single-line name + level — no wordWrap (it was clipping mid-name under décor).
+    // Future + cream chip on grass — Pixel + fractional zoom was muddy for kids.
+    // No cream strokeThickness (halos crush glyphs); chip is a tight plate only.
     const nameMaxW = Math.max(120, width - 300);
     const rawName = `${this.playerName || ''}`;
-    const nameText = this.add.text(84, headerY - 14, rawName, {
-      fontFamily: FONT_DISPLAY,
-      fontSize: '26px',
-      color: '#FFF9E6',
-      shadow: { ...TEXT_SOFT_SHADOW, color: '#000' },
-    }).setOrigin(0, 0.5).setDepth(uiDepth + 2);
+    const nameText = snapText(this.add.text(84, headerY - 16, rawName, {
+      ...crispUiStyle('24px', TEXT_ON_LIGHT),
+    }).setOrigin(0, 0.5).setDepth(uiDepth + 2));
     if (nameText.width > nameMaxW) {
       let truncated = rawName;
       while (truncated.length > 1 && nameText.width > nameMaxW) {
@@ -137,12 +139,15 @@ export class WorldMapScene extends Phaser.Scene {
       }
     }
 
-    this.add.text(84, headerY + 16, `Hannah Lv.${progress.hannahLevel}`, {
-      fontFamily: FONT_DISPLAY,
-      fontSize: '18px',
-      color: '#A8DADC',
-      shadow: { ...TEXT_SOFT_SHADOW, color: '#000' },
-    }).setOrigin(0, 0.5).setDepth(uiDepth + 2);
+    const levelText = snapText(this.add.text(84, headerY + 14, `Hannah Lv. ${progress.hannahLevel}`, {
+      ...crispUiStyle('22px', TEXT_ON_LIGHT),
+    }).setOrigin(0, 0.5).setDepth(uiDepth + 2));
+
+    addCreamTextChip(this, [nameText, levelText], {
+      padX: 12,
+      padY: 7,
+      depth: uiDepth + 1,
+    });
 
     if (this.textures.exists('ui_sunshine')) {
       this.add.image(width - 130, headerY, 'ui_sunshine')
@@ -153,12 +158,10 @@ export class WorldMapScene extends Phaser.Scene {
         .setStrokeStyle(2, COLORS.outline)
         .setDepth(uiDepth + 1);
     }
-    this.add.text(width - 110, headerY, `${availableMetaBank(progress)}`, {
-      fontFamily: FONT_HUD,
-      fontSize: '26px',
-      color: '#FFD700',
-      shadow: { ...TEXT_SOFT_SHADOW, color: '#000' },
-    }).setOrigin(0, 0.5).setName('sunshineText').setDepth(uiDepth + 2);
+    const sunText = snapText(this.add.text(width - 110, headerY, `${availableMetaBank(progress)}`, {
+      ...crispUiStyle('26px', TEXT_GOLD),
+    }).setOrigin(0, 0.5).setName('sunshineText').setDepth(uiDepth + 2));
+    addCreamTextChip(this, sunText, { padX: 8, padY: 4, depth: uiDepth + 1 });
     this._headerBottom = headerTop + headerH;
     this._markProgressUi(startIdx);
   }
@@ -170,12 +173,13 @@ export class WorldMapScene extends Phaser.Scene {
 
   _drawZones(width, height, progress) {
     const startIdx = this.children.list.length;
-    // Tighter bars so 6 zones + Endless/Daily still clear BACK / bottom inset.
-    const zoneHeight = ZONES.length >= 6 ? 68 : 78;
-    const zoneGap = ZONES.length >= 6 ? 6 : 8;
-    // Pull Zone 1 up under the header — ~16px gap, not a huge empty band.
-    const headerBottom = this._headerBottom ?? (getSafeTop() + 6 + 72);
-    const startY = headerBottom + 16 + zoneHeight / 2;
+    // Tall enough for Zone / name / mastery (20px) without clipping; gap
+    // stays tight so 6 zones + Endless/Daily still clear BACK / bottom inset.
+    const zoneHeight = ZONES.length >= 6 ? 78 : 86;
+    const zoneGap = ZONES.length >= 6 ? 5 : 8;
+    // Pull Zone 1 up under the header — ~12px gap, not a huge empty band.
+    const headerBottom = this._headerBottom ?? (getSafeTop() + 6 + 84);
+    const startY = headerBottom + 12 + zoneHeight / 2;
     const zoneWidth = width * 0.75;
     const uiDepth = 20;
     const zoneColors = [0x7EC850, 0x8BC34A, 0x66BB6A, 0xAB47BC, 0xFF7043, 0xFFB74D];
@@ -235,16 +239,17 @@ export class WorldMapScene extends Phaser.Scene {
       }
 
       if (unlocked) {
-        this.add.text(width / 2 - zoneWidth / 2 + 50, y - 20, `${zoneEmojis[i]} Zone ${i + 1}`, {
+        // Cream fill + thin dark shadow on green bars — never cream stroke (smears Pixel).
+        this.add.text(width / 2 - zoneWidth / 2 + 50, y - 22, `${zoneEmojis[i]} Zone ${i + 1}`, {
           fontFamily: FONT_DISPLAY,
           fontSize: '24px',
           color: '#FFF9E6',
         }).setOrigin(0, 0.5).setShadow(0, 2, '#1c3a0e', 3).setDepth(uiDepth + 2);
 
-        this.add.text(width / 2 - zoneWidth / 2 + 50, y + 2,
+        this.add.text(width / 2 - zoneWidth / 2 + 50, y + 0,
           ZONES[i].seasonal ? `${ZONES[i].name} · Season` : ZONES[i].name, {
           fontFamily: FONT_DISPLAY,
-          fontSize: '19px',
+          fontSize: '20px',
           color: '#FFF9E6',
           alpha: 1,
         }).setOrigin(0, 0.5).setShadow(0, 1, '#1c3a0e', 3).setDepth(uiDepth + 2);
@@ -274,22 +279,22 @@ export class WorldMapScene extends Phaser.Scene {
 
         if (stars < maxStars) {
           const remaining = maxStars - stars;
-          this.add.text(width / 2 - zoneWidth / 2 + 50, y + 24,
+          this.add.text(width / 2 - zoneWidth / 2 + 50, y + 26,
             `${remaining} star${remaining === 1 ? '' : 's'} to perfect this zone`,
             {
               fontFamily: FONT_DISPLAY,
-              fontSize: '18px',
+              fontSize: '20px',
               color: '#FFE135',
               alpha: 1,
-            }).setOrigin(0, 0.5).setShadow(0, 1, '#1c3a0e', 3).setDepth(uiDepth + 2);
+            }).setOrigin(0, 0.5).setShadow(0, 2, '#1c3a0e', 3).setDepth(uiDepth + 2);
         } else {
           const badge = GameConfig.zoneMasteryBadges?.[i];
           if (badge) {
-            this.add.text(width / 2 - zoneWidth / 2 + 50, y + 24, `🏅 ${badge}`, {
+            this.add.text(width / 2 - zoneWidth / 2 + 50, y + 26, `🏅 ${badge}`, {
               fontFamily: FONT_DISPLAY,
-              fontSize: '14px',
+              fontSize: '20px',
               color: '#FFD700',
-            }).setOrigin(0, 0.5).setShadow(0, 1, '#1c3a0e', 2).setDepth(uiDepth + 2);
+            }).setOrigin(0, 0.5).setShadow(0, 2, '#1c3a0e', 3).setDepth(uiDepth + 2);
           }
         }
 
@@ -325,11 +330,9 @@ export class WorldMapScene extends Phaser.Scene {
 
         this.add.text(width / 2 + zoneWidth / 2 - 24, y, 'LOCK', {
           fontFamily: FONT_DISPLAY,
-          fontSize: '16px',
+          fontSize: '18px',
           color: '#FFD700',
-          stroke: '#000000',
-          strokeThickness: 3,
-        }).setOrigin(1, 0.5).setDepth(uiDepth + 2);
+        }).setOrigin(1, 0.5).setShadow(0, 1, '#1c3a0e', 3).setDepth(uiDepth + 2);
       }
     }
 
@@ -373,11 +376,13 @@ export class WorldMapScene extends Phaser.Scene {
     }).setOrigin(0.5).setShadow(0, 1, '#000000', 3).setDepth(uiDepth + 2);
 
     if (endlessUnlocked) {
-      const daily = dailyChallengeParams();
+      const daily = dailyChallengeParams(new Date(), {
+        maxUnlockedZone: progress.unlockedZone ?? 0,
+      });
       const dailyZoneName = GameConfig.zones[daily.zone]?.name ?? 'Garden';
       this.add.text(width / 2, dailyY + 16, `${dailyZoneName} · B${daily.battle + 1}`, {
         fontFamily: FONT_DISPLAY,
-        fontSize: '16px',
+        fontSize: '18px',
         color: '#A8DADC',
       }).setOrigin(0.5).setDepth(uiDepth + 2);
     }
@@ -473,22 +478,25 @@ export class WorldMapScene extends Phaser.Scene {
     const startIdx = this.children.list.length;
     const insets = getSafeInsets();
     const { filled, total } = albumProgress(this.progress.collection);
-    const x = width - 70 - Math.max(8, insets.right);
-    const y = getSafeTop() + 100;
-    const bg = this.add.rectangle(x, y, 100, 44, 0x1565C0, 0.95)
+    const btnW = 136;
+    const btnH = 60;
+    const x = width - btnW / 2 - 12 - Math.max(8, insets.right);
+    const y = getSafeTop() + 108;
+    const bg = this.add.rectangle(x, y, btnW, btnH, 0x1565C0, 0.95)
       .setStrokeStyle(2, 0xffd700)
       .setInteractive({ useHandCursor: true })
       .setDepth(25);
-    this.add.text(x, y - 8, 'Album', {
+    // Light fill on blue chip — no cream stroke (crushes Pixel at chip size).
+    this.add.text(x, y - 10, 'Album', {
       fontFamily: FONT_DISPLAY,
-      fontSize: '16px',
+      fontSize: '22px',
       color: '#FFF9E6',
-    }).setOrigin(0.5).setDepth(26);
-    this.add.text(x, y + 12, `${filled}/${total}`, {
+    }).setOrigin(0.5).setShadow(0, 1, '#0d2a4a', 2).setDepth(26);
+    this.add.text(x, y + 14, `${filled}/${total}`, {
       fontFamily: FONT_HUD,
-      fontSize: '14px',
+      fontSize: '20px',
       color: '#FFD700',
-    }).setOrigin(0.5).setDepth(26);
+    }).setOrigin(0.5).setShadow(0, 1, '#0d2a4a', 2).setDepth(26);
     bg.on('pointerdown', () => {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
       this.scene.start('StickerBookScene', { playerName: this.playerName });
@@ -547,7 +555,7 @@ export class WorldMapScene extends Phaser.Scene {
         ? '★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars))
         : '☆☆☆';
       const starText = this.add.text(bx, btnY + 20, starStr, {
-        fontFamily: FONT_DISPLAY, fontSize: '12px',
+        fontFamily: FONT_DISPLAY, fontSize: '16px',
         color: stars > 0 ? '#FFE135' : (unlocked ? '#666666' : '#C8C8C8'),
       }).setOrigin(0.5).setDepth(303);
       objects.push(starText);
@@ -565,9 +573,9 @@ export class WorldMapScene extends Phaser.Scene {
           yoyo: true,
           repeat: -1,
         });
-        const chaseLabel = this.add.text(bx, btnY - 38, 'Chase ★', {
+        const chaseLabel = this.add.text(bx, btnY - 40, 'Chase ★', {
           fontFamily: FONT_DISPLAY,
-          fontSize: '9px',
+          fontSize: '14px',
           color: '#FFE135',
         }).setOrigin(0.5).setDepth(303);
         objects.push(chaseLabel);
@@ -591,10 +599,10 @@ export class WorldMapScene extends Phaser.Scene {
       }
     }
 
-    const closeBg = this.add.rectangle(width / 2, height / 2 + panelH / 2 - 32, 120, 36, 0xE63946)
+    const closeBg = this.add.rectangle(width / 2, height / 2 + panelH / 2 - 32, 128, 40, 0xE63946)
       .setStrokeStyle(2, COLORS.outline).setInteractive({ useHandCursor: true }).setDepth(302);
     const closeText = this.add.text(width / 2, height / 2 + panelH / 2 - 32, 'CLOSE', {
-      fontFamily: FONT_DISPLAY, fontSize: '16px', color: '#FFFFFF',
+      fontFamily: FONT_DISPLAY, fontSize: '18px', color: '#FFFFFF',
     }).setOrigin(0.5).setDepth(303);
     objects.push(closeBg, closeText);
 

@@ -208,9 +208,7 @@ export class UIScene extends Phaser.Scene {
       if (data.total == null || data.wave < data.total) {
         this.abilityBar.setSendWaveVisible(true);
         this.abilityBar.sendWaveText.setText("NEXT WAVE");
-        this.abilityBar.sendWaveBonusText.setText("+10 BONUS");
-        this.abilityBar.sendWaveBonusText.setVisible(true);
-        this.abilityBar.sendWaveBonusBg?.setVisible(true);
+        this.abilityBar.resetSendWaveBonus();
       }
     });
 

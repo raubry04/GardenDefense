@@ -73,10 +73,10 @@ export class TowerTray {
           trayCenterY,
           width - 40,
           trayHeight,
-          0x1a2e14,
-          0.92,
+          0xFFF9E6,
+          0.94,
         )
-        .setStrokeStyle(3, 0xc9a227)
+        .setStrokeStyle(3, 0x4A2C0A)
         .setDepth(TRAY_DEPTH),
       trayCenterY,
     );
@@ -87,9 +87,9 @@ export class TowerTray {
         trayCenterY,
         width - 48,
         trayHeight - 8,
-        0x243a1c,
+        0xE8F5D0,
         0.55,
-      ).setStrokeStyle(1, 0xe8d5a3).setDepth(TRAY_DEPTH),
+      ).setStrokeStyle(1, 0xC9A227).setDepth(TRAY_DEPTH),
       trayCenterY,
     );
 
@@ -154,21 +154,20 @@ export class TowerTray {
             fontFamily: "Kenney Future",
             fontSize: "14px",
             // Locked: light grey (readable) — dark-on-dark was near-invisible.
-            color: unlocked ? (affordable ? "#FFFFFF" : "#C8C8C8") : "#D0D0D0",
+            color: unlocked ? (affordable ? "#4A2C0A" : "#666666") : "#888888",
           })
           .setOrigin(0.5)
-          .setShadow(0, 1, "#000000", 3)
+          .setShadow(0, 1, "#C8B890", 2)
           .setDepth(TRAY_DEPTH + 1),
         y,
         OFF.name,
       );
 
-      // Dark chip at the bottom of the card so the gold cost reads clearly
-      // over the animal sprite (near-opaque — sparse Kenney glyphs need it).
+      // Cream cost chip — readable over sprites without a black slab.
       const costBadge = trackPart(
         scene.add
-          .rectangle(x, y + OFF.costBadge.y, 56, 22, 0x1a1a1a, 0.92)
-          .setStrokeStyle(1.5, 0xffd700, 0.75)
+          .rectangle(x, y + OFF.costBadge.y, 56, 22, 0xFFF9E6, 0.95)
+          .setStrokeStyle(1.5, 0x4A2C0A, 0.85)
           .setDepth(TRAY_DEPTH + 1),
         y,
         OFF.costBadge,
@@ -187,10 +186,10 @@ export class TowerTray {
           .text(x + OFF.cost.x, y + OFF.cost.y, `${config.cost}`, {
             fontFamily: "Kenney Future",
             fontSize: "18px",
-            color: unlocked ? (affordable ? "#FFD700" : "#C8C8C8") : "#D0D0D0",
+            color: unlocked ? (affordable ? "#C47F00" : "#888888") : "#AAAAAA",
           })
           .setOrigin(0, 0.5)
-          .setShadow(0, 2, "#000000", 3)
+          .setShadow(0, 1, "#C8B890", 2)
           .setDepth(TRAY_DEPTH + 2),
         y,
         OFF.cost,
@@ -399,8 +398,8 @@ export class TowerTray {
       card.costText.setText(`${cost}`);
       const affordable = unlocked && scene.sunshinePoints >= cost;
       card.cardBg.setStrokeStyle(2, affordable ? 0x6c6f85 : 0x444444);
-      card.nameText.setColor(unlocked ? (affordable ? "#FFFFFF" : "#C8C8C8") : "#D0D0D0");
-      card.costText.setColor(unlocked ? (affordable ? "#FFD700" : "#C8C8C8") : "#D0D0D0");
+      card.nameText.setColor(unlocked ? (affordable ? "#4A2C0A" : "#666666") : "#888888");
+      card.costText.setColor(unlocked ? (affordable ? "#C47F00" : "#888888") : "#AAAAAA");
       card.costBadge?.setStrokeStyle(1.5, 0xffd700, unlocked && affordable ? 0.65 : 0.35);
       // Lighter dim for locked so name/cost stay readable under the lock badge.
       card.greyOverlay.setFillStyle(0x000000, unlocked && affordable ? 0 : unlocked ? 0.35 : 0.22);

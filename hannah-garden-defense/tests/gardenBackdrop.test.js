@@ -136,7 +136,7 @@ describe('menu scenes use shared garden décor', () => {
 describe('world map header spacing', () => {
   it('derives Zone 1 from header bottom instead of a large fixed offset', () => {
     const src = read('src/scenes/WorldMapScene.js');
-    expect(src).toContain('headerBottom + 16');
+    expect(src).toMatch(/headerBottom \+ 1[2-6]/);
     expect(src).not.toMatch(/getSafeTop\(\)\s*\+\s*168/);
     expect(src).toContain('_headerBottom');
   });

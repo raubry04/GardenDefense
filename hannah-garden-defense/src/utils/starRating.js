@@ -65,11 +65,12 @@ export function evaluateStarBonus(opts, bonusCfg = GameConfig.starBonus) {
 
 /**
  * Projected stars from lives only (in-battle meter; time bonus unknown yet).
- * Caps at 2 when lives would otherwise imply 3 — kid hint covers the bonus.
+ * Caps at 2 when lives would otherwise imply 3 — don't light 3 hearts until
+ * under-time is known at victory. Kid hint still teaches the bonus.
  * Prefer calculateStars at victory.
  */
 export function projectedStarsFromLives(lives, thresholds = GameConfig.starThresholds) {
-  if (lives >= (thresholds?.three ?? 15)) return 3;
+  if (lives >= (thresholds?.three ?? 15)) return 2;
   if (lives >= (thresholds?.two ?? 8)) return 2;
   if (lives > 0) return 1;
   return 0;
@@ -89,10 +90,11 @@ export function starMeterHint(lives, opts = {}) {
   const bonusHint = looksLikeThresholds
     ? (GameConfig.starBonus?.hint || 'Finish fast!')
     : (opts.bonusHint || GameConfig.starBonus?.hint || 'Finish fast!');
-  const stars = projectedStarsFromLives(lives, thresholds);
   const need3 = thresholds?.three ?? 15;
-  if (stars >= 3) return `Keep hearts & ${bonusHint.replace(/!$/, '').toLowerCase()} for 3 stars!`;
-  if (stars === 2) return `Need ${need3} hearts + ${bonusHint.replace(/!$/, '').toLowerCase()} for 3 stars`;
-  if (stars === 1) return `Need ${thresholds?.two ?? 8} hearts for 2 stars`;
+  const need2 = thresholds?.two ?? 8;
+  const bonusPhrase = bonusHint.replace(/!$/, '').toLowerCase();
+  if (lives >= need3) return `Keep hearts & ${bonusPhrase} for 3 stars!`;
+  if (lives >= need2) return `Need ${need3} hearts + ${bonusPhrase} for 3 stars`;
+  if (lives > 0) return `Need ${need2} hearts for 2 stars`;
   return 'Protect the gate!';
 }

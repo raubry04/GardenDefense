@@ -2,7 +2,7 @@ import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
 import { loadPlayerName } from '../utils/hannahProgress.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
-import { FONT_DISPLAY, titleTextStyle } from '../utils/textReadability.js';
+import { FONT_DISPLAY, titleTextStyle, TEXT_STROKE, TEXT_STROKE_THIN } from '../utils/textReadability.js';
 
 const COLORS = GameConfig.colors;
 
@@ -136,13 +136,12 @@ export class LeaderboardScene extends Phaser.Scene {
       zone: tableX + tableWidth * 0.88,
     };
 
-    this.add.rectangle(width / 2, startY + 14, tableWidth, 32, 0x1a2e14, 0.94)
-      .setDepth(uiDepth);
-
     const headerStyle = {
       fontFamily: FONT_DISPLAY,
       fontSize: '16px',
-      color: '#FFF9E6',
+      color: '#3D5A1F',
+      stroke: TEXT_STROKE,
+      strokeThickness: TEXT_STROKE_THIN,
     };
 
     this.add.text(colX.rank, startY + 14, '#', headerStyle).setOrigin(0, 0.5).setDepth(uiDepth + 1);

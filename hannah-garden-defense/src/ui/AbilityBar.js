@@ -2,11 +2,9 @@ import { GameConfig } from "../config.js";
 import { sfxVol } from "../utils/audioMix.js";
 import { setTouchFriendlyCircleHit } from "../utils/battleInput.js";
 import {
-  HUD_PANEL_ALPHA,
-  HUD_PANEL_FILL,
-  TEXT_ON_DARK,
-  TEXT_PILL_BG,
-  TEXT_PILL_PAD,
+  TEXT_ON_LIGHT,
+  readableHudStyle,
+  readableCaptionStyle,
 } from "../utils/textReadability.js";
 import { showToast } from "./Toast.js";
 import { battleAbilityKeys } from "../utils/collection.js";
@@ -23,15 +21,7 @@ const ABILITY_COLORS = {
   FLOWER_BOMB: 0xff69b4,
 };
 
-const ABILITY_LABELS = {
-  SUNSHINE_BURST: 'SUN',
-  GARDEN_RAIN: 'RAIN',
-  RAINBOW_SHIELD: 'SHLD',
-  SEED_STORM: 'SEED',
-  FLOWER_BOMB: 'BOMB',
-};
-
-/** Short names for status/tooltips; circle uses ABILITY_LABELS pictographs. */
+/** Short readable names drawn on ability circles (kid-friendly, not cryptic codes). */
 export const ABILITY_SHORT_NAMES = {
   SUNSHINE_BURST: 'Burst',
   GARDEN_RAIN: 'Rain',
@@ -39,6 +29,8 @@ export const ABILITY_SHORT_NAMES = {
   SEED_STORM: 'Seeds',
   FLOWER_BOMB: 'Bomb',
 };
+
+const ABILITY_LABELS = ABILITY_SHORT_NAMES;
 
 /** Kid-friendly ready / cooldown copy helpers (testable). */
 export function abilityReadyLabel(onCooldown, secondsLeft) {
@@ -106,19 +98,8 @@ export class AbilityBar {
       const nameLabel = trackY(
         scene.add
           .text(x - btnRadius - 10, y, '', {
-            fontFamily: "Kenney Future",
-            fontSize: "15px",
-            color: unlocked ? TEXT_ON_DARK : "#AAAAAA",
-            backgroundColor: TEXT_PILL_BG,
-            padding: { x: 6, y: 3 },
+            ...readableHudStyle('15px', unlocked ? TEXT_ON_LIGHT : "#888888"),
             align: "right",
-            shadow: {
-              offsetX: 1,
-              offsetY: 1,
-              color: "#000",
-              blur: 2,
-              fill: true,
-            },
           })
           .setOrigin(1, 0.5)
           .setDepth(ABILITY_DEPTH)
@@ -168,20 +149,9 @@ export class AbilityBar {
       const tooltip = trackY(
         scene.add
           .text(x - btnRadius - 10, y, tooltipText, {
-            fontFamily: "Kenney Future",
-            fontSize: "13px",
-            color: TEXT_ON_DARK,
-            backgroundColor: TEXT_PILL_BG,
-            padding: TEXT_PILL_PAD,
+            ...readableCaptionStyle('13px', TEXT_ON_LIGHT),
             align: 'right',
             wordWrap: { width: 180 },
-            shadow: {
-              offsetX: 1,
-              offsetY: 1,
-              color: "#000",
-              blur: 2,
-              fill: true,
-            },
           })
           .setOrigin(1, 0.5)
           .setDepth(ABILITY_DEPTH + 3)
@@ -293,27 +263,17 @@ export class AbilityBar {
     );
 
     const bonusY = y + 42;
-    this.sendWaveBonusBg = trackY(
-      scene.add
-        .rectangle(x, bonusY, 280, 28, HUD_PANEL_FILL, HUD_PANEL_ALPHA)
-        .setStrokeStyle(2, COLORS.outline)
-        .setDepth(10),
-      bonusY,
-    );
+    this.sendWaveBonusBg = null;
 
     this.sendWaveBonusText = trackY(
       scene.add
-        .text(x, bonusY, "+10 BONUS", {
-          fontFamily: "Kenney Future",
-          fontSize: "15px",
-          color: TEXT_ON_DARK,
-          shadow: { offsetX: 1, offsetY: 1, color: "#000", blur: 2, fill: true },
+        .text(x, bonusY, this._earlyBonusLabel(), {
+          ...readableHudStyle('15px', TEXT_ON_LIGHT),
         })
         .setOrigin(0.5)
         .setDepth(11),
       bonusY,
     );
-    this._fitSendWaveBonusBg();
 
     this._sendWaveGlowTween = scene.tweens.add({
       targets: this.sendWaveGlow,
@@ -390,19 +350,8 @@ export class AbilityBar {
     }
   }
 
-  /** Resize/recenter the dark pill so it fully wraps the bonus text. */
-  _fitSendWaveBonusBg() {
-    const text = this.sendWaveBonusText;
-    const bg = this.sendWaveBonusBg;
-    if (!text?.active || !bg?.active) return;
-    // Tight wrap around the label — avoid oversized empty dark slabs.
-    const padX = 14;
-    const padY = 6;
-    const w = Math.max(72, (text.width || 0) + padX);
-    const h = Math.max(22, (text.height || 0) + padY);
-    bg.setSize(w, h);
-    bg.setPosition(text.x, text.y);
-  }
+  /** No-op: bonus label uses stroke readability (no backing pill). */
+  _fitSendWaveBonusBg() {}
 
   _showAbilityTooltip(btn, persistent = false) {
     const state = btn.onCooldown ? ' (cooldown)' : btn.unlocked ? '' : ' (locked)';
@@ -429,9 +378,17 @@ export class AbilityBar {
     this._dismissAbilityTooltips();
   }
 
+  _earlyBonusPoints() {
+    return GameConfig.earlyWaveBonusPoints ?? 25;
+  }
+
+  _earlyBonusLabel() {
+    return `+${this._earlyBonusPoints()} BONUS`;
+  }
+
   resetSendWaveLabels() {
     this.sendWaveText.setText("SEND WAVE");
-    this.sendWaveBonusText.setText("+10 BONUS");
+    this.sendWaveBonusText.setText(this._earlyBonusLabel());
     this.sendWaveBonusText.setVisible(true);
     this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
     this._fitSendWaveBonusBg();
@@ -468,7 +425,7 @@ export class AbilityBar {
       }
       setBonus(this._compactBonusText(seconds, betweenWaves));
     } else if (isNextWaveLabel(this.sendWaveText.text)) {
-      this.sendWaveBonusText.setText("+10 BONUS");
+      this.sendWaveBonusText.setText(this._earlyBonusLabel());
       this.sendWaveBonusText.setVisible(true);
       this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
       this._fitSendWaveBonusBg();
@@ -478,9 +435,10 @@ export class AbilityBar {
   }
 
   _compactBonusText(seconds, betweenWaves) {
+    const bonus = this._earlyBonusPoints();
     const compact = this.scene._uiMetrics?.ui?.compact;
-    if (compact) return `${seconds}s · +10 early`;
-    return `Next in ${seconds}s · +10 bonus if you send early`;
+    if (compact) return `${seconds}s · +${bonus} early`;
+    return `Next in ${seconds}s · +${bonus} bonus if you send early`;
   }
 
   _compactPrepText(seconds) {
@@ -489,7 +447,7 @@ export class AbilityBar {
   }
 
   resetSendWaveBonus() {
-    this.sendWaveBonusText.setText("+10 BONUS");
+    this.sendWaveBonusText.setText(this._earlyBonusLabel());
     this.sendWaveBonusText.setVisible(true);
     this.sendWaveBonusBg?.setVisible(this.sendWaveBg.visible);
     this._fitSendWaveBonusBg();
@@ -570,7 +528,7 @@ export class AbilityBar {
       const abilityColor = unlocked ? (ABILITY_COLORS[btn.key] || COLORS.accent) : 0x555555;
       btn.circle.setFillStyle(abilityColor);
       btn.label.setColor(unlocked ? '#FFFFFF' : '#AAAAAA');
-      btn.nameLabel?.setColor(unlocked ? TEXT_ON_DARK : '#AAAAAA');
+      btn.nameLabel?.setColor(unlocked ? TEXT_ON_LIGHT : '#888888');
       if (this._touchMode) {
         setTouchFriendlyCircleHit(btn.circle, 16);
         btn.circle.input.cursor = unlocked ? 'pointer' : 'default';
