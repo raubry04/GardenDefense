@@ -54,8 +54,9 @@ export class EnemyBehavior {
       if (enemy.type === 'CROCODILE' && crocCfg?.ambushAtPathProgress != null) {
         const totalSegs = Math.max(1, s.waypoints.length - 1);
         const progress = enemy.waypointIndex / totalSegs;
-        if (progress >= crocCfg.ambushAtPathProgress) {
-          speed = crocCfg.ambushBurstSpeed ?? speed * 2.5;
+        const ambushAt = enemy.ambushAtPathProgress ?? crocCfg.ambushAtPathProgress;
+        if (progress >= ambushAt) {
+          speed = enemy.ambushBurstSpeed ?? crocCfg.ambushBurstSpeed ?? speed * 2.5;
         }
       }
 
@@ -64,14 +65,15 @@ export class EnemyBehavior {
         if (enemy.stompTimer >= 5000) {
           enemy.stompTimer = 0;
           const cfg = GameConfig.enemies.ELEPHANT;
-          const stompRange = cfg.stompRange || 100;
+          const stompRange = enemy.stompRange ?? cfg.stompRange ?? 100;
+          const stompSlowMs = enemy.stompSlowMs ?? cfg.stompSlowMs ?? 3000;
           let stomped = false;
           for (const tower of s.towers) {
             if (tower.hp <= 0) continue;
             if (Phaser.Math.Distance.Between(enemy.x, enemy.y, tower.x, tower.y) <= stompRange) {
               tower.fireRateMultiplier = 2;
               stomped = true;
-              s.time.delayedCall(cfg.stompSlowMs || 3000, () => {
+              s.time.delayedCall(stompSlowMs, () => {
                 if (tower.hp > 0) tower.fireRateMultiplier = 1;
               });
             }
@@ -150,7 +152,9 @@ export class EnemyBehavior {
         enemy.attackTimer = (enemy.attackTimer || 0) + delta;
         if (enemy.attackTimer >= 800) {
           enemy.attackTimer = 0;
-          const wallMult = GameConfig.enemies[enemy.type]?.wallDamageMult ?? 1;
+          const wallMult = enemy.wallDamageMult
+            ?? GameConfig.enemies[enemy.type]?.wallDamageMult
+            ?? 1;
           this.damageTower(pigWall, enemy.damage * 2 * wallMult);
           if (pigWall.thorns > 0 && enemy.alive) {
             s.towerCombat.damageEnemy(enemy, pigWall.thorns);
@@ -244,6 +248,9 @@ export class EnemyBehavior {
 
   destroyTower(tower) {
     const s = this.scene;
+    if (tower.type === 'PIG_WALL') {
+      s.wallBroken = true;
+    }
     const idx = s.towers.indexOf(tower);
     if (idx !== -1) s.towers.splice(idx, 1);
 

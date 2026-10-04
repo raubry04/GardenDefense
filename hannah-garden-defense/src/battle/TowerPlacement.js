@@ -63,7 +63,8 @@ export class TowerPlacement {
 
   handleTowerPlacement(pointer) {
     const s = this.scene;
-    if (s.paused) return false;
+    // Allow placement while pause overlay is up if the in-battle tutorial is active.
+    if (s.paused && !s._tutorialActive) return false;
     const { col, row } = this.placementTileFromPointer(pointer);
 
     this.ensureGhostPreview();
@@ -97,7 +98,7 @@ export class TowerPlacement {
     // Named handlers so shutdown can remove them. GameScene is reused across
     // battles/restarts; anonymous listeners would stack and double-fire inspect/sell.
     this._onPointerMove = (pointer) => {
-      if (s.paused) return;
+      if (s.paused && !s._tutorialActive) return;
       if (isPointerOverBattleUI(s.game, pointer)) return;
       if (!s.selectedTower) return;
       this.ensureGhostPreview();
@@ -106,7 +107,7 @@ export class TowerPlacement {
     };
 
     this._onPointerDown = (pointer) => {
-      if (s.paused) return;
+      if (s.paused && !s._tutorialActive) return;
       if (isPointerOverBattleUI(s.game, pointer)) return;
       const { col, row } = this.placementTileFromPointer(pointer);
 

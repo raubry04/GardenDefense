@@ -46,6 +46,7 @@ router.get('/:name', (req, res) => {
         zone_stars: '{}',
         zone_battles: '{}',
         tower_upgrades: '{}',
+        collection_json: '{}',
         empty: true,
       });
     }
@@ -92,7 +93,7 @@ router.post('/', (req, res) => {
       }
     }
 
-    const maxZone = 5;
+    const maxZone = 6;
     if (req.body.unlocked_zone !== undefined && Number(req.body.unlocked_zone) > maxZone) {
       return res.status(400).json({ error: `unlocked_zone must be at most ${maxZone}` });
     }
@@ -116,8 +117,9 @@ router.post('/', (req, res) => {
       INSERT OR REPLACE INTO player_progress
         (player_name, hannah_level, hannah_xp, garden_level, sunshine_points,
          meta_sunshine_earned, meta_sunshine_spent,
-         battle_stars, unlocked_zone, zone_stars, zone_battles, tower_upgrades, last_played)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+         battle_stars, unlocked_zone, zone_stars, zone_battles, tower_upgrades,
+         collection_json, last_played)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `);
     stmt.run(
       player_name,
@@ -132,6 +134,7 @@ router.post('/', (req, res) => {
       merged.zone_stars,
       merged.zone_battles,
       merged.tower_upgrades,
+      merged.collection_json ?? '{}',
     );
 
     const row = db.prepare(

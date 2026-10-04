@@ -4,6 +4,7 @@ import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 import { loadPlayerName } from '../utils/hannahProgress.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
 import { FONT_DISPLAY } from '../utils/textReadability.js';
+import { grantDefeatConsolation } from '../utils/defeatConsolation.js';
 
 const COLORS = GameConfig.colors;
 
@@ -105,6 +106,8 @@ export class GameOverScene extends Phaser.Scene {
       500,
     );
 
+    this._consolation = grantDefeatConsolation(this.playerName, this.waveReached);
+
     this._createStatsPanel(width, 240);
     this._drawHintBox(width, height);
     this._createButtons(width, height);
@@ -145,20 +148,35 @@ export class GameOverScene extends Phaser.Scene {
 
   _createStatsPanel(width, panelY) {
     const panelW = Math.min(480, width * 0.82);
-    const panelH = 108;
+    const panelH = 128;
+    const xp = this._consolation?.xp ?? 0;
+    const sun = this._consolation?.metaSunshine ?? 0;
 
     const shadow = this.add.rectangle(width / 2 + 2, panelY + 2, panelW, panelH, 0x000000, 0.2);
     const panel = this.add.rectangle(width / 2, panelY, panelW, panelH, COLORS.uiPanel, 1)
       .setStrokeStyle(2, COLORS.outline);
     this.add.rectangle(width / 2, panelY - panelH / 2 + 4, panelW - 8, 3, COLORS.accent, 0.4);
 
-    const waveLabel = this.add.text(width / 2, panelY - 28, `Wave Reached: ${this.waveReached}`, {
+    const waveLabel = this.add.text(width / 2, panelY - 40, `Wave Reached: ${this.waveReached}`, {
       fontFamily: FONT_DISPLAY,
-      fontSize: '26px',
+      fontSize: '24px',
       color: '#3D5A1F',
     }).setOrigin(0.5).setAlpha(0);
 
-    const encourage = this.add.text(width / 2, panelY + 14, '🐥 Keep going — you\'ve got this!', {
+    const rewardLine = this.add.text(
+      width / 2,
+      panelY - 8,
+      `Consolation: +${xp} XP · +${sun} Sunshine`,
+      {
+        fontFamily: FONT_DISPLAY,
+        fontSize: '18px',
+        color: '#2E5A1F',
+        wordWrap: { width: panelW - 40 },
+        align: 'center',
+      },
+    ).setOrigin(0.5).setAlpha(0);
+
+    const encourage = this.add.text(width / 2, panelY + 28, '🐥 Keep going — you\'ve got this!', {
       fontFamily: FONT_DISPLAY,
       fontSize: '17px',
       color: '#3D5A1F',
@@ -168,7 +186,7 @@ export class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5, 0).setAlpha(0);
 
     this.tweens.add({
-      targets: [shadow, panel, waveLabel],
+      targets: [shadow, panel, waveLabel, rewardLine],
       alpha: { from: 0, to: 1 },
       duration: 400,
       delay: 700,

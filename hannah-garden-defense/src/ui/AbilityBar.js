@@ -9,6 +9,8 @@ import {
   TEXT_PILL_PAD,
 } from "../utils/textReadability.js";
 import { showToast } from "./Toast.js";
+import { battleAbilityKeys } from "../utils/collection.js";
+import { loadLocalProgress, loadPlayerName } from "../utils/hannahProgress.js";
 
 const COLORS = GameConfig.colors;
 const ABILITY_DEPTH = 250;
@@ -17,6 +19,7 @@ const ABILITY_COLORS = {
   SUNSHINE_BURST: 0xffd700,
   GARDEN_RAIN: 0x4da6ff,
   RAINBOW_SHIELD: 0x4caf50,
+  SEED_STORM: 0x8bc34a,
   FLOWER_BOMB: 0xff69b4,
 };
 
@@ -24,6 +27,7 @@ const ABILITY_LABELS = {
   SUNSHINE_BURST: 'SUN',
   GARDEN_RAIN: 'RAIN',
   RAINBOW_SHIELD: 'SHLD',
+  SEED_STORM: 'SEED',
   FLOWER_BOMB: 'BOMB',
 };
 
@@ -32,6 +36,7 @@ export const ABILITY_SHORT_NAMES = {
   SUNSHINE_BURST: 'Burst',
   GARDEN_RAIN: 'Rain',
   RAINBOW_SHIELD: 'Shield',
+  SEED_STORM: 'Seeds',
   FLOWER_BOMB: 'Bomb',
 };
 
@@ -70,7 +75,12 @@ export class AbilityBar {
 
   _createAbilityButtons(width, height) {
     const scene = this.scene;
-    const abilities = Object.entries(GameConfig.hannahAbilities);
+    const playerName = scene.playerName || loadPlayerName() || '';
+    const progress = loadLocalProgress(playerName);
+    const loadoutKeys = battleAbilityKeys(progress.collection, scene.hannahLevel ?? 1);
+    const abilities = loadoutKeys
+      .map((key) => [key, GameConfig.hannahAbilities[key]])
+      .filter(([, config]) => !!config);
     const btnRadius = 36;
     const spacing = 80;
     const startY = height / 2 - ((abilities.length - 1) * spacing) / 2;

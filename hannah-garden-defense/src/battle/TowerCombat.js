@@ -4,6 +4,7 @@ import { TOWER_SPRITES, ENEMY_SPRITES } from '../utils/AssetRegistry.js';
 import { hannahLevelFromXp } from '../utils/hannahProgress.js';
 import { updateEnemyStatusFx } from './EnemyStatusFx.js';
 import { TILE, COLORS } from './battleConstants.js';
+import { isBattleTerminal } from './battleTerminal.js';
 
 export class TowerCombat {
   constructor(scene) {
@@ -408,7 +409,7 @@ export class TowerCombat {
     s.sunshinePoints += enemy.reward;
     s.battleSunshineEarned += enemy.reward;
     s.hannahXp += Math.ceil(enemy.reward * 0.5);
-    if (enemy.type === 'ELEPHANT') {
+    if (enemy.isNamedBoss || enemy.type === 'ELEPHANT') {
       s.hannahXp += GameConfig.hannahXpRewards.bossKill ?? 0;
     }
     const newLevel = hannahLevelFromXp(s.battleXpStart + s.hannahXp);
@@ -420,7 +421,11 @@ export class TowerCombat {
     s.game.events.emit('enemy-defeated');
 
     if (enemy.type === 'FROG') {
-      const splitCount = GameConfig.enemies.FROG.splitsInto || 2;
+      const bossDef = s.waveManager?.bossDef;
+      const isNamedBoss = enemy.isNamedBoss && bossDef?.extraSplits;
+      const splitCount = isNamedBoss
+        ? bossDef.extraSplits
+        : (GameConfig.enemies.FROG.splitsInto || 2);
       for (let i = 0; i < splitCount; i++) {
         this.spawnSplitEnemy('SNAKE', enemy.x, enemy.y, enemy.waypointIndex);
       }
@@ -428,7 +433,7 @@ export class TowerCombat {
     }
   }
 
-  spawnEnemy(type) {
+  spawnEnemy(type, options = {}) {
     const s = this.scene;
     const config = GameConfig.enemies[type];
     const spriteKey = ENEMY_SPRITES[type];
@@ -442,9 +447,11 @@ export class TowerCombat {
     let hp = config.hp;
     let speed = config.speed * (config.speedBonus ?? 1);
     const wm = s.waveManager;
-    const isBossType = wm?.isBossBattle && type === wm?.bossType;
+    const bossDef = wm?.bossDef;
+    const isBossType = !options.asEscort && wm?.isBossBattle && type === wm?.bossType;
     let isElite = isBossType || (wm?.isBossBattle && (type === 'ELEPHANT' || type === 'BUFFALO'));
     let eliteTint = null;
+    let bossScale = 1;
 
     const replayElite = s.useEliteVariants && GameConfig.eliteVariants?.[type];
     if (replayElite) {
@@ -456,9 +463,16 @@ export class TowerCombat {
 
     if (isBossType) {
       const mods = GameConfig.bossModifiers || {};
-      hp = Math.round(hp * (mods.hpMult ?? 1));
-      speed *= mods.speedMult ?? 1;
+      const hpMult = bossDef?.hpMult ?? mods.hpMult ?? 1;
+      const speedMult = bossDef?.speedMult ?? mods.speedMult ?? 1;
+      hp = Math.round(hp * hpMult);
+      speed *= speedMult;
+      if (bossDef?.tint != null) eliteTint = bossDef.tint;
+      bossScale = bossDef?.scale ?? 1.25;
     }
+
+    const windMult = s.battleModifiers?.wind ? (s.battleModifiers.windSpeedMult ?? 1.15) : 1;
+    speed *= windMult;
 
     const zone = s.zone;
     if (zone < GameConfig.zones.length) {
@@ -468,8 +482,9 @@ export class TowerCombat {
       hp = Math.round(hp * zoneMult * battleMult);
     }
 
+    const display = (TILE - 12) * bossScale;
     const sprite = s.add.image(start.x, start.y, spriteKey)
-      .setDisplaySize(TILE - 12, TILE - 12)
+      .setDisplaySize(display, display)
       .setDepth(20);
     if (eliteTint != null) sprite.setTint(eliteTint);
 
@@ -492,13 +507,32 @@ export class TowerCombat {
       attackTimer: 0,
       flies: config.flies ?? false,
       isElite,
+      isNamedBoss: isBossType,
       bobOffset: Math.random() * Math.PI * 2,
       lastFacingRight: true,
     };
 
-    const barW = isElite ? TILE : TILE - 16;
+    if (isBossType && bossDef) {
+      if (bossDef.ambushAtPathProgress != null) {
+        enemy.ambushAtPathProgress = bossDef.ambushAtPathProgress;
+      }
+      if (bossDef.ambushBurstSpeed != null) {
+        enemy.ambushBurstSpeed = bossDef.ambushBurstSpeed;
+      }
+      if (bossDef.wallDamageMult != null) {
+        enemy.wallDamageMult = bossDef.wallDamageMult;
+      }
+      if (bossDef.stompRange != null) {
+        enemy.stompRange = bossDef.stompRange;
+      }
+      if (bossDef.stompSlowMs != null) {
+        enemy.stompSlowMs = bossDef.stompSlowMs;
+      }
+    }
+
+    const barW = isElite ? TILE * bossScale : TILE - 16;
     const barH = isElite ? 8 : 6;
-    const barY = start.y - TILE / 2 + (isElite ? 2 : 4);
+    const barY = start.y - (TILE * bossScale) / 2 + (isElite ? 2 : 4);
     const hpBarBg = s.add.rectangle(start.x, barY, barW, barH, 0x222222).setDepth(21);
     const hpBar = s.add.rectangle(start.x, barY, barW, barH, COLORS.enemyThreat).setDepth(22);
     if (isElite) {
@@ -506,7 +540,7 @@ export class TowerCombat {
     }
     enemy.hpBarBg = hpBarBg;
     enemy.hpBar = hpBar;
-    enemy.hpBarDy = isElite ? TILE / 2 - 2 : TILE / 2 - 4;
+    enemy.hpBarDy = isElite ? (TILE * bossScale) / 2 - 2 : TILE / 2 - 4;
 
     s.enemies.push(enemy);
 
@@ -515,13 +549,31 @@ export class TowerCombat {
     }
     s.battleVfx?.createEliteAura(enemy);
 
+    if (isBossType && bossDef?.escortCount > 0) {
+      const escorts = bossDef.escortCount;
+      for (let i = 0; i < escorts; i++) {
+        s.time.delayedCall(280 * (i + 1), () => {
+          if (isBattleTerminal(s)) return;
+          this.spawnEnemy(type, { asEscort: true });
+        });
+      }
+      s.game.events.emit('wave-enemies-added', { count: escorts });
+    }
+
     if (!s._seenEnemyTypes.has(type)) {
       s._seenEnemyTypes.add(type);
-      const intro = GameConfig.enemyIntros?.[type];
+      const intro = isBossType && bossDef?.telegraph
+        ? bossDef.telegraph
+        : GameConfig.enemyIntros?.[type];
       if (intro) {
         s.towerPlacement.showFloatingText(start.x, start.y - 36, intro, '#FFD700');
       }
     }
+  }
+
+  /** Escort helper retained for clarity; prefer spawnEnemy(..., { asEscort: true }). */
+  _spawnEscort(type) {
+    this.spawnEnemy(type, { asEscort: true });
   }
 
   spawnSplitEnemy(type, x, y, waypointIndex) {

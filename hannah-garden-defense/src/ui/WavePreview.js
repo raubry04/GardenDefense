@@ -16,6 +16,9 @@ export const THREAT_BADGE = {
   splitsInto: '✂',
   immuneSlow: '💨',
   immuneToSlow: '💨',
+  towerHunter: '🔨',
+  steal: '☀',
+  tank: '💪',
 };
 
 /**

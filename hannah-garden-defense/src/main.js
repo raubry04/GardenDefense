@@ -27,9 +27,10 @@ async function preloadKenneyFonts() {
 
 async function startGame() {
   await preloadKenneyFonts();
-  const [{ VictoryScene }, { LeaderboardScene }] = await Promise.all([
+  const [{ VictoryScene }, { LeaderboardScene }, { StickerBookScene }] = await Promise.all([
     import('./scenes/VictoryScene.js'),
     import('./scenes/LeaderboardScene.js'),
+    import('./scenes/StickerBookScene.js'),
   ]);
 
   const config = {
@@ -57,6 +58,7 @@ async function startGame() {
       BootScene,
       MainMenuScene,
       WorldMapScene,
+      StickerBookScene,
       GameScene,
       UIScene,
       UpgradeScene,

@@ -8,6 +8,12 @@ import {
   normalizeProgress,
   battleSunshineToMetaBank,
 } from '../utils/hannahProgress.js';
+import {
+  grantBattleStickers,
+  zoneEnemyKeys,
+  isZoneMastered,
+  claimMasteryReward,
+} from '../utils/collection.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
 import { FONT_DISPLAY } from '../utils/textReadability.js';
@@ -18,6 +24,11 @@ import {
   createFloatingSparkles,
   burstStarSparkles,
 } from '../utils/victoryConfetti.js';
+import { calculateStars } from '../utils/starRating.js';
+import {
+  dailyChestReward,
+  hasClaimedDailyChest,
+} from '../utils/dailyChallenge.js';
 
 const COLORS = GameConfig.colors;
 const UI_DEPTH = VICTORY_UI_DEPTH;
@@ -39,6 +50,9 @@ export class VictoryScene extends Phaser.Scene {
     this.prevHannahLevel = this.hannahLevel;
     this.mode = data.mode ?? 'campaign';
     this.dailyDateKey = data.dailyDateKey ?? null;
+    this.wallBroken = !!data.wallBroken;
+    this.elapsedMs = data.elapsedMs ?? 0;
+    this.waveCount = data.waveCount ?? 1;
     const progress = loadLocalProgress(this.playerName);
     this.prevStars = progress.battleStars?.[this.zone]?.[this.battle] ?? 0;
   }
@@ -106,8 +120,9 @@ export class VictoryScene extends Phaser.Scene {
     const stars = this._calculateStars();
     this._displayStars(width, 188, stars);
     this._showStarFeedback(width, 188, stars);
-    this._animatePoints(width, 300, stars);
     this._saveProgress(stars);
+    this._animatePoints(width, 300, stars);
+    this._showCollectionCallouts(width, 300);
     this._postScore(stars);
     this._createButtons(width, height);
   }
@@ -137,8 +152,9 @@ export class VictoryScene extends Phaser.Scene {
 
     if (stars < 3 && this.mode !== 'daily') {
       const need = GameConfig.starThresholds.three;
+      const bonusHint = GameConfig.starBonus?.hint || 'Finish fast!';
       const replayHint = this.add.text(width / 2, starY + (delta > 0 ? 74 : 48),
-        `Replay from the map to chase 3★ (need ${need} lives left)`,
+        `Chase 3★: ${need}+ hearts & ${bonusHint.replace(/!$/, '').toLowerCase()}`,
         {
           fontFamily: FONT_DISPLAY,
           fontSize: '18px',
@@ -161,9 +177,12 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   _calculateStars() {
-    if (this.livesRemaining >= GameConfig.starThresholds.three) return 3;
-    if (this.livesRemaining >= GameConfig.starThresholds.two) return 2;
-    return 1;
+    return calculateStars({
+      livesRemaining: this.livesRemaining,
+      elapsedMs: this.elapsedMs,
+      waveCount: this.waveCount,
+      wallBroken: this.wallBroken,
+    });
   }
 
   /**
@@ -228,7 +247,9 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   _metaPointsEarned(stars) {
-    if (this.mode === 'daily') return 0;
+    if (this.mode === 'daily') {
+      return this._dailyChest?.metaSunshine ?? 0;
+    }
     return battleSunshineToMetaBank(this.pointsEarned + this._starBonusPoints(stars));
   }
 
@@ -238,17 +259,46 @@ export class VictoryScene extends Phaser.Scene {
 
   _animatePoints(width, y, stars) {
     const totalEarned = this._metaPointsEarned(stars);
+    const isDaily = this.mode === 'daily';
+    const depositLabel = isDaily
+      ? (this._dailyChestClaimed
+        ? 'Daily chest already opened today!'
+        : 'Daily chest — sunshine for upgrades!')
+      : 'Sunshine banked for upgrades!';
 
-    this.add.text(width / 2, y, 'Sunshine Points Earned:', {
+    // Deposit beat: stars above = rating; sunshine icon + count = spendable bank.
+    this.add.text(width / 2, y, depositLabel, {
       fontFamily: FONT_DISPLAY,
       fontSize: '20px',
       color: '#FFF9E6',
     }).setOrigin(0.5).setDepth(UI_DEPTH);
 
-    const pointsValue = this.add.text(width / 2, y + 36, '0', {
+    const iconX = width / 2 - 36;
+    const valueX = width / 2 + 12;
+    if (this.textures.exists('ui_sunshine')) {
+      this.add.image(iconX, y + 40, 'ui_sunshine')
+        .setDisplaySize(28, 28)
+        .setDepth(UI_DEPTH);
+    } else {
+      this.add.circle(iconX, y + 40, 12, COLORS.stars)
+        .setStrokeStyle(2, COLORS.outline)
+        .setDepth(UI_DEPTH);
+    }
+
+    const pointsValue = this.add.text(valueX, y + 40, '0', {
       fontFamily: FONT_DISPLAY,
       fontSize: '34px',
       color: '#FFD700',
+    }).setOrigin(0, 0.5).setDepth(UI_DEPTH);
+
+    this.add.text(width / 2, y + 78, isDaily
+      ? 'Come back tomorrow for a new map & chest!'
+      : 'Stars = rating · Sunshine = spend on Upgrades', {
+      fontFamily: FONT_DISPLAY,
+      fontSize: '15px',
+      color: '#A8DADC',
+      wordWrap: { width: width * 0.85 },
+      align: 'center',
     }).setOrigin(0.5).setDepth(UI_DEPTH);
 
     this.tweens.addCounter({
@@ -264,7 +314,10 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   _saveProgress(stars) {
-    if (this.mode === 'daily') return;
+    if (this.mode === 'daily') {
+      this._saveDailyChest(stars);
+      return;
+    }
     try {
       const progress = normalizeProgress(loadLocalProgress(this.playerName));
       progress.playerName = this.playerName;
@@ -299,11 +352,83 @@ export class VictoryScene extends Phaser.Scene {
       progress.hannahLevel = hannahLevelFromXp(progress.hannahXp);
       progress.gardenLevel = Math.max(1, (progress.unlockedZone ?? 0) + 1);
 
+      // H3: animal stickers (first clear / shiny on 3★) + zone mastery rewards.
+      if (this.zone < GameConfig.zones.length) {
+        const enemies = zoneEnemyKeys(this.zone);
+        const stickerResult = grantBattleStickers(progress.collection, enemies, stars);
+        progress.collection = stickerResult.collection;
+        this._newStickers = stickerResult.newStickers;
+
+        if (isZoneMastered(progress, this.zone)) {
+          const mastery = claimMasteryReward(progress.collection, this.zone);
+          progress.collection = mastery.collection;
+          this._masteryReward = mastery.newlyUnlocked;
+        }
+      }
+
       this.savedProgress = progress;
       saveProgressWithSync(progress);
     } catch (e) {
       console.warn('Failed to save progress:', e);
     }
+  }
+
+  /** First Daily win of the calendar day grants a small meta chest. */
+  _saveDailyChest(_stars) {
+    try {
+      const progress = normalizeProgress(loadLocalProgress(this.playerName));
+      progress.playerName = this.playerName;
+      const dateKey = this.dailyDateKey;
+      const chest = dailyChestReward();
+      this._dailyChest = chest;
+
+      if (dateKey && !hasClaimedDailyChest(progress, dateKey)) {
+        progress.metaSunshineEarned = (progress.metaSunshineEarned || 0) + chest.metaSunshine;
+        progress.hannahXp = (progress.hannahXp || 0) + chest.xp;
+        progress.hannahLevel = hannahLevelFromXp(progress.hannahXp);
+        progress.lastDailyChestDate = dateKey;
+        this._dailyChestClaimed = false;
+        this.savedProgress = progress;
+        saveProgressWithSync(progress);
+      } else {
+        this._dailyChestClaimed = true;
+        this._dailyChest = { metaSunshine: 0, xp: 0 };
+        this.savedProgress = progress;
+      }
+    } catch (e) {
+      console.warn('Failed to save daily chest:', e);
+      this._dailyChest = { metaSunshine: 0, xp: 0 };
+      this._dailyChestClaimed = true;
+    }
+  }
+
+  _showCollectionCallouts(width, pointsY) {
+    const lines = [];
+    if (this._newStickers?.length) {
+      const n = this._newStickers.length;
+      lines.push(n === 1 ? 'New animal sticker!' : `${n} new animal stickers!`);
+    }
+    if (this._masteryReward?.label) {
+      lines.push(`Zone mastery: ${this._masteryReward.label}!`);
+    }
+    if (!lines.length) return;
+
+    const y = pointsY + 108;
+    lines.forEach((line, i) => {
+      const t = this.add.text(width / 2, y + i * 22, line, {
+        fontFamily: FONT_DISPLAY,
+        fontSize: '16px',
+        color: '#FFE135',
+        wordWrap: { width: width * 0.85 },
+        align: 'center',
+      }).setOrigin(0.5).setAlpha(0).setDepth(UI_DEPTH);
+      this.tweens.add({
+        targets: t,
+        alpha: 1,
+        duration: 400,
+        delay: 2200 + i * 200,
+      });
+    });
   }
 
   async _postScore(stars) {

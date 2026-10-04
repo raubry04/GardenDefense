@@ -132,13 +132,95 @@ export const LAYOUT_ORCHARD = {
   ),
 };
 
-/** One layout per campaign zone; endless reuses orchard. */
+/** Zone 6 — Harvest Festival (reuses berry serpentine with orchard end spur). */
+export const LAYOUT_HARVEST = {
+  id: 'harvest',
+  name: 'Harvest Festival',
+  gridW: 20,
+  gridH: 12,
+  margin: 3,
+  pathCoords: joinPaths(
+    lineCoords(0, 2, 16, 2),
+    lineCoords(16, 2, 16, 8),
+    lineCoords(16, 8, 4, 8),
+    lineCoords(4, 8, 4, 5),
+    lineCoords(4, 5, 12, 5),
+    lineCoords(12, 5, 12, 10),
+    lineCoords(12, 10, 19, 10),
+  ),
+};
+
+/** Alternate — tight hairpin (shared across zones by battle index). */
+export const LAYOUT_HAIRPIN = {
+  id: 'hairpin',
+  name: 'Hairpin Trail',
+  gridW: 18,
+  gridH: 12,
+  margin: 3,
+  pathCoords: joinPaths(
+    lineCoords(0, 2, 14, 2),
+    lineCoords(14, 2, 14, 9),
+    lineCoords(14, 9, 4, 9),
+    lineCoords(4, 9, 4, 5),
+    lineCoords(4, 5, 17, 5),
+  ),
+};
+
+/** Alternate — diagonal S with mid switchbacks. */
+export const LAYOUT_DIAGONAL_S = {
+  id: 'diagonalS',
+  name: 'Diagonal S',
+  gridW: 20,
+  gridH: 12,
+  margin: 3,
+  pathCoords: joinPaths(
+    lineCoords(0, 1, 6, 1),
+    lineCoords(6, 1, 6, 5),
+    lineCoords(6, 5, 13, 5),
+    lineCoords(13, 5, 13, 9),
+    lineCoords(13, 9, 19, 9),
+  ),
+};
+
+/** Alternate — wide outer loop with inner spur to gate. */
+export const LAYOUT_WIDE_LOOP = {
+  id: 'wideLoop',
+  name: 'Wide Loop',
+  gridW: 20,
+  gridH: 12,
+  margin: 3,
+  pathCoords: joinPaths(
+    lineCoords(0, 6, 3, 6),
+    lineCoords(3, 6, 3, 2),
+    lineCoords(3, 2, 16, 2),
+    lineCoords(16, 2, 16, 10),
+    lineCoords(16, 10, 6, 10),
+    lineCoords(6, 10, 6, 6),
+    lineCoords(6, 6, 19, 6),
+  ),
+};
+
+/** Lookup for battle-index alternate layouts (and zone defaults). */
+export const LAYOUT_BY_ID = {
+  C: LAYOUT_C,
+  garden: LAYOUT_GARDEN,
+  coop: LAYOUT_COOP,
+  berry: LAYOUT_BERRY,
+  orchard: LAYOUT_ORCHARD,
+  harvest: LAYOUT_HARVEST,
+  hairpin: LAYOUT_HAIRPIN,
+  diagonalS: LAYOUT_DIAGONAL_S,
+  wideLoop: LAYOUT_WIDE_LOOP,
+};
+
+/** One layout per campaign zone; endless reuses late layouts. */
 export const ZONE_LAYOUTS = [
   LAYOUT_C,
   LAYOUT_GARDEN,
   LAYOUT_COOP,
   LAYOUT_BERRY,
   LAYOUT_ORCHARD,
+  LAYOUT_HARVEST,
 ];
 
 export function dirBetween(ax, az, bx, bz) {

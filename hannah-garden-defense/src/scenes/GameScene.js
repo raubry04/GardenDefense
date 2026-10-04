@@ -6,6 +6,7 @@ import { setupBattleCamera, refillSceneGrass } from '../utils/responsiveCamera.j
 import { applyMobileLayout } from '../utils/mobileViewport.js';
 import { buildCanvasMapData } from '../utils/pathTile2D.js';
 import { loadLocalProgress, hannahLevelFromXp } from '../utils/hannahProgress.js';
+import { masteryPassiveBonuses } from '../utils/collection.js';
 import { TILE, COLORS, GRASS_TILES, BUSH_KEYS, TREE_KEYS, ROCK_KEYS, DECOR_KEYS } from '../battle/battleConstants.js';
 import { TowerCombat } from '../battle/TowerCombat.js';
 import { EnemyBehavior } from '../battle/EnemyBehavior.js';
@@ -21,6 +22,7 @@ import {
   battleTimeScaleWhenRunning,
 } from '../battle/battlePause.js';
 import { isBattleTerminal } from '../battle/battleTerminal.js';
+import { resolveBattleModifiers } from '../utils/battleModifiers.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -52,6 +54,7 @@ export class GameScene extends Phaser.Scene {
     this.priorStars = progress.battleStars?.[this.zone]?.[this.battle] ?? 0;
     this.useEliteVariants = this.priorStars > 0 && this.priorStars < 3;
     this.hannahPassives = this._computeHannahPassives(this.hannahLevel);
+    this._collection = progress.collection;
     this.abilityLastUsed = {};
     for (const key of Object.keys(GameConfig.hannahAbilities)) {
       this.abilityLastUsed[key] = -Infinity;
@@ -66,7 +69,12 @@ export class GameScene extends Phaser.Scene {
     this.lives = GameConfig.startingLives;
     this._defeatHandled = false;
     this._battleEnded = false;
+    this.wallBroken = false;
+    this.battleElapsedMs = 0;
+    this._battleClockStarted = false;
     this.sunshinePoints = startingSunshineForZone(this.zone);
+    const masteryBonus = masteryPassiveBonuses(this._collection).startingSunshineBonus;
+    if (masteryBonus > 0) this.sunshinePoints += masteryBonus;
     this.battleSunshineEarned = 0;
     this.towers = [];
     this.enemies = [];
@@ -83,6 +91,22 @@ export class GameScene extends Phaser.Scene {
     this._warningEdges = null;
     this._swayDecor = [];
     this._mapDecor = [];
+
+    this.battleModifiers = this.zone < GameConfig.zones.length
+      ? resolveBattleModifiers(this.zone, this.battle)
+      : {
+        ids: [],
+        reversePath: false,
+        mirrorPath: false,
+        nightTint: false,
+        wind: false,
+        flyersHeavy: false,
+        windSpeedMult: 1,
+        nightTintColor: 0x1a2848,
+        nightTintAlpha: 0.22,
+        flyersHeavyFromWaveFraction: 0.4,
+        flyerTypes: ['PARROT'],
+      };
 
     const mapData = this._buildMapData();
     this.waypoints = mapData.waypoints;
@@ -160,9 +184,13 @@ export class GameScene extends Phaser.Scene {
   _buildMapData() {
     const cols = Math.ceil(GameConfig.canvas.width / TILE);
     const rows = Math.ceil(GameConfig.canvas.height / TILE);
+    const mods = this.battleModifiers || {};
     return buildCanvasMapData(this.zone, cols, rows, TILE, {
       centerLayout: true,
       expandPlayable: false,
+      reversePath: !!mods.reversePath,
+      mirrorPath: !!mods.mirrorPath,
+      layoutId: mods.layoutId || null,
     });
   }
 
@@ -351,6 +379,16 @@ export class GameScene extends Phaser.Scene {
   /* ─── Garden gate ─── */
 
   _drawZoneMoodOverlay() {
+    const mods = this.battleModifiers;
+    if (mods?.nightTint) {
+      this.add.rectangle(
+        this.worldWidth / 2, this.worldHeight / 2,
+        this.worldWidth, this.worldHeight,
+        mods.nightTintColor ?? 0x1a2848,
+        mods.nightTintAlpha ?? 0.22,
+      ).setDepth(1).setScrollFactor(1);
+      return;
+    }
     const tints = GameConfig.zoneMoodTints ?? [];
     const tint = tints[this.zone] ?? 0xffffff;
     const r = (tint >> 16) & 0xff;
@@ -468,12 +506,16 @@ export class GameScene extends Phaser.Scene {
       this._showWaveBanner(data.wave, data.total);
       this.game.events.emit('wave-hud-pulse');
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume * 0.5 });
+      if (!this._battleClockStarted) {
+        this._battleClockStarted = true;
+        this._battleClockStartMs = this.time.now;
+      }
       const wm = this.waveManager;
       const total = data.total ?? wm.getTotalWaves();
       if (wm.isBossBattle && wm.bossType && total) {
         const bossWaveStart = Math.floor(total * 2 / 3) + 1;
         if (data.wave >= bossWaveStart) {
-          this.bossBanner.show(wm.bossType);
+          this.bossBanner.show(wm.bossDef || wm.bossType);
         }
       }
     });
@@ -489,6 +531,9 @@ export class GameScene extends Phaser.Scene {
     this.events.on('battle-complete', () => {
       if (isBattleTerminal(this)) return;
       this._battleEnded = true;
+      if (this._battleClockStarted && this._battleClockStartMs != null) {
+        this.battleElapsedMs = Math.max(0, this.time.now - this._battleClockStartMs);
+      }
       this.game.events.emit('battle-complete');
       this.time.delayedCall(1500, () => {
         if (!this.sys?.isActive?.()) return;
@@ -506,6 +551,9 @@ export class GameScene extends Phaser.Scene {
           hannahLevel: this.hannahLevel,
           mode: this.mode,
           dailyDateKey: this._dailyDateKey,
+          wallBroken: !!this.wallBroken,
+          elapsedMs: this.battleElapsedMs,
+          waveCount: this.waveManager?.getTotalWaves?.() ?? 1,
         });
       });
     });
@@ -556,7 +604,13 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.game.events.on('tutorial-state-changed', (data) => {
+      this._tutorialActive = !!data.active;
       this.waveManager?.setPaused(data.active);
+    });
+
+    this.game.events.on('tutorial-replay-request', () => {
+      // Close pause menu so gated place/drag can reach the board.
+      if (this.paused) this._togglePause();
     });
 
     this.game.events.on('battle-speed-changed', (data) => {
@@ -845,7 +899,9 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-ESC', this._onEscKey);
     this._onEscKey = null;
     this.game.events.off('tutorial-state-changed');
+    this.game.events.off('tutorial-replay-request');
     this.game.events.off('battle-speed-changed');
+    this._tutorialActive = false;
     this._spawnMarkerGlowTween?.remove();
     this._spawnMarkerArrowTween?.remove();
     this._spawnMarkerGlowTween = null;

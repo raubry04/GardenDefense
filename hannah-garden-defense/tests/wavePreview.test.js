@@ -10,10 +10,13 @@ describe('WavePreview threat badges', () => {
     }
   });
 
-  it('covers the newly-added armored, split, and immuneSlow threats', () => {
+  it('covers the newly-added armored, split, immuneSlow, and H1 threat badges', () => {
     expect(threatBadgeForTag('armored')).toBe(THREAT_BADGE.armored);
     expect(threatBadgeForTag('split')).toBe(THREAT_BADGE.split);
     expect(threatBadgeForTag('immuneSlow')).toBe(THREAT_BADGE.immuneSlow);
+    expect(threatBadgeForTag('towerHunter')).toBe(THREAT_BADGE.towerHunter);
+    expect(threatBadgeForTag('steal')).toBe(THREAT_BADGE.steal);
+    expect(threatBadgeForTag('tank')).toBe(THREAT_BADGE.tank);
   });
 
   it('resolves the raw enemy-config prop spellings as aliases', () => {

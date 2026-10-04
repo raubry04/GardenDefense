@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { dailyChallengeDateKey, dailyChallengeSeed } from '../src/utils/dailyChallenge.js';
+import { dailyChallengeDateKey, dailyChallengeSeed, dailyChallengeMap } from '../src/utils/dailyChallenge.js';
 
 describe('dailyChallenge', () => {
   it('uses local YYYY-MM-DD date key', () => {
@@ -16,5 +16,11 @@ describe('dailyChallenge', () => {
     const a = dailyChallengeSeed(new Date('2026-06-25T00:00:00.000Z'));
     const b = dailyChallengeSeed(new Date('2026-06-26T00:00:00.000Z'));
     expect(a).not.toBe(b);
+  });
+
+  it('weekday map differs across adjacent weekdays', () => {
+    const a = dailyChallengeMap(new Date(2026, 6, 5));
+    const b = dailyChallengeMap(new Date(2026, 6, 6));
+    expect(`${a.zone}-${a.battle}`).not.toBe(`${b.zone}-${b.battle}`);
   });
 });

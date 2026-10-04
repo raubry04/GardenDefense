@@ -4,6 +4,8 @@ import { battleHudButtonHitRadius } from '../utils/battleInput.js';
 import { showToast } from './Toast.js';
 import { towerPlacementCost } from '../utils/battleEconomy.js';
 import { TOWER_SPRITES } from "../utils/AssetRegistry.js";
+import { loadLocalProgress, loadPlayerName } from '../utils/hannahProgress.js';
+import { normalizeCollection } from '../utils/collection.js';
 
 const COLORS = GameConfig.colors;
 const TRAY_DEPTH = 150;
@@ -123,6 +125,26 @@ export class TowerTray {
         OFF.sprite,
       );
 
+      // Collection tray sticker — tiny star when the matching animal album entry is earned.
+      let stickerBadge = null;
+      const collection = normalizeCollection(
+        loadLocalProgress(scene.playerName || loadPlayerName() || '').collection,
+      );
+      if (collection.towerStickers?.[type]) {
+        stickerBadge = trackPart(
+          scene.add
+            .text(x + CARD_W / 2 - 12, y - CARD_H / 2 + 10, '★', {
+              fontFamily: 'Kenney Future',
+              fontSize: '12px',
+              color: '#FFE135',
+            })
+            .setOrigin(0.5)
+            .setDepth(TRAY_DEPTH + 4),
+          y,
+          { x: CARD_W / 2 - 12, y: -CARD_H / 2 + 10 },
+        );
+      }
+
       const towerName = type.replace("_", " ");
       const displayName =
         towerName.length > 7 ? towerName.substring(0, 6) + "…" : towerName;
@@ -231,6 +253,7 @@ export class TowerTray {
         greyOverlay,
         selectionGlow,
         lockText,
+        stickerBadge,
         unlocked,
       };
 
@@ -710,7 +733,7 @@ export class TowerTray {
     const unlock = config.unlock;
     let msg = 'Tower locked';
     if (unlock?.type === 'level') msg = `Unlocks at Hannah Level ${unlock.value}`;
-    else if (unlock?.type === 'zone') msg = `Unlocks in Garden Level ${unlock.value}`;
+    else if (unlock?.type === 'zone') msg = `Unlocks in Zone ${unlock.value}`;
     showToast(this.scene, msg);
   }
 

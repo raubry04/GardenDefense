@@ -8,6 +8,14 @@ import {
   TEXT_PILL_BG,
   TEXT_PILL_PAD,
 } from "../utils/textReadability.js";
+import {
+  projectedStarsFromLives,
+  starMeterHint,
+} from "../utils/starRating.js";
+import {
+  resolveBattleModifiers,
+  battleModifierLabel,
+} from "../utils/battleModifiers.js";
 
 const COLORS = GameConfig.colors;
 const HUD_DEPTH = 200;
@@ -19,22 +27,7 @@ export function formatWaveHudLabel(wave, total) {
   return `Wave: ${wave} / ${total}`;
 }
 
-/** Projected victory stars from current lives (matches VictoryScene thresholds). */
-export function projectedStarsFromLives(lives, thresholds = GameConfig.starThresholds) {
-  if (lives >= (thresholds?.three ?? 15)) return 3;
-  if (lives >= (thresholds?.two ?? 8)) return 2;
-  if (lives > 0) return 1;
-  return 0;
-}
-
-export function starMeterHint(lives, thresholds = GameConfig.starThresholds) {
-  const stars = projectedStarsFromLives(lives, thresholds);
-  const need3 = thresholds?.three ?? 15;
-  if (stars >= 3) return 'Keep hearts for 3 stars!';
-  if (stars === 2) return `Need ${need3} hearts for 3 stars`;
-  if (stars === 1) return `Need ${thresholds?.two ?? 8} hearts for 2 stars`;
-  return 'Protect the gate!';
-}
+export { projectedStarsFromLives, starMeterHint };
 
 export class BattleHud {
   /** @param {import("../scenes/UIScene.js").UIScene} scene */
@@ -168,6 +161,22 @@ export class BattleHud {
       .setDepth(hudDepth);
     this.waveBarWidth = barWidth;
 
+    const mods = resolveBattleModifiers(scene.zone ?? 0, scene.battle ?? 0);
+    const modLabel = battleModifierLabel(mods);
+    if (modLabel) {
+      this.modifierText = scene.add
+        .text(wavePanelX, row2Y + 28, modLabel, {
+          fontFamily: "Kenney Future",
+          fontSize: "14px",
+          color: TEXT_GOLD,
+          backgroundColor: TEXT_PILL_BG,
+          padding: TEXT_PILL_PAD,
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(hudDepth);
+      this._trackHudY(this.modifierText, row2Y + 28);
+    }
+
     this._createTopRightControls(width, row1Y, hudDepth);
     this._canonicalRow1Y = row1Y;
     this._canonicalRow2Y = row2Y;
@@ -220,6 +229,9 @@ export class BattleHud {
     if (this.waveText?.active) this.waveText.setY(this.waveText.getData('layoutY') + row2Delta);
     if (this.waveBarBg?.active) this.waveBarBg.setY(this.waveBarBg.getData('layoutY') + row2Delta);
     if (this.waveBarFill?.active) this.waveBarFill.setY(this.waveBarFill.getData('layoutY') + row2Delta);
+    if (this.modifierText?.active && this.modifierText.getData('layoutY') != null) {
+      this.modifierText.setY(this.modifierText.getData('layoutY') + row2Delta);
+    }
 
     for (const key of ['pauseBtn', 'pauseLabel', 'pauseHint', 'speedBtn', 'speedLabel', 'speedHint', 'sunPanel', '_hudStarIcon', 'pointsText']) {
       const obj = this[key];

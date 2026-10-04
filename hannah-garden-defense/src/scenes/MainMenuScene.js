@@ -1,6 +1,6 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
-import { getFullGuideSteps } from '../data/tutorialContent.js';
+import { getQuickStartSteps } from '../data/tutorialContent.js';
 import { applyAudioSettings } from '../utils/audioSettings.js';
 import { createSettingsPanel } from '../ui/SettingsPanel.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
@@ -518,11 +518,12 @@ export class MainMenuScene extends Phaser.Scene {
 
   _showInstructions() {
     const { width, height } = DESIGN;
-    const steps = getFullGuideSteps();
+    const steps = getQuickStartSteps();
     let stepIndex = 0;
     const panelW = Math.min(620, width - 48);
-    const panelH = Math.min(400, height - 120);
+    const panelH = Math.min(440, height - 100);
     const objects = [];
+    let stepImage = null;
 
     const overlay = this.add.rectangle(width / 2, height / 2, width * 2, height * 2, 0x000000, 0.82)
       .setDepth(100);
@@ -535,26 +536,26 @@ export class MainMenuScene extends Phaser.Scene {
 
     const titleText = this.add.text(width / 2, height / 2 - panelH / 2 + 28, '', {
       fontFamily: FONT_DISPLAY,
-      fontSize: '24px',
+      fontSize: '26px',
       color: '#3D5A1F',
       align: 'center',
     }).setOrigin(0.5).setDepth(102);
     objects.push(titleText);
 
-    const bodyText = this.add.text(width / 2, height / 2 - 10, '', {
+    const bodyText = this.add.text(width / 2, height / 2 + 70, '', {
       fontFamily: FONT_DISPLAY,
-      fontSize: '18px',
+      fontSize: '20px',
       color: '#4A2C0A',
       align: 'center',
-      wordWrap: { width: panelW - 48 },
+      wordWrap: { width: panelW - 56 },
       lineSpacing: 6,
     }).setOrigin(0.5).setDepth(102);
     objects.push(bodyText);
 
     const progressText = this.add.text(width / 2, height / 2 + panelH / 2 - 72, '', {
       fontFamily: FONT_DISPLAY,
-      fontSize: '15px',
-      color: '#888888',
+      fontSize: '16px',
+      color: '#666666',
     }).setOrigin(0.5).setDepth(102);
     objects.push(progressText);
 
@@ -563,6 +564,21 @@ export class MainMenuScene extends Phaser.Scene {
       titleText.setText(step.title || 'How To Play');
       bodyText.setText(step.text);
       progressText.setText(`${stepIndex + 1} / ${steps.length}`);
+      if (stepImage?.active) {
+        stepImage.destroy();
+        stepImage = null;
+      }
+      const key = step.imageKey;
+      if (key && this.textures.exists(key)) {
+        stepImage = this.add.image(width / 2, height / 2 - 36, key)
+          .setDisplaySize(96, 96)
+          .setDepth(102);
+        objects.push(stepImage);
+        bodyText.setY(height / 2 + 78);
+      } else {
+        bodyText.setY(height / 2 + 10);
+      }
+      nextLabel.setText(stepIndex >= steps.length - 1 ? 'Done!' : 'Next');
     };
 
     const closeAll = () => {

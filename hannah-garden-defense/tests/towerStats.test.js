@@ -27,6 +27,7 @@ describe('formatTowerStats', () => {
     expect(lines.some((l) => l.includes('Damage: 20'))).toBe(true);
     expect(lines.some((l) => l.includes('Tier 1'))).toBe(true);
     expect(lines.some((l) => l.includes('Eggs: 2'))).toBe(true);
+    expect(lines.some((l) => l.includes('HP: 200/200'))).toBe(true);
   });
 
   it('shows pig wall HP', () => {

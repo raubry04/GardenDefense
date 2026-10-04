@@ -9,36 +9,51 @@ export class BossBanner {
     this._active = null;
   }
 
-  /** @param {string} bossType */
-  show(bossType) {
+  /**
+   * @param {string|{ type?: string, name?: string, telegraph?: string, ruleLabel?: string }} bossOrDef
+   */
+  show(bossOrDef) {
     const scene = this.scene;
     if (this._active?.active) {
       this._active.destroy();
       this._active = null;
     }
 
+    const def = typeof bossOrDef === 'string'
+      ? { type: bossOrDef, name: bossOrDef.replace(/_/g, ' ') }
+      : (bossOrDef || {});
+    const name = def.name || (def.type || 'BOSS').replace(/_/g, ' ');
+    const telegraph = def.telegraph || 'BOSS INCOMING';
+    const rule = def.ruleLabel || '';
+
     const cam = scene.cameras.main;
     const container = scene.add.container(cam.width / 2, -40)
       .setDepth(HUD_DEPTH)
       .setScrollFactor(0);
 
-    const label = bossType.replace(/_/g, ' ');
-    const bg = scene.add.rectangle(0, 0, cam.width * 0.92, 52, 0x2a1810, 0.9)
+    const bg = scene.add.rectangle(0, 0, cam.width * 0.92, rule ? 68 : 56, 0x2a1810, 0.9)
       .setStrokeStyle(3, 0xe63946);
-    const title = scene.add.text(0, -8, 'BOSS INCOMING', {
+    const title = scene.add.text(0, rule ? -16 : -8, telegraph, {
       fontFamily: 'Kenney Pixel',
-      fontSize: '22px',
+      fontSize: '20px',
       color: '#E63946',
       stroke: '#000000',
       strokeThickness: 3,
     }).setOrigin(0.5);
-    const sub = scene.add.text(0, 14, label.toUpperCase(), {
+    const sub = scene.add.text(0, rule ? 6 : 14, name.toUpperCase(), {
       fontFamily: 'Kenney Future',
       fontSize: '16px',
       color: '#FFD700',
     }).setOrigin(0.5);
-
     container.add([bg, title, sub]);
+    if (rule) {
+      const ruleText = scene.add.text(0, 24, rule, {
+        fontFamily: 'Kenney Pixel',
+        fontSize: '14px',
+        color: '#A8DADC',
+      }).setOrigin(0.5);
+      container.add(ruleText);
+    }
     this._active = container;
 
     SceneMusicManager.duck(scene, 0.3, 2000);
@@ -50,7 +65,7 @@ export class BossBanner {
       ease: 'Back.easeOut',
     });
 
-    scene.time.delayedCall(1200, () => {
+    scene.time.delayedCall(1600, () => {
       if (!container.active) return;
       scene.tweens.add({
         targets: container,

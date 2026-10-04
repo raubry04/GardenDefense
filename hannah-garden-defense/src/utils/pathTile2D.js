@@ -5,6 +5,7 @@
 
 import {
   ZONE_LAYOUTS,
+  LAYOUT_BY_ID,
   LAYOUT_COOP,
   LAYOUT_BERRY,
   LAYOUT_ORCHARD,
@@ -15,7 +16,8 @@ import { pickCraftpixPathTileForSegment } from './craftpixTiles.js';
 
 const ENDLESS_LAYOUTS = [LAYOUT_COOP, LAYOUT_BERRY, LAYOUT_ORCHARD];
 
-export function getZoneLayout(zone) {
+export function getZoneLayout(zone, layoutId = null) {
+  if (layoutId && LAYOUT_BY_ID[layoutId]) return LAYOUT_BY_ID[layoutId];
   if (zone >= 0 && zone < ZONE_LAYOUTS.length) return ZONE_LAYOUTS[zone];
   const weekIndex = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
   return ENDLESS_LAYOUTS[weekIndex % ENDLESS_LAYOUTS.length];
@@ -32,18 +34,46 @@ function translateCoords(coords, colOffset, rowOffset) {
   return coords.map((c) => ({ x: c.x + colOffset, z: c.z + rowOffset }));
 }
 
+function mirrorPathCoords(coords, gridW) {
+  return coords.map((c) => ({ x: gridW - 1 - c.x, z: c.z }));
+}
+
+function reversePathCoords(coords) {
+  return [...coords].reverse();
+}
+
 /**
  * Build grass/path grid and per-cell Craftpix ground tile numbers for a zone layout.
+ * @param {number} zone
+ * @param {number} cols
+ * @param {number} rows
+ * @param {number} [tileSize]
+ * @param {{
+ *   centerLayout?: boolean,
+ *   expandPlayable?: boolean,
+ *   colOffset?: number,
+ *   rowOffset?: number,
+ *   reversePath?: boolean,
+ *   mirrorPath?: boolean,
+ *   layoutId?: string|null,
+ * }} [opts]
  */
 export function buildCanvasMapData(zone, cols, rows, tileSize = 64, opts = {}) {
-  const layout = getZoneLayout(zone);
+  const layout = getZoneLayout(zone, opts.layoutId ?? null);
   const {
     centerLayout = false,
     expandPlayable = false,
     colOffset = centerLayout ? Math.floor((cols - layout.gridW) / 2) : 0,
     rowOffset = centerLayout ? Math.floor((rows - layout.gridH) / 2) : 0,
+    reversePath = false,
+    mirrorPath = false,
   } = opts;
-  const shiftedPathCoords = translateCoords(layout.pathCoords, colOffset, rowOffset);
+
+  let pathCoords = layout.pathCoords;
+  if (mirrorPath) pathCoords = mirrorPathCoords(pathCoords, layout.gridW);
+  if (reversePath) pathCoords = reversePathCoords(pathCoords);
+
+  const shiftedPathCoords = translateCoords(pathCoords, colOffset, rowOffset);
   const pathSegs = buildPathFromCoords(shiftedPathCoords);
   const pathSet = pathSetFromSegments(pathSegs);
 

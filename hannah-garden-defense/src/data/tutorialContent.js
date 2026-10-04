@@ -5,18 +5,21 @@ export const TUTORIAL_BASICS = [
     title: "Welcome!",
     text: "This is Hannah's garden! Stop naughty animals before they reach the gate.",
     target: 'gate',
+    imageKey: 'chick',
   },
   {
     title: 'Pick a Defender',
-    text: 'Drag an animal from the tray onto a grass tile to place it.',
+    text: 'Drag or tap an animal from the tray at the bottom.',
     target: 'towerTray',
     requireAction: 'select-tower',
+    imageKey: 'rabbit',
   },
   {
     title: 'Place It',
-    text: 'Drop on green grass to place your defender. Pig Walls go on the path!',
+    text: 'Drop or tap green grass to place your defender. Pig Walls go on the path!',
     target: 'validTile',
     requireAction: 'place-tower',
+    imageKey: 'rabbit',
   },
   {
     title: 'Send the Wave',
@@ -26,8 +29,9 @@ export const TUTORIAL_BASICS = [
   },
   {
     title: 'Sunshine Points',
-    text: 'Defeating enemies earns Sunshine Points. Spend them on more defenders!',
+    text: 'Defeating enemies earns Sunshine. Spend it on more defenders!',
     target: null,
+    imageKey: 'ui_sunshine',
   },
 ];
 
@@ -49,7 +53,7 @@ export const TOWER_GUIDE = [
   },
   {
     title: 'Owl Sniper',
-    text: 'Long-range sharpshooter. Targets the enemy closest to your gate for big damage.',
+    text: 'Long-range sharpshooter — the flyer counter! Shoots Parrots and the enemy closest to your gate.',
     target: 'towerTray',
   },
   {
@@ -87,7 +91,7 @@ export const ENEMY_GUIDE = [
   },
   {
     title: 'Parrot',
-    text: 'Flies straight to the gate, ignoring paths and Pig Walls. Needs ranged damage.',
+    text: 'Flies straight to the gate, ignoring paths and Pig Walls. Only Owls can shoot them!',
     target: null,
   },
   {
@@ -120,6 +124,26 @@ export const ENEMY_GUIDE = [
     text: 'Mini-boss that shrugs off stuns and smashes Pig Walls extra hard.',
     target: null,
   },
+  {
+    title: 'Rhino',
+    text: 'Armored tank that shrugs off stuns and smashes Pig Walls. Owls and Dogs help most.',
+    target: null,
+  },
+  {
+    title: 'Hippo',
+    text: 'Huge health sponge — keep slows on the path and pile on steady damage.',
+    target: null,
+  },
+  {
+    title: 'Crocodile',
+    text: 'Lurks slowly, then sprints near the gate. Place slows and stuns before the finish.',
+    target: null,
+  },
+  {
+    title: 'Zebra',
+    text: 'Fast runners that often arrive in pairs — AoE slows and multi-target damage help.',
+    target: null,
+  },
 ];
 
 export const ABILITY_GUIDE = [
@@ -130,12 +154,17 @@ export const ABILITY_GUIDE = [
   },
   {
     title: 'Garden Rain 🌧',
-    text: 'Fully heals every tower. Use when Bears or Elephants have chipped your line.',
+    text: 'Fully repairs every tower. Use after Bears smash defenders or when walls are low.',
     target: 'abilities',
   },
   {
     title: 'Rainbow Shield 🛡',
     text: 'Makes all towers invulnerable for a few seconds. Save for a rush.',
+    target: 'abilities',
+  },
+  {
+    title: 'Seed Storm 🌱',
+    text: 'Slows every pest on the path (Hannah Level 4). Pick it in the Album Power tab.',
     target: 'abilities',
   },
   {
@@ -145,29 +174,64 @@ export const ABILITY_GUIDE = [
   },
 ];
 
-/** Steps shown on first battle (basics + compact reference cards). */
+/** Steps shown on first battle — short interactive path (~6 beats). */
 export function getFirstBattleSteps() {
   return [
     ...TUTORIAL_BASICS,
     {
-      title: 'Defenders',
-      text: 'Rabbit/Duck slow • Chicken/Owl damage • Dog/Penguin control • Pig Wall blocks.',
-      target: 'towerTray',
-    },
-    {
-      title: 'Threats',
-      text: 'New critters get a tip when they first appear. Watch for flyers, splitters, and slow-immune Gorillas!',
-      target: null,
-    },
-    {
       title: "Hannah's Powers",
-      text: 'Use the round buttons on the right: Burst, Rain, Shield, and Flower Bomb (later).',
+      text: 'Tap the round buttons on the right when things get tough!',
       target: 'abilities',
+      imageKey: 'chick',
     },
   ];
 }
 
-/** Full reference for How To Play menu. */
+/**
+ * Kid-sized menu How To Play (~7 illustrated slides).
+ * Full tower/enemy lists live in the Album / guides, not here.
+ */
+export function getQuickStartSteps() {
+  return [
+    {
+      title: "Welcome!",
+      text: "Protect Hannah's garden gate. Critters walk the dirt path — stop them!",
+      imageKey: 'chick',
+    },
+    {
+      title: 'Place Defenders',
+      text: 'Drag or tap animals from the bottom tray onto green grass.',
+      imageKey: 'rabbit',
+    },
+    {
+      title: 'Send Waves',
+      text: 'Tap SEND WAVE when ready. Early starts earn bonus Sunshine!',
+      imageKey: 'ui_sunshine',
+    },
+    {
+      title: 'Owls vs Parrots',
+      text: 'Parrots fly over walls. Only Owls can shoot them!',
+      imageKey: 'owl',
+    },
+    {
+      title: 'Hearts & Stars',
+      text: 'Keep hearts to earn more stars. Finish fast for 3 stars!',
+      imageKey: 'heartIcon',
+    },
+    {
+      title: 'Bears Smash Towers',
+      text: 'Bears leave the path and hurt your defenders. Use Rain to repair!',
+      imageKey: 'bear',
+    },
+    {
+      title: "Hannah Helps",
+      text: 'Use the round buttons on the right for Burst, Rain, and Shield.',
+      imageKey: 'chick',
+    },
+  ];
+}
+
+/** Full reference (Album / docs) — not shown as the main menu slideshow. */
 export function getFullGuideSteps() {
   return [
     ...TUTORIAL_BASICS,

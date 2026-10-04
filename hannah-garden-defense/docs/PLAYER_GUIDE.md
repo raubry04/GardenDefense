@@ -14,7 +14,7 @@ Your progress saves automatically on this device (and syncs when the family serv
 
 ### Before waves start
 
-You get a **prep timer** (about 30 seconds) before the first wave. Use it to place defenders!
+You get a **prep timer** (about 18 seconds) before the first wave. Use it to place defenders!
 
 On your **very first battle**, the tutorial walks you through the garden — the wave timer **waits** until you tap **Send Wave** (it won't start on its own while tips are on screen).
 
@@ -32,10 +32,10 @@ On your **very first battle**, the tutorial walks you through the garden — the
 
 ### Between waves
 
-- You have about **15 seconds** before the next wave.
+- You have about **10 seconds** before the next wave.
 - The **Next:** row shows which critters are coming — plan ahead!
 - A **countdown** on the Send Wave button shows when the next wave auto-starts (after wave 1 on the first battle).
-- Tap **Send Wave** (or **Next Wave**) to start early and earn **+10 bonus** Sunshine Points.
+- Tap **Send Wave** (or **Next Wave**) to start early and earn **+25 bonus** Sunshine Points.
 
 ### Sunshine Points ☀
 
@@ -50,7 +50,7 @@ On your **very first battle**, the tutorial walks you through the garden — the
 | **Rabbit** | Slows enemies nearby |
 | **Chicken** | Throws eggs — great damage (can't hit flying Parrots!) |
 | **Dog** | Stuns and slows — good vs fast Gorillas |
-| **Owl** | Long range — hits enemies far along the path |
+| **Owl** | Long range — the flyer counter; hits Parrots and far path enemies |
 | **Duck** | Slows a wide area |
 | **Penguin** | Freezes enemies (needs time to recharge) |
 | **Pig Wall** | Blocks the path — only this one can sit on the trail |
@@ -83,13 +83,17 @@ Wait for the circle to fill before using a power again.
 | **Snake** | Easy — good for learning |
 | **Frog** | Splits into two Snakes when defeated |
 | **Gorilla** | Very fast; Rabbits can't slow it — use Dogs or damage |
-| **Parrot** | Flies over the path — use Owls or other targets |
+| **Parrot** | Flies over walls — only Owls can shoot them! |
 | **Monkey** | Might steal some of your Sunshine Points |
 | **Bear** | Walks off the path to smash your towers |
 | **Elephant** | Huge and armored — Chickens don't hurt it; use Owls and friends |
 | **Cow** | Slow but sturdy (Vegetable Garden) |
 | **Horse** | Super fast! (Chicken Coop) |
 | **Buffalo** | Breaks through Pig Walls easily (Berry Patch and later) |
+| **Crocodile** | Lurks, then sprints near the gate (Chicken Coop+) |
+| **Zebra** | Fast runners that often come in pairs (Berry Patch+) |
+| **Hippo** | Huge health sponge — keep slowing and chip away (Berry Patch+) |
+| **Rhino** | Armored wall-smasher that shrugs off stuns (Apple Orchard) |
 
 The first time you see Cow, Horse, or Buffalo, a gold hint appears — read it!
 
@@ -97,11 +101,13 @@ The first time you see Cow, Horse, or Buffalo, a gold hint appears — read it!
 
 If you protect the gate, you earn **1 to 3 stars**:
 
-- ★★★ — Almost all hearts left (15–20)
-- ★★ — Half or more hearts left (8–14)
+- ★★★ — Almost all hearts left (15–20) **and** finish under the time goal (watch the star hint under hearts)
+- ★★ — Half or more hearts left (8–14), or 15+ hearts but over the time goal
 - ★ — You made it with fewer hearts (1–7)
 
 More stars mean more bonus points for upgrades! If you earn fewer than 3★, the victory screen reminds you how many lives you need for a perfect run — replay any unlocked battle from the world map (battles with 1–2★ show a **Chase ★** hint).
+
+Towers have **HP** too — Bears leave the path to smash them, and Pig Walls take damage from path enemies. Tap a tower to see its health. Garden Rain repairs everyone.
 
 ### Boss waves
 
@@ -131,9 +137,9 @@ The **1x / 2x** button next to pause speeds up the battle for faster replays. It
 
 From the main menu, tap **SETTINGS** to change **Music** and **Sound FX** volume. Your choices are saved on this device.
 
-## Endless Frontier
+## Endless Frontier & Daily Challenge
 
-After you beat all campaign zones, **Endless Frontier** on the world map keeps sending waves until you run out of hearts. The HUD shows **Wave: N ♾**. Your best wave count can appear on the leaderboard when you game over.
+After you **beat Zone 2** (Vegetable Garden), **Endless Frontier** and **Daily Challenge** unlock on the world map. Tap them earlier and a tip explains what to finish first. Endless keeps sending waves until you run out of hearts — the HUD shows **Wave: N ♾**. Your best wave count can appear on the leaderboard when you game over.
 
 ## After you win
 
@@ -147,7 +153,7 @@ If critters get through completely, don't worry — the game cheers you on to tr
 - Put **Rabbits near the start** of the path to slow everything down.
 - Save some Sunshine for **later waves** — they get tougher!
 - **Send Wave early** when your garden is ready — free bonus points.
-- Check the **wave preview** so you know when to place Owls or Pigs — icons with ✈ ⚡ or 🧱 mark flying, fast, or wall-breaking threats.
+- Check the **wave preview** so you know when to place Owls or Pigs — icons mark flying (✈), fast (⚡), wall-breaking (🧱), armored (🛡), tower-hunters (🔨), and more.
 - **Flower Bomb** (Hannah level 6+): tap the ability, move the circle, tap again to detonate (or wait 5 seconds for a path-center blast).
 - Upgrade **Chickens and Owls** between battles for big damage.
 

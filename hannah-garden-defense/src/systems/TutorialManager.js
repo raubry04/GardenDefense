@@ -10,7 +10,8 @@ const HINT_DISMISS_MS = 4000;
 const COLORS = GameConfig.colors;
 const TUTORIAL_DEPTH = 3000;
 
-const HINT_POOL = [
+/** Exported for H1 clarity tests — must stay aligned with TowerCombat flyer rules. */
+export const HINT_POOL = [
   'Rabbits slow enemies down — place them near the start!',
   'Chickens throw eggs far, but they cannot hit flying Parrots.',
   'Dogs stun enemies — great against fast runners and Gorillas (who ignore slows)!',
@@ -18,7 +19,7 @@ const HINT_POOL = [
   'Check the wave preview above Send Wave to plan your next defenders.',
   'Earn bonus Sunshine Points by starting waves early!',
   'Gorillas ignore slowing — use Dog stuns or raw damage!',
-  'Parrots fly over walls — bring Owls or Chickens on other targets.',
+  'Parrots fly over walls — bring Owls to shoot them!',
   'Tap Hannah\'s ability buttons on the right when things get tough!',
 ];
 
@@ -42,10 +43,13 @@ export class TutorialManager {
     if (this._actionListenersBound) return;
     this._actionListenersBound = true;
     const g = this.scene.game.events;
+    // Tap select OR drag-start both count as "pick a defender".
     this._onSelectTower = () => this.notifyAction('select-tower');
+    this._onDragStart = () => this.notifyAction('select-tower');
     this._onPlaceTower = () => this.notifyAction('place-tower');
     this._onSendWave = () => this.notifyAction('send-wave');
     g.on('tower-selected', this._onSelectTower);
+    g.on('tower-drag-start', this._onDragStart);
     g.on('tower-placed', this._onPlaceTower);
     g.on('wave-started', this._onSendWave);
     g.on('send-wave-early', this._onSendWave);
@@ -56,12 +60,14 @@ export class TutorialManager {
     this._actionListenersBound = false;
     const g = this.scene.game.events;
     if (this._onSelectTower) g.off('tower-selected', this._onSelectTower);
+    if (this._onDragStart) g.off('tower-drag-start', this._onDragStart);
     if (this._onPlaceTower) g.off('tower-placed', this._onPlaceTower);
     if (this._onSendWave) {
       g.off('wave-started', this._onSendWave);
       g.off('send-wave-early', this._onSendWave);
     }
     this._onSelectTower = null;
+    this._onDragStart = null;
     this._onPlaceTower = null;
     this._onSendWave = null;
   }
@@ -71,6 +77,21 @@ export class TutorialManager {
     if (!this.active) return;
     const step = this.steps[this.currentStep];
     if (!step?.requireAction) return;
+
+    // One-motion drag-place: placement implies they already picked a defender.
+    if (
+      action === 'place-tower'
+      && step.requireAction === 'select-tower'
+    ) {
+      this.advance();
+      // If the next step is place-tower, consume this placement too.
+      const next = this.steps[this.currentStep];
+      if (next?.requireAction === 'place-tower') {
+        this.advance();
+      }
+      return;
+    }
+
     if (step.requireAction !== action) return;
     this.advance();
   }
@@ -330,6 +351,8 @@ export class TutorialManager {
     this.active = true;
     this.currentStep = 0;
     this._bindActionListeners();
+    // Pause-menu HOW TO PLAY must unpause so place/drag still works.
+    this.scene.game.events.emit('tutorial-replay-request');
     this._emitTutorialState(true);
     this._showStep();
   }

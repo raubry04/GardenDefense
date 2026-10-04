@@ -1,4 +1,5 @@
 import { GameConfig } from '../config.js';
+import { resolveBattleModifiers } from '../utils/battleModifiers.js';
 
 export class WaveManager {
   constructor(scene) {
@@ -15,6 +16,8 @@ export class WaveManager {
     this.battle = null;
     this.isBossBattle = false;
     this.bossType = null;
+    this.bossDef = null;
+    this.modifiers = null;
     this.paused = false;
     this._prepPhaseActive = false;
     this.isEndless = false;
@@ -37,9 +40,25 @@ export class WaveManager {
     this._rng = options.waveSeed
       ? new Phaser.Math.RandomDataGenerator([String(options.waveSeed)])
       : null;
-    this.waves = this._generateWaves(zone, battle);
+    this.modifiers = this.isEndless
+      ? resolveBattleModifiers(-1, battle)
+      : resolveBattleModifiers(zone, battle);
+    // Empty modifier set for endless / out-of-range.
+    if (this.isEndless) {
+      this.modifiers = {
+        ...this.modifiers,
+        ids: [],
+        reversePath: false,
+        mirrorPath: false,
+        nightTint: false,
+        wind: false,
+        flyersHeavy: false,
+      };
+    }
     this.isBossBattle = this._computeIsBoss(zone, battle);
-    this.bossType = this._computeBossType(zone);
+    this.bossDef = this._computeBossDef(zone, battle);
+    this.bossType = this.bossDef?.type ?? this._computeBossTypeFallback(zone);
+    this.waves = this._generateWaves(zone, battle);
     this._emitPreview();
   }
 
@@ -227,6 +246,8 @@ export class WaveManager {
       enemies,
       isBoss: this.isBossBattle,
       bossType: this.bossType,
+      bossName: this.bossDef?.name ?? null,
+      bossTelegraph: this.bossDef?.telegraph ?? null,
     };
   }
 
@@ -257,10 +278,21 @@ export class WaveManager {
     return battle === zoneConfig.battles - 1;
   }
 
-  _computeBossType(zoneIndex) {
+  _computeBossDef(zoneIndex, battle) {
+    if (!this._computeIsBoss(zoneIndex, battle)) return null;
+    return GameConfig.zoneBosses?.[zoneIndex] ?? null;
+  }
+
+  /** Legacy fallback when zoneBosses is missing. */
+  _computeBossTypeFallback(zoneIndex) {
     if (zoneIndex >= GameConfig.zones.length) return null;
     const pool = GameConfig.zones[zoneIndex].enemies;
     return pool.length > 0 ? pool[pool.length - 1] : null;
+  }
+
+  _computeBossType(zoneIndex) {
+    return this._computeBossDef(zoneIndex, GameConfig.zones[zoneIndex]?.battles - 1)?.type
+      ?? this._computeBossTypeFallback(zoneIndex);
   }
 
   _waveConfig() {
@@ -277,6 +309,11 @@ export class WaveManager {
     const totalWaves = this._getWaveCount(zoneIndex) + (isBoss ? (GameConfig.bossWaveBonus || 3) : 0);
     const waves = [];
     const intro = wc.zoneIntro?.[zoneIndex];
+    const bossType = this.bossType;
+    const flyersHeavy = this.modifiers?.flyersHeavy;
+    const flyerFrom = Math.floor(totalWaves * (this.modifiers?.flyersHeavyFromWaveFraction ?? 0.4));
+    const flyerTypes = (this.modifiers?.flyerTypes || ['PARROT'])
+      .filter((t) => zoneConfig.enemies.includes(t));
 
     for (let w = 0; w < totalWaves; w++) {
       const wave = [];
@@ -295,7 +332,7 @@ export class WaveManager {
         }
       }
 
-      if (zoneIndex === 1 && battle === 0 && intro?.battle0MaxCount) {
+      if (battle === 0 && intro?.battle0MaxCount) {
         const caps = intro.battle0MaxCount;
         if (caps[w] != null) {
           baseCount = Math.min(baseCount, caps[w]);
@@ -308,8 +345,14 @@ export class WaveManager {
         wave.push(this._pickEnemyForWave(zoneIndex, battle, w, enemyPool, intro));
       }
 
-      if (isBoss && w >= Math.floor(totalWaves * 2 / 3) && enemyPool.length > 1) {
-        wave.push(enemyPool[enemyPool.length - 1]);
+      if (flyersHeavy && flyerTypes.length > 0 && w >= flyerFrom) {
+        const flyer = flyerTypes[Math.floor(this._rand() * flyerTypes.length)];
+        wave.push(flyer);
+        if (this._rand() < 0.5) wave.push(flyer);
+      }
+
+      if (isBoss && bossType && w >= Math.floor(totalWaves * 2 / 3)) {
+        wave.push(bossType);
       }
 
       waves.push(wave);
@@ -321,11 +364,27 @@ export class WaveManager {
   _pickEnemyForWave(zoneIndex, battle, waveIndex, enemyPool, intro) {
     let pool = enemyPool;
     if (intro?.buffaloFromBattle != null && battle < intro.buffaloFromBattle) {
-      pool = enemyPool.filter((e) => e !== 'BUFFALO');
+      pool = pool.filter((e) => e !== 'BUFFALO');
       if (pool.length === 0) pool = enemyPool;
     }
     if (intro?.crocodileFromBattle != null && battle < intro.crocodileFromBattle) {
-      pool = enemyPool.filter((e) => e !== 'CROCODILE');
+      pool = pool.filter((e) => e !== 'CROCODILE');
+      if (pool.length === 0) pool = enemyPool;
+    }
+    if (intro?.hippoFromBattle != null && battle < intro.hippoFromBattle) {
+      pool = pool.filter((e) => e !== 'HIPPO');
+      if (pool.length === 0) pool = enemyPool;
+    }
+    if (intro?.zebraFromBattle != null && battle < intro.zebraFromBattle) {
+      pool = pool.filter((e) => e !== 'ZEBRA');
+      if (pool.length === 0) pool = enemyPool;
+    }
+    if (intro?.rhinoFromBattle != null && battle < intro.rhinoFromBattle) {
+      pool = pool.filter((e) => e !== 'RHINO');
+      if (pool.length === 0) pool = enemyPool;
+    }
+    if (intro?.elephantFromBattle != null && battle < intro.elephantFromBattle) {
+      pool = pool.filter((e) => e !== 'ELEPHANT');
       if (pool.length === 0) pool = enemyPool;
     }
 

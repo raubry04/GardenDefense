@@ -1,4 +1,5 @@
 import { GameConfig } from '../config.js';
+import { normalizeCollection, mergeCollections, DEFAULT_COLLECTION } from './collection.js';
 
 export const STORAGE_KEY = 'hannahGarden_progress';
 export const PLAYER_NAME_KEY = 'hannahGarden_playerName';
@@ -93,6 +94,8 @@ export const DEFAULT_PROGRESS = {
   zoneBattles: {},
   battleStars: {},
   towerUpgrades: {},
+  /** H3 collection fantasy — stickers, skins, mastery props, ability loadout. */
+  collection: normalizeCollection(null),
 };
 
 /**
@@ -196,6 +199,7 @@ export function normalizeProgress(raw) {
     zoneBattles: raw.zoneBattles || {},
     battleStars: raw.battleStars || {},
     towerUpgrades: raw.towerUpgrades || {},
+    collection: normalizeCollection(raw.collection),
     hannahLevel: Math.max(storedLevel, levelFromXp),
     metaSunshineEarned,
     metaSunshineSpent,
@@ -259,6 +263,7 @@ export function progressToServerPayload(progress) {
     zone_stars: JSON.stringify(data.zoneStars || {}),
     zone_battles: JSON.stringify(data.zoneBattles || {}),
     tower_upgrades: JSON.stringify(data.towerUpgrades || {}),
+    collection_json: JSON.stringify(data.collection || DEFAULT_COLLECTION),
   };
 }
 
@@ -274,6 +279,7 @@ export function serverRowToProgress(row, playerName) {
   let zoneStars = {};
   let zoneBattles = {};
   let towerUpgrades = {};
+  let collection = DEFAULT_COLLECTION;
   try {
     battleStars = typeof row.battle_stars === 'string'
       ? JSON.parse(row.battle_stars)
@@ -294,6 +300,11 @@ export function serverRowToProgress(row, playerName) {
       ? JSON.parse(row.tower_upgrades)
       : (row.tower_upgrades || {});
   } catch { /* ignore */ }
+  try {
+    collection = typeof row.collection_json === 'string'
+      ? JSON.parse(row.collection_json)
+      : (row.collection_json || DEFAULT_COLLECTION);
+  } catch { /* ignore */ }
 
   return normalizeProgress({
     playerName: row.player_name || playerName || '',
@@ -310,6 +321,7 @@ export function serverRowToProgress(row, playerName) {
     zoneStars,
     zoneBattles,
     towerUpgrades,
+    collection,
   });
 }
 
@@ -369,6 +381,11 @@ export function mergeProgressRecords(local, remote) {
     zoneBattles,
     zoneStars,
     towerUpgrades,
+    collection: mergeCollections(a.collection, b.collection),
+    lastDailyChestDate: [a.lastDailyChestDate, b.lastDailyChestDate]
+      .filter(Boolean)
+      .sort()
+      .pop() || null,
   });
 }
 
@@ -458,6 +475,7 @@ const UNLOCK_LABELS = {
   SUNSHINE_BURST: 'Sunshine Burst',
   GARDEN_RAIN: 'Garden Rain',
   RAINBOW_SHIELD: 'Rainbow Shield',
+  SEED_STORM: 'Seed Storm',
   FLOWER_BOMB: 'Flower Bomb',
 };
 

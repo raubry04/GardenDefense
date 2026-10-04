@@ -90,6 +90,20 @@ export class AbilityController {
         }
         break;
       }
+      case 'SEED_STORM': {
+        const slow = ability.slowPercent ?? 0.45;
+        const duration = ability.duration ?? 4000;
+        for (const enemy of s.enemies) {
+          if (!enemy.alive) continue;
+          if (GameConfig.enemies[enemy.type]?.immuneToSlow) continue;
+          enemy.slowPercent = Math.max(enemy.slowPercent || 0, slow);
+          enemy.slowTimer = Math.max(enemy.slowTimer || 0, duration);
+        }
+        const mid = s.waypoints[Math.floor(s.waypoints.length / 2)];
+        this.showAbilityPulse(mid, 0x8bc34a);
+        s.battleVfx?.burstAbility('SEED_STORM', mid.x, mid.y);
+        break;
+      }
       case 'FLOWER_BOMB': {
         this.startFlowerBombAim(ability);
         break;

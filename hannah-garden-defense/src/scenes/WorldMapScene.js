@@ -5,6 +5,10 @@ import { loadLocalProgress, loadProgress, loadPlayerName, availableMetaBank } fr
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 import { TEXT_ON_DARK, FONT_DISPLAY, FONT_HUD, TEXT_SOFT_SHADOW } from '../utils/textReadability.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
+import { showToast } from '../ui/Toast.js';
+import { isExtraModesUnlocked, extraModesLockMessage } from '../utils/modesUnlock.js';
+import { albumProgress, skinInfo, normalizeCollection } from '../utils/collection.js';
+import { dailyChallengeParams } from '../utils/dailyChallenge.js';
 
 const COLORS = GameConfig.colors;
 const ZONES = GameConfig.zones;
@@ -85,6 +89,8 @@ export class WorldMapScene extends Phaser.Scene {
     this._drawHeader(width, this.progress);
     this._drawZones(width, height, this.progress);
     this._drawMapMascot(width, height);
+    this._drawMasteryProps(width, height, this.progress);
+    this._drawAlbumButton(width, height);
   }
 
   _drawBackground(width, height) {
@@ -131,7 +137,7 @@ export class WorldMapScene extends Phaser.Scene {
       }
     }
 
-    this.add.text(84, headerY + 16, `Lv.${progress.hannahLevel} · Garden ${progress.gardenLevel}`, {
+    this.add.text(84, headerY + 16, `Hannah Lv.${progress.hannahLevel}`, {
       fontFamily: FONT_DISPLAY,
       fontSize: '18px',
       color: '#A8DADC',
@@ -164,16 +170,16 @@ export class WorldMapScene extends Phaser.Scene {
 
   _drawZones(width, height, progress) {
     const startIdx = this.children.list.length;
-    // Slightly tighter bars so pulling the list up still clears BACK / bottom inset.
-    const zoneHeight = 78;
-    const zoneGap = 8;
+    // Tighter bars so 6 zones + Endless/Daily still clear BACK / bottom inset.
+    const zoneHeight = ZONES.length >= 6 ? 68 : 78;
+    const zoneGap = ZONES.length >= 6 ? 6 : 8;
     // Pull Zone 1 up under the header — ~16px gap, not a huge empty band.
     const headerBottom = this._headerBottom ?? (getSafeTop() + 6 + 72);
     const startY = headerBottom + 16 + zoneHeight / 2;
     const zoneWidth = width * 0.75;
     const uiDepth = 20;
-    const zoneColors = [0x7EC850, 0x8BC34A, 0x66BB6A, 0xAB47BC, 0xFF7043];
-    const zoneEmojis = ['🌻', '🥕', '🐔', '🫐', '🍎'];
+    const zoneColors = [0x7EC850, 0x8BC34A, 0x66BB6A, 0xAB47BC, 0xFF7043, 0xFFB74D];
+    const zoneEmojis = ['🌻', '🥕', '🐔', '🫐', '🍎', '🎃'];
     this._zonePositions = [];
 
     const pathGfx = this.add.graphics().setDepth(uiDepth);
@@ -235,7 +241,8 @@ export class WorldMapScene extends Phaser.Scene {
           color: '#FFF9E6',
         }).setOrigin(0, 0.5).setShadow(0, 2, '#1c3a0e', 3).setDepth(uiDepth + 2);
 
-        this.add.text(width / 2 - zoneWidth / 2 + 50, y + 2, ZONES[i].name, {
+        this.add.text(width / 2 - zoneWidth / 2 + 50, y + 2,
+          ZONES[i].seasonal ? `${ZONES[i].name} · Season` : ZONES[i].name, {
           fontFamily: FONT_DISPLAY,
           fontSize: '19px',
           color: '#FFF9E6',
@@ -327,7 +334,7 @@ export class WorldMapScene extends Phaser.Scene {
     }
 
     const endlessY = startY + ZONES.length * (zoneHeight + zoneGap);
-    const endlessUnlocked = progress.unlockedZone >= ZONES.length - 1;
+    const endlessUnlocked = isExtraModesUnlocked(progress.unlockedZone);
 
     this.add.rectangle(width / 2 + 3, endlessY + 3, zoneWidth, zoneHeight, 0x000000, 0.3)
       .setDepth(uiDepth);
@@ -340,12 +347,18 @@ export class WorldMapScene extends Phaser.Scene {
       color: endlessUnlocked ? '#FFD700' : LOCKED_LABEL,
     }).setOrigin(0.5).setShadow(0, 1, '#000000', 3).setDepth(uiDepth + 2);
 
-    if (endlessUnlocked) {
-      endlessBg.on('pointerdown', () => {
-        this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
-        this.scene.start('GameScene', { zone: 5, battle: 0, playerName: this.playerName });
+    endlessBg.on('pointerdown', () => {
+      this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+      if (!endlessUnlocked) {
+        showToast(this, extraModesLockMessage(), 2800);
+        return;
+      }
+      this.scene.start('GameScene', {
+        zone: GameConfig.zones.length,
+        battle: 0,
+        playerName: this.playerName,
       });
-    }
+    });
 
     const dailyY = endlessY + zoneHeight + zoneGap;
     this.add.rectangle(width / 2 + 3, dailyY + 3, zoneWidth, zoneHeight - 8, 0x000000, 0.3)
@@ -353,18 +366,30 @@ export class WorldMapScene extends Phaser.Scene {
     const dailyBg = this._themedBar(width / 2, dailyY, zoneWidth, zoneHeight - 8,
       endlessUnlocked ? 0x1565C0 : 0x5A4A3A, endlessUnlocked, uiDepth + 1);
 
-    this.add.text(width / 2, dailyY, endlessUnlocked ? 'Daily Challenge' : 'Daily Challenge (locked)', {
+    this.add.text(width / 2, dailyY - 14, endlessUnlocked ? 'Daily Challenge' : 'Daily Challenge (locked)', {
       fontFamily: FONT_DISPLAY,
       fontSize: '26px',
       color: endlessUnlocked ? '#FFF9E6' : LOCKED_LABEL,
     }).setOrigin(0.5).setShadow(0, 1, '#000000', 3).setDepth(uiDepth + 2);
 
     if (endlessUnlocked) {
-      dailyBg.on('pointerdown', () => {
-        this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
-        this.scene.start('GameScene', { mode: 'daily', playerName: this.playerName });
-      });
+      const daily = dailyChallengeParams();
+      const dailyZoneName = GameConfig.zones[daily.zone]?.name ?? 'Garden';
+      this.add.text(width / 2, dailyY + 16, `${dailyZoneName} · B${daily.battle + 1}`, {
+        fontFamily: FONT_DISPLAY,
+        fontSize: '16px',
+        color: '#A8DADC',
+      }).setOrigin(0.5).setDepth(uiDepth + 2);
     }
+
+    dailyBg.on('pointerdown', () => {
+      this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+      if (!endlessUnlocked) {
+        showToast(this, extraModesLockMessage(), 2800);
+        return;
+      }
+      this.scene.start('GameScene', { mode: 'daily', playerName: this.playerName });
+    });
     this._markProgressUi(startIdx);
   }
 
@@ -390,6 +415,7 @@ export class WorldMapScene extends Phaser.Scene {
   /**
    * Chick mascot sits outside zone bars (bottom-right margin), never next to
    * the star count — that read as a random face crowding "9/15".
+   * Equipped mastery costume tints the chick.
    */
   _drawMapMascot(width, height) {
     const startIdx = this.children.list.length;
@@ -399,9 +425,11 @@ export class WorldMapScene extends Phaser.Scene {
     // Clear of BACK (bottom-left) and the centered zone list (~75% width).
     const mascotX = width - 52 - Math.max(8, insets.right);
     const mascotY = height - 70 - Math.max(8, insets.bottom);
+    const skin = skinInfo(normalizeCollection(this.progress.collection).equippedSkin);
 
     this._chickSprite = this.add.image(mascotX, mascotY, 'chick')
       .setDisplaySize(52, 52)
+      .setTint(skin.tint)
       .setDepth(6);
 
     this._chickTween = this.tweens.add({
@@ -411,6 +439,59 @@ export class WorldMapScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
+    });
+    this._markProgressUi(startIdx);
+  }
+
+  /** Mastery map props — small craftpix decorations along the right margin. */
+  _drawMasteryProps(width, height, progress) {
+    const startIdx = this.children.list.length;
+    const col = normalizeCollection(progress.collection);
+    if (!col.mapProps.length) {
+      this._markProgressUi(startIdx);
+      return;
+    }
+    const insets = getSafeInsets();
+    const x = width - 28 - Math.max(4, insets.right);
+    let y = (this._headerBottom ?? 90) + 40;
+    for (const propId of col.mapProps) {
+      const reward = Object.values(GameConfig.zoneMasteryRewards || {})
+        .find((r) => r.type === 'prop' && r.id === propId);
+      const craftKey = reward?.craftpixKey ? `cp_${reward.craftpixKey}` : null;
+      if (craftKey && this.textures.exists(craftKey)) {
+        this.add.image(x, y, craftKey).setDisplaySize(36, 36).setDepth(5);
+      } else {
+        this.add.text(x, y, '🏡', { fontSize: '22px' }).setOrigin(0.5).setDepth(5);
+      }
+      y += 44;
+    }
+    this._markProgressUi(startIdx);
+  }
+
+  /** Album entry — opens StickerBookScene. */
+  _drawAlbumButton(width, height) {
+    const startIdx = this.children.list.length;
+    const insets = getSafeInsets();
+    const { filled, total } = albumProgress(this.progress.collection);
+    const x = width - 70 - Math.max(8, insets.right);
+    const y = getSafeTop() + 100;
+    const bg = this.add.rectangle(x, y, 100, 44, 0x1565C0, 0.95)
+      .setStrokeStyle(2, 0xffd700)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(25);
+    this.add.text(x, y - 8, 'Album', {
+      fontFamily: FONT_DISPLAY,
+      fontSize: '16px',
+      color: '#FFF9E6',
+    }).setOrigin(0.5).setDepth(26);
+    this.add.text(x, y + 12, `${filled}/${total}`, {
+      fontFamily: FONT_HUD,
+      fontSize: '14px',
+      color: '#FFD700',
+    }).setOrigin(0.5).setDepth(26);
+    bg.on('pointerdown', () => {
+      this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+      this.scene.start('StickerBookScene', { playerName: this.playerName });
     });
     this._markProgressUi(startIdx);
   }

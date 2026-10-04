@@ -29,7 +29,7 @@ export function formatTowerStats(type, tower) {
   if (tower.slowPercent > 0) lines.push(`Slow: ${Math.round(tower.slowPercent * 100)}%`);
   if (tower.stunMs > 0) lines.push(`Stun: ${(tower.stunMs / 1000).toFixed(1)}s`);
   if (tower.freezeMs > 0) lines.push(`Freeze: ${(tower.freezeMs / 1000).toFixed(1)}s`);
-  if (tower.maxHp > 0 && type === 'PIG_WALL') {
+  if (tower.maxHp > 0) {
     lines.push(`HP: ${Math.max(0, Math.ceil(tower.hp))}/${tower.maxHp}`);
   }
   if (tower.range) lines.push(`Range: ${tower.range}`);

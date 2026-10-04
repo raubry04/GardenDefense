@@ -183,6 +183,7 @@ describe('WaveManager', () => {
     wm.beginPrepPhase();
     const preview = wm.getNextWavePreview();
     expect(preview.isBoss).toBe(true);
-    expect(preview.bossType).toBeTruthy();
+    expect(preview.bossType).toBe(GameConfig.zoneBosses[2].type);
+    expect(preview.bossName).toBe(GameConfig.zoneBosses[2].name);
   });
 });

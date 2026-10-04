@@ -98,7 +98,7 @@ describe('mobile/iOS bug-hunt regressions', () => {
 
   it('WorldMap zone bars are tall enough for the text-size pass', () => {
     const src = read('src/scenes/WorldMapScene.js');
-    expect(src).toMatch(/const zoneHeight = 7[8-9]|const zoneHeight = [8-9]\d/);
+    expect(src).toMatch(/const zoneHeight = ZONES\.length >= 6 \? 6[0-9] : 78|const zoneHeight = 7[8-9]|const zoneHeight = [8-9]\d/);
   });
 
   it('TowerTray never scale-tweens the cost-chip star (setDisplaySize images)', () => {

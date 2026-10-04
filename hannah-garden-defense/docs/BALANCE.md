@@ -19,7 +19,7 @@ Avoid scattering magic numbers in scene files; battle modules read from `GameCon
 | `metaSunshineBankRate` | `0.16` | Fraction of `(battle earnings + star bonuses)` deposited on victory |
 | `duplicateTowerCostStep` | `0.12` | Each additional tower of the same type costs +12% |
 | `campaignHpScale` | per-zone + per-battle | Gentler early zones; ramps mid/late campaign |
-| `earlyWaveBonusPoints` | `10` | Reward for Send Wave early |
+| `earlyWaveBonusPoints` | `25` | Reward for Send Wave early |
 | `waveCompletionBonus` | `25` | Per-wave completion (in-battle) |
 | `twoStarBonus` / `threeStarBonus` | `25` / `75` | Added to earnings before meta bank rate |
 | `sellRefundPercent` | `0.5` | Sell tower refund |
@@ -67,7 +67,7 @@ balance is unchanged by the migration.
 |-----|---------|
 | `startingLives` | `20` |
 | `maxLifeLossPerLeak` | `5` |
-| `starThresholds.three` | `15` lives remaining |
+| `starThresholds.three` | `15` lives remaining (also needs under-time bonus for 3★) |
 | `starThresholds.two` | `8` lives remaining |
 
 Lowering thresholds makes 3★ easier; raising `startingLives` affects both difficulty and star distribution.
@@ -120,7 +120,7 @@ Use this when tuning waves or choosing towers. Tags map to `GameConfig.enemyThre
 
 | Tag | Examples | Counters |
 |-----|----------|----------|
-| flying | Parrot | Owl, Chicken (indirect) |
+| flying | Parrot | Owl (Chicken cannot hit flyers) |
 | fast | Horse, Zebra, Crocodile | Rabbit slow, Dog stun |
 | wallBreaker | Buffalo, Rhino | Pig Wall, high DPS |
 | split | Frog | AoE (Cat, Flower Bomb) |
@@ -181,8 +181,8 @@ Also top-level:
 
 | Key | Default |
 |-----|---------|
-| `prepPhaseSeconds` | 30 |
-| `waveCooldownSeconds` | 15 |
+| `prepPhaseSeconds` | 18 |
+| `waveCooldownSeconds` | 10 |
 | `bossWaveBonus` | +3 waves on final battle |
 | `endlessDifficultyScale` | 0.08 per endless wave |
 

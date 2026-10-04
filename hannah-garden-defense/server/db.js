@@ -52,6 +52,7 @@ const progressColumns = [
   ['zone_stars', "TEXT DEFAULT '{}'"],
   ['zone_battles', "TEXT DEFAULT '{}'"],
   ['tower_upgrades', "TEXT DEFAULT '{}'"],
+  ['collection_json', "TEXT DEFAULT '{}'"],
 ];
 for (const [name, definition] of progressColumns) {
   const exists = db.prepare(
