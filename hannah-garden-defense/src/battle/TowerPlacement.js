@@ -5,18 +5,58 @@ import { towerPlacementCost } from '../utils/battleEconomy.js';
 import { TILE, COLORS } from './battleConstants.js';
 import { isPointerOverBattleUI } from '../utils/battleInput.js';
 
+/** Lift the drop point above a fingertip so the tower lands where the kid is looking. */
+export const TOUCH_PLACE_LIFT_PX = 40;
+
+/**
+ * If the aimed tile is illegal, use the nearest valid neighbor (1 tile).
+ * Ties prefer the tile above the finger.
+ * @param {number} col
+ * @param {number} row
+ * @param {(row: number, col: number) => boolean} isValid
+ * @returns {{ col: number, row: number }}
+ */
+export function snapPlacementTile(col, row, isValid) {
+  if (isValid(row, col)) return { col, row };
+  let best = null;
+  let bestScore = Infinity;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const r = row + dr;
+      const c = col + dc;
+      if (!isValid(r, c)) continue;
+      const score = dr * dr + dc * dc;
+      const better = score < bestScore
+        || (score === bestScore && best && (r < best.row || (r === best.row && c < best.col)));
+      if (!best || better) {
+        bestScore = score;
+        best = { col: c, row: r };
+      }
+    }
+  }
+  return best || { col, row };
+}
+
 export class TowerPlacement {
   constructor(scene) {
     this.scene = scene;
   }
 
-  placementTileFromPointer(pointer) {
+  rawTileFromPointer(pointer) {
     const s = this.scene;
     const world = s.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const touch = !!(pointer?.wasTouch || s.sys?.game?.device?.input?.touch);
+    const y = touch ? world.y - TOUCH_PLACE_LIFT_PX : world.y;
     return {
       col: Math.floor(world.x / TILE),
-      row: Math.floor(world.y / TILE),
+      row: Math.floor(y / TILE),
     };
+  }
+
+  placementTileFromPointer(pointer) {
+    const raw = this.rawTileFromPointer(pointer);
+    return snapPlacementTile(raw.col, raw.row, (row, col) => this.isValidPlacement(row, col));
   }
 
   canAffordSelectedTower() {
@@ -109,7 +149,7 @@ export class TowerPlacement {
     this._onPointerDown = (pointer) => {
       if (s.paused && !s._tutorialActive) return;
       if (isPointerOverBattleUI(s.game, pointer)) return;
-      const { col, row } = this.placementTileFromPointer(pointer);
+      const { col, row } = this.rawTileFromPointer(pointer);
 
       if (pointer.rightButtonDown()) {
         const tower = s.towers.find(t => t.gridRow === row && t.gridCol === col);
@@ -297,6 +337,7 @@ export class TowerPlacement {
       scaleY: (TILE - 8) / sprite.height,
       duration: 200,
       ease: 'Back.easeOut',
+      onComplete: () => s.battleVfx?.startTowerIdle(tower),
     });
 
     this.spawnPlacementParticles(x, y);

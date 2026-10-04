@@ -11,9 +11,13 @@ import {
   TEXT_STROKE_THICK,
   TEXT_SOFT_SHADOW,
   FONT_HUD,
+  FONT_DISPLAY,
   readableHudStyle,
   readableCaptionStyle,
   crispUiStyle,
+  mapBodyStyle,
+  buttonTextStyle,
+  titleTextStyle,
   snapText,
   addCreamTextChip,
 } from '../src/utils/textReadability.js';
@@ -47,6 +51,12 @@ describe('text readability tokens', () => {
     expect(style).not.toHaveProperty('strokeThickness');
     expect(TEXT_SOFT_SHADOW.offsetY).toBeLessThanOrEqual(1);
     expect(TEXT_SOFT_SHADOW.blur).toBe(0);
+  });
+
+  it('map body and buttons use Future; Pixel is title-only', () => {
+    expect(mapBodyStyle('20px').fontFamily).toBe(FONT_HUD);
+    expect(buttonTextStyle('26px').fontFamily).toBe(FONT_HUD);
+    expect(titleTextStyle('36px').fontFamily).toBe(FONT_DISPLAY);
   });
 
   it('snapText rounds coordinates', () => {

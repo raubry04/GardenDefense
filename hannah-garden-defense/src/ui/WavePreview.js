@@ -26,6 +26,18 @@ export const THREAT_BADGE = {
  * @param {string} [tag]
  * @returns {string | null} the badge glyph, or null when unmapped/missing
  */
+/**
+ * One-line plan when the next wave needs a specific counter.
+ * @param {Record<string, number>} [enemies]
+ * @returns {string|null}
+ */
+export function wavePlanTip(enemies) {
+  const tags = GameConfig.enemyThreatTags || {};
+  const types = Object.keys(enemies || {});
+  if (types.some((t) => tags[t] === 'flying')) return 'Owls this wave!';
+  return null;
+}
+
 export function threatBadgeForTag(tag) {
   if (!tag) return null;
   return THREAT_BADGE[tag] ?? null;
@@ -54,7 +66,7 @@ export class WavePreview {
     const scene = this.scene;
     const y = this.hud._hudRow2Y - 28;
     this._label = scene.add.text(this._waveCenterX(), y, 'Next:', {
-      ...readableCaptionStyle('14px', TEXT_ON_LIGHT),
+      ...readableCaptionStyle('16px', TEXT_ON_LIGHT),
     }).setOrigin(0.5, 1).setDepth(HUD_DEPTH).setVisible(false);
   }
 
@@ -97,6 +109,14 @@ export class WavePreview {
         ...readableHudStyle('14px', TEXT_GOLD),
       }).setOrigin(0.5).setDepth(HUD_DEPTH);
       this._icons.push(overflowLabel);
+    }
+
+    const tip = wavePlanTip(preview.enemies);
+    if (tip) {
+      const tipText = this.scene.add.text(centerX, y + 16, tip, {
+        ...readableCaptionStyle('16px', TEXT_GOLD),
+      }).setOrigin(0.5, 0).setDepth(HUD_DEPTH);
+      this._icons.push(tipText);
     }
   }
 

@@ -35,6 +35,14 @@ describe('H1 clarity — flyer counter teaching', () => {
     expect(parrot?.text).toMatch(/only Owls can shoot/i);
     expect(owl?.text).toMatch(/flyer|Parrot/i);
     expect(chicken?.text).toMatch(/Cannot hit flying Parrots/i);
+    expect(GameConfig.enemyIntros.PARROT).toMatch(/Owl/i);
+    expect(GameConfig.enemyIntros.BEAR).toMatch(/Garden Rain/i);
+  });
+
+  it('first-battle place step does not teach Pig Walls before unlock', () => {
+    const src = read('src/data/tutorialContent.js');
+    const place = src.slice(src.indexOf("title: 'Place It'"), src.indexOf("title: 'Send the Wave'"));
+    expect(place).not.toMatch(/Pig Wall/i);
   });
 });
 

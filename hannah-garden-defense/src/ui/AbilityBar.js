@@ -378,6 +378,23 @@ export class AbilityBar {
     this._dismissAbilityTooltips();
   }
 
+  /** Soft pulse so kids notice Rain / Shield after a teach toast. */
+  spotlightAbility(key) {
+    const btn = this.abilityButtons?.find((b) => b.key === key);
+    if (!btn?.unlocked || !btn.circle?.active) return;
+    const scene = this.scene;
+    scene.tweens.killTweensOf([btn.circle, btn.label, btn.nameLabel].filter(Boolean));
+    scene.tweens.add({
+      targets: [btn.circle, btn.label, btn.nameLabel].filter(Boolean),
+      scaleX: 1.18,
+      scaleY: 1.18,
+      duration: 220,
+      yoyo: true,
+      repeat: 2,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
   _earlyBonusPoints() {
     return GameConfig.earlyWaveBonusPoints ?? 25;
   }

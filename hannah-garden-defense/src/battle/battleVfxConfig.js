@@ -14,10 +14,25 @@ const BURST_PRESETS = {
   death: { texture: 'particle_smoke', count: 6, lifespan: 400, speed: { min: 25, max: 70 }, alpha: { start: 0.95, end: 0 } },
   deathStar: { texture: 'particle_star', count: 3, lifespan: 320, speed: { min: 18, max: 55 }, alpha: { start: 1, end: 0 } },
   place: { texture: 'particle_magic', count: 8, lifespan: 380, speed: { min: 30, max: 80 }, alpha: { start: 0.95, end: 0 } },
-  gate: { texture: 'particle_flame', count: 10, lifespan: 450, speed: { min: 22, max: 65 }, alpha: { start: 1, end: 0 } },
+  gate: { texture: 'particle_flame', count: 14, lifespan: 520, speed: { min: 28, max: 80 }, alpha: { start: 1, end: 0 } },
+  armorHit: { texture: 'particle_slash', count: 4, lifespan: 220, speed: { min: 20, max: 55 }, alpha: { start: 0.9, end: 0 } },
   abilityStar: { texture: 'particle_star', count: 12, lifespan: 450, speed: { min: 35, max: 110 }, alpha: { start: 1, end: 0 } },
   abilityFlame: { texture: 'particle_flame', count: 8, lifespan: 380, speed: { min: 28, max: 80 }, alpha: { start: 1, end: 0 } },
 };
+
+/** Procedural motion — no spritesheets. bob/speed are sine params; flap/stretch are scale pulses. */
+export const ENEMY_MOTION = {
+  SNAKE: { bob: 4.5, speed: 0.012, stretch: 0.08 },
+  HORSE: { bob: 5.5, speed: 0.014, stretch: 0.1 },
+  PARROT: { bob: 9, speed: 0.01, flap: 0.1 },
+  default: { bob: 3, speed: 0.007 },
+};
+
+export const TOWER_IDLE_TYPES = new Set(['CHICKEN', 'OWL', 'RABBIT']);
+
+export function getEnemyMotion(type) {
+  return ENEMY_MOTION[type] || ENEMY_MOTION.default;
+}
 
 export function getProjectileStyle(towerType) {
   return PROJECTILE_MAP[towerType] ?? { texture: null, tint: 0xffd700, scale: 0.3 };

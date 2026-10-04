@@ -1,10 +1,11 @@
 import { GameConfig } from '../config.js';
 import { setupResponsiveCamera, DESIGN } from '../utils/responsiveCamera.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
-import { loadPlayerName } from '../utils/hannahProgress.js';
+import { loadPlayerName, loadLocalProgress, availableMetaBank } from '../utils/hannahProgress.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
-import { FONT_DISPLAY } from '../utils/textReadability.js';
+import { FONT_DISPLAY, FONT_HUD } from '../utils/textReadability.js';
 import { grantDefeatConsolation } from '../utils/defeatConsolation.js';
+import { defeatHint } from '../utils/progressMoments.js';
 
 const COLORS = GameConfig.colors;
 
@@ -31,6 +32,7 @@ export class GameOverScene extends Phaser.Scene {
     this.playerName = data.playerName
       || loadPlayerName()
       || 'Player';
+    this.battleNotes = data.battleNotes || {};
   }
 
   create() {
@@ -83,7 +85,7 @@ export class GameOverScene extends Phaser.Scene {
       : 'Endless Frontier';
 
     this.add.text(width / 2, 140, `${zoneName} — Battle ${this.battle + 1}`, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '20px',
       color: '#FFF9E6',
       wordWrap: { width: width * 0.8 },
@@ -91,7 +93,7 @@ export class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const subtitle = this.add.text(width / 2, 172, '', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '18px',
       color: '#A8DADC',
       wordWrap: { width: width * 0.75 },
@@ -158,7 +160,7 @@ export class GameOverScene extends Phaser.Scene {
     this.add.rectangle(width / 2, panelY - panelH / 2 + 4, panelW - 8, 3, COLORS.accent, 0.4);
 
     const waveLabel = this.add.text(width / 2, panelY - 40, `Wave Reached: ${this.waveReached}`, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '24px',
       color: '#3D5A1F',
     }).setOrigin(0.5).setAlpha(0);
@@ -168,7 +170,7 @@ export class GameOverScene extends Phaser.Scene {
       panelY - 8,
       `Consolation: +${xp} XP · +${sun} Sunshine`,
       {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '18px',
         color: '#2E5A1F',
         wordWrap: { width: panelW - 40 },
@@ -177,7 +179,7 @@ export class GameOverScene extends Phaser.Scene {
     ).setOrigin(0.5).setAlpha(0);
 
     const encourage = this.add.text(width / 2, panelY + 28, '🐥 Keep going — you\'ve got this!', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '17px',
       color: '#3D5A1F',
       wordWrap: { width: panelW - 40 },
@@ -200,7 +202,7 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   _drawHintBox(width, height) {
-    const hint = Phaser.Math.RND.pick(GAMEPLAY_HINTS);
+    const hint = defeatHint({ ...this.battleNotes, zone: this.zone }, GAMEPLAY_HINTS);
     const boxW = Math.min(520, width * 0.85);
     const boxH = 96;
     const boxY = height - 200;
@@ -210,13 +212,13 @@ export class GameOverScene extends Phaser.Scene {
       .setStrokeStyle(2, COLORS.stars);
 
     this.add.text(width / 2, boxY - boxH / 2 + 18, '💡 TIP', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '16px',
       color: '#FFE135',
     }).setOrigin(0.5);
 
     this.add.text(width / 2, boxY - boxH / 2 + 38, hint, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '15px',
       color: '#3D5A1F',
       wordWrap: { width: boxW - 48 },
@@ -301,6 +303,19 @@ export class GameOverScene extends Phaser.Scene {
       this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
       this.scene.start('WorldMapScene', { playerName: this.playerName });
     });
+
+    const bank = availableMetaBank(loadLocalProgress(this.playerName));
+    if (bank > 0) {
+      this._createButton(width / 2, btnY - 72, '⬆️ UPGRADES', () => {
+        this.sound.play('buttonClick', { volume: GameConfig.audio.sfxVolume });
+        this.scene.start('UpgradeScene', {
+          playerName: this.playerName,
+          zone: this.zone,
+          battle: this.battle,
+          nudge: defeatHint({ ...this.battleNotes, zone: this.zone }, []),
+        });
+      });
+    }
   }
 
   _createButton(x, y, label, callback) {
@@ -310,7 +325,7 @@ export class GameOverScene extends Phaser.Scene {
       .setStrokeStyle(3, COLORS.outline);
 
     const text = this.add.text(x, y, label, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '20px',
       color: '#4A2C0A',
     }).setOrigin(0.5);

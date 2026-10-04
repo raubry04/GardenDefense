@@ -7,7 +7,6 @@ import {
   TEXT_ON_LIGHT,
   TEXT_ON_DARK,
   TEXT_GOLD,
-  FONT_DISPLAY,
   FONT_HUD,
   crispUiStyle,
   snapText,
@@ -18,6 +17,7 @@ import { showToast } from '../ui/Toast.js';
 import { isExtraModesUnlocked, extraModesLockMessage } from '../utils/modesUnlock.js';
 import { albumProgress, skinInfo, normalizeCollection } from '../utils/collection.js';
 import { dailyChallengeParams } from '../utils/dailyChallenge.js';
+import { consumeWhatsNew } from '../utils/progressMoments.js';
 
 const COLORS = GameConfig.colors;
 const ZONES = GameConfig.zones;
@@ -49,12 +49,20 @@ export class WorldMapScene extends Phaser.Scene {
     // bars never paint over it (children added later sit on top by default).
     this._placeBackButton(width, height);
 
+    const announce = () => {
+      if (this._announcedNew || !this.scene.isActive('WorldMapScene')) return;
+      this._announcedNew = true;
+      const msg = consumeWhatsNew(this.progress);
+      if (msg) showToast(this, msg, 3200);
+    };
+
     loadProgress(this.playerName).then((synced) => {
       if (!this.scene.isActive('WorldMapScene')) return;
       this.progress = synced;
       this._rebuildProgressUi(width, height);
       this._placeBackButton(width, height);
-    }).catch(() => { /* local fallback already loaded */ });
+      announce();
+    }).catch(() => announce());
   }
 
   _placeBackButton(width, height) {
@@ -241,14 +249,14 @@ export class WorldMapScene extends Phaser.Scene {
       if (unlocked) {
         // Cream fill + thin dark shadow on green bars — never cream stroke (smears Pixel).
         this.add.text(width / 2 - zoneWidth / 2 + 50, y - 22, `${zoneEmojis[i]} Zone ${i + 1}`, {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '24px',
           color: '#FFF9E6',
         }).setOrigin(0, 0.5).setShadow(0, 2, '#1c3a0e', 3).setDepth(uiDepth + 2);
 
         this.add.text(width / 2 - zoneWidth / 2 + 50, y + 0,
           ZONES[i].seasonal ? `${ZONES[i].name} · Season` : ZONES[i].name, {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '20px',
           color: '#FFF9E6',
           alpha: 1,
@@ -261,7 +269,7 @@ export class WorldMapScene extends Phaser.Scene {
         // Chick mascot lives outside the bar, so stars can use the full right edge.
         const starRight = width / 2 + zoneWidth / 2 - 24;
         const countText = this.add.text(starRight, y - 4, `${stars}/${maxStars}`, {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '22px',
           color: '#FFE135',
         }).setOrigin(1, 0.5).setShadow(0, 2, '#1c3a0e', 3).setDepth(uiDepth + 2);
@@ -282,7 +290,7 @@ export class WorldMapScene extends Phaser.Scene {
           this.add.text(width / 2 - zoneWidth / 2 + 50, y + 26,
             `${remaining} star${remaining === 1 ? '' : 's'} to perfect this zone`,
             {
-              fontFamily: FONT_DISPLAY,
+              fontFamily: FONT_HUD,
               fontSize: '20px',
               color: '#FFE135',
               alpha: 1,
@@ -291,7 +299,7 @@ export class WorldMapScene extends Phaser.Scene {
           const badge = GameConfig.zoneMasteryBadges?.[i];
           if (badge) {
             this.add.text(width / 2 - zoneWidth / 2 + 50, y + 26, `🏅 ${badge}`, {
-              fontFamily: FONT_DISPLAY,
+              fontFamily: FONT_HUD,
               fontSize: '20px',
               color: '#FFD700',
             }).setOrigin(0, 0.5).setShadow(0, 2, '#1c3a0e', 3).setDepth(uiDepth + 2);
@@ -323,13 +331,13 @@ export class WorldMapScene extends Phaser.Scene {
         });
       } else {
         this.add.text(width / 2 - zoneWidth / 2 + 50, y, `Zone ${i + 1}: ${ZONES[i].name}`, {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '20px',
           color: LOCKED_LABEL,
         }).setOrigin(0, 0.5).setShadow(0, 1, '#000000', 3).setDepth(uiDepth + 2);
 
         this.add.text(width / 2 + zoneWidth / 2 - 24, y, 'LOCK', {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '18px',
           color: '#FFD700',
         }).setOrigin(1, 0.5).setShadow(0, 1, '#1c3a0e', 3).setDepth(uiDepth + 2);
@@ -345,7 +353,7 @@ export class WorldMapScene extends Phaser.Scene {
       endlessUnlocked ? 0x6A1B9A : 0x5A4A3A, endlessUnlocked, uiDepth + 1);
 
     this.add.text(width / 2, endlessY, endlessUnlocked ? 'Endless Frontier' : 'Endless Frontier (locked)', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '26px',
       color: endlessUnlocked ? '#FFD700' : LOCKED_LABEL,
     }).setOrigin(0.5).setShadow(0, 1, '#000000', 3).setDepth(uiDepth + 2);
@@ -370,7 +378,7 @@ export class WorldMapScene extends Phaser.Scene {
       endlessUnlocked ? 0x1565C0 : 0x5A4A3A, endlessUnlocked, uiDepth + 1);
 
     this.add.text(width / 2, dailyY - 14, endlessUnlocked ? 'Daily Challenge' : 'Daily Challenge (locked)', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '26px',
       color: endlessUnlocked ? '#FFF9E6' : LOCKED_LABEL,
     }).setOrigin(0.5).setShadow(0, 1, '#000000', 3).setDepth(uiDepth + 2);
@@ -381,7 +389,7 @@ export class WorldMapScene extends Phaser.Scene {
       });
       const dailyZoneName = GameConfig.zones[daily.zone]?.name ?? 'Garden';
       this.add.text(width / 2, dailyY + 16, `${dailyZoneName} · B${daily.battle + 1}`, {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '18px',
         color: '#A8DADC',
       }).setOrigin(0.5).setDepth(uiDepth + 2);
@@ -488,7 +496,7 @@ export class WorldMapScene extends Phaser.Scene {
       .setDepth(25);
     // Light fill on blue chip — no cream stroke (crushes Pixel at chip size).
     this.add.text(x, y - 10, 'Album', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '22px',
       color: '#FFF9E6',
     }).setOrigin(0.5).setShadow(0, 1, '#0d2a4a', 2).setDepth(26);
@@ -524,7 +532,7 @@ export class WorldMapScene extends Phaser.Scene {
     objects.push(panel);
 
     const title = this.add.text(width / 2, height / 2 - panelH / 2 + 30, zone.name, {
-      fontFamily: FONT_DISPLAY, fontSize: '26px', color: '#3D5A1F',
+      fontFamily: FONT_HUD, fontSize: '26px', color: '#3D5A1F',
     }).setOrigin(0.5).setDepth(302);
     objects.push(title);
 
@@ -546,7 +554,7 @@ export class WorldMapScene extends Phaser.Scene {
 
       const label = isBoss && unlocked ? '👑' : `${b + 1}`;
       const btnLabel = this.add.text(bx, btnY - 12, label, {
-        fontFamily: FONT_DISPLAY, fontSize: isBoss ? '20px' : '22px',
+        fontFamily: FONT_HUD, fontSize: isBoss ? '20px' : '22px',
         color: unlocked ? '#4A2C0A' : '#F0F0F0',
       }).setOrigin(0.5).setDepth(303);
       objects.push(btnLabel);
@@ -555,7 +563,7 @@ export class WorldMapScene extends Phaser.Scene {
         ? '★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars))
         : '☆☆☆';
       const starText = this.add.text(bx, btnY + 20, starStr, {
-        fontFamily: FONT_DISPLAY, fontSize: '16px',
+        fontFamily: FONT_HUD, fontSize: '16px',
         color: stars > 0 ? '#FFE135' : (unlocked ? '#666666' : '#C8C8C8'),
       }).setOrigin(0.5).setDepth(303);
       objects.push(starText);
@@ -574,7 +582,7 @@ export class WorldMapScene extends Phaser.Scene {
           repeat: -1,
         });
         const chaseLabel = this.add.text(bx, btnY - 40, 'Chase ★', {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '14px',
           color: '#FFE135',
         }).setOrigin(0.5).setDepth(303);
@@ -602,7 +610,7 @@ export class WorldMapScene extends Phaser.Scene {
     const closeBg = this.add.rectangle(width / 2, height / 2 + panelH / 2 - 32, 128, 40, 0xE63946)
       .setStrokeStyle(2, COLORS.outline).setInteractive({ useHandCursor: true }).setDepth(302);
     const closeText = this.add.text(width / 2, height / 2 + panelH / 2 - 32, 'CLOSE', {
-      fontFamily: FONT_DISPLAY, fontSize: '18px', color: '#FFFFFF',
+      fontFamily: FONT_HUD, fontSize: '18px', color: '#FFFFFF',
     }).setOrigin(0.5).setDepth(303);
     objects.push(closeBg, closeText);
 
@@ -631,7 +639,7 @@ export class WorldMapScene extends Phaser.Scene {
       .setDepth(depth + 1);
 
     const text = this.add.text(x, y, label, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '22px',
       color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(depth + 2);

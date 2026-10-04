@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { THREAT_BADGE, threatBadgeForTag } from '../src/ui/WavePreview.js';
+import { THREAT_BADGE, threatBadgeForTag, wavePlanTip } from '../src/ui/WavePreview.js';
 import { GameConfig } from '../src/config.js';
 
 describe('WavePreview threat badges', () => {
@@ -22,6 +22,11 @@ describe('WavePreview threat badges', () => {
   it('resolves the raw enemy-config prop spellings as aliases', () => {
     expect(threatBadgeForTag('splitsInto')).toBe(THREAT_BADGE.split);
     expect(threatBadgeForTag('immuneToSlow')).toBe(THREAT_BADGE.immuneSlow);
+  });
+
+  it('tells kids to use Owls when the next wave has flyers', () => {
+    expect(wavePlanTip({ PARROT: 2, SNAKE: 1 })).toBe('Owls this wave!');
+    expect(wavePlanTip({ SNAKE: 3 })).toBeNull();
   });
 
   it('returns null for unknown or missing tags', () => {

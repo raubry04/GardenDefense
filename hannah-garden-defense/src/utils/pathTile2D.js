@@ -111,20 +111,14 @@ export function buildCanvasMapData(zone, cols, rows, tileSize = 64, opts = {}) {
           localRow >= 0 &&
           localRow < layout.gridH;
 
-        if (!insideBaseLayout && expandPlayable) {
+        // The designed garden is the playfield. Tiles that look like lawn but
+        // were "too far" from the path used to reject placement with no visual cue.
+        if (insideBaseLayout || expandPlayable) {
           grid[r][c] = 'grass';
           continue;
         }
 
-        let nearPath = false;
-        for (const coord of shiftedPathCoords) {
-          const dist = Math.abs(coord.x - c) + Math.abs(coord.z - r);
-          if (dist >= 1 && dist <= 2) {
-            nearPath = true;
-            break;
-          }
-        }
-        grid[r][c] = nearPath ? 'grass' : 'blocked';
+        grid[r][c] = 'blocked';
       }
     }
   }

@@ -102,7 +102,10 @@ export function titleTextStyle(fontSize = '36px', color = TEXT_GARDEN) {
   };
 }
 
-/** Body / map header labels — Future stays clearer than Pixel at fractional zoom. */
+/**
+ * Body / map / gameplay labels — Future stays clearer than Pixel at fractional zoom.
+ * Pixel (`titleTextStyle`) is for scene titles ~32px and up only.
+ */
 export function bodyTextStyle(fontSize = '22px', color = TEXT_ON_LIGHT) {
   return {
     fontFamily: FONT_HUD,
@@ -117,9 +120,14 @@ export function crispUiStyle(fontSize = '22px', color = TEXT_ON_LIGHT) {
   return bodyTextStyle(fontSize, color);
 }
 
+/** Map / menu body on colored bars (no cream stroke — chips or hard shadow only). */
+export function mapBodyStyle(fontSize = '22px', color = TEXT_ON_LIGHT) {
+  return bodyTextStyle(fontSize, color);
+}
+
 export function buttonTextStyle(fontSize = '26px') {
   return {
-    fontFamily: FONT_DISPLAY,
+    fontFamily: FONT_HUD,
     fontSize,
     color: TEXT_ON_LIGHT,
     shadow: { offsetX: 1, offsetY: 1, color: '#C47F00', blur: 0, fill: true },

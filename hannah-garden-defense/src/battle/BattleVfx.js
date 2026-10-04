@@ -1,6 +1,6 @@
 import { GameConfig } from '../config.js';
 import { COLORS, TILE } from './battleConstants.js';
-import { getProjectileStyle, getBurstPreset, shouldUseVfx } from './battleVfxConfig.js';
+import { getProjectileStyle, getBurstPreset, shouldUseVfx, getEnemyMotion, TOWER_IDLE_TYPES } from './battleVfxConfig.js';
 
 export class BattleVfx {
   constructor(scene) {
@@ -68,6 +68,23 @@ export class BattleVfx {
 
   burstGate(x, y) {
     this.burst('gate', x, y, 8);
+    this.burst('abilityFlame', x, y, 8);
+  }
+
+  /** Idle breathe for key towers. Call after the place-in tween settles. */
+  startTowerIdle(tower) {
+    if (!tower?.sprite || !TOWER_IDLE_TYPES.has(tower.type)) return;
+    const spr = tower.sprite;
+    const baseY = spr.scaleY || 1;
+    this.scene.tweens.add({
+      targets: spr,
+      scaleY: baseY * 1.06,
+      duration: tower.type === 'OWL' ? 700 : 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+      delay: 220,
+    });
   }
 
   _ensureAoERingPool() {
@@ -181,7 +198,7 @@ export class BattleVfx {
       return null;
     }
     const txt = this.scene.add.text(0, 0, '', {
-      fontFamily: 'Kenney Pixel',
+      fontFamily: 'Kenney Future',
       fontSize: '16px',
       stroke: '#000000',
       strokeThickness: 2,
@@ -270,13 +287,26 @@ export class BattleVfx {
   }
 
   updateEnemyMotionFx(enemy, delta) {
-    this._bobPhase += delta * 0.008;
-    if (enemy.sprite?.active && enemy.stunTimer <= 0) {
-      const bob = Math.sin(this._bobPhase + (enemy.bobOffset ?? 0)) * 3;
+    const prof = getEnemyMotion(enemy.type);
+    if (enemy.sprite?.active && enemy.stunTimer <= 0 && enemy.alive !== false) {
+      enemy.motionPhase = (enemy.motionPhase ?? enemy.bobOffset ?? 0) + delta * prof.speed;
+      const bob = Math.sin(enemy.motionPhase) * prof.bob;
       enemy.sprite.y = enemy.y + bob;
+      if (enemy._motionBaseSX == null) {
+        enemy._motionBaseSX = enemy.sprite.scaleX;
+        enemy._motionBaseSY = enemy.sprite.scaleY;
+      }
+      const pulse = prof.flap
+        ? (1 + Math.sin(enemy.motionPhase * 2) * prof.flap)
+        : (prof.stretch ? (1 + Math.sin(enemy.motionPhase * 2) * prof.stretch) : 1);
+      if (pulse !== 1 && enemy._motionBaseSX) {
+        enemy.sprite.scaleX = enemy._motionBaseSX * (prof.stretch ? pulse : 1);
+        enemy.sprite.scaleY = enemy._motionBaseSY * (prof.flap ? pulse : (prof.stretch ? (2 - pulse) : 1));
+      }
     }
     if (enemy.shadowSprite?.active) {
-      enemy.shadowSprite.setPosition(enemy.x, enemy.y + 10);
+      const lift = enemy.type === 'PARROT' ? 14 : 10;
+      enemy.shadowSprite.setPosition(enemy.x, enemy.y + lift);
     }
     if (enemy.eliteAura?.active) {
       enemy.eliteAura.setPosition(enemy.x, enemy.y);

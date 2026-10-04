@@ -2,6 +2,7 @@ import { GameConfig } from '../config.js';
 import { sfxVol } from '../utils/audioMix.js';
 import { playSfxSafe } from '../utils/SceneMusicManager.js';
 import { TILE } from './battleConstants.js';
+import { markTeachSeen, TEACH_COPY } from '../utils/enemyTeach.js';
 import { updateEnemyStatusFx, updateStatusRing } from './EnemyStatusFx.js';
 
 export class EnemyBehavior {
@@ -137,7 +138,7 @@ export class EnemyBehavior {
             enemy.attackTimer = (enemy.attackTimer || 0) + delta;
             if (enemy.attackTimer >= 1000) {
               enemy.attackTimer = 0;
-              this.damageTower(nearestTower, GameConfig.enemies.BEAR.towerDmg || 15);
+              this.damageTower(nearestTower, GameConfig.enemies.BEAR.towerDmg || 15, 'BEAR');
             }
           } else {
             const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, nearestTower.x, nearestTower.y);
@@ -213,6 +214,8 @@ export class EnemyBehavior {
 
     s.cameras.main.shake(120, 0.004);
 
+    if (enemy.flies && s.battleNotes) s.battleNotes.flyerLeaks += 1;
+
     const last = s.waypoints[s.waypoints.length - 1];
     s.battleVfx?.burstGate(last.x, last.y);
 
@@ -233,6 +236,7 @@ export class EnemyBehavior {
         zone: s.zone,
         battle: s.battle,
         playerName: s.playerName,
+        battleNotes: s.battleNotes || {},
       });
     }
   }
@@ -246,11 +250,21 @@ export class EnemyBehavior {
     playSfxSafe(s, 'invalidAction', { volume: sfxVol('invalidAction') });
   }
 
-  damageTower(tower, damage) {
+  damageTower(tower, damage, sourceType) {
     const s = this.scene;
     if (tower.shielded) return;
     tower.hp -= damage;
     s.towerCombat.showFloatingDamage(tower.x, tower.y - 20, damage);
+
+    if (sourceType === 'BEAR' && s.battleNotes) s.battleNotes.bearHits += 1;
+
+    if (sourceType === 'BEAR' && markTeachSeen('BEAR_SMASH')) {
+      s.game.events.emit('teach-moment', {
+        id: 'BEAR_SMASH',
+        message: TEACH_COPY.BEAR_SMASH,
+        ability: 'GARDEN_RAIN',
+      });
+    }
 
     if (tower.hp <= 0) this.destroyTower(tower);
   }

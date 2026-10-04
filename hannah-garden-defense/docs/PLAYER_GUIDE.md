@@ -83,9 +83,9 @@ Wait for the circle to fill before using a power again.
 | **Snake** | Easy — good for learning |
 | **Frog** | Splits into two Snakes when defeated |
 | **Gorilla** | Very fast; Rabbits can't slow it — use Dogs or damage |
-| **Parrot** | Flies over walls — only Owls can shoot them! |
+| **Parrot** | Flies over walls — place an Owl! |
 | **Monkey** | Might steal some of your Sunshine Points |
-| **Bear** | Walks off the path to smash your towers |
+| **Bear** | Walks off the path to smash your towers — tap Garden Rain |
 | **Elephant** | Huge and armored — Chickens don't hurt it; use Owls and friends |
 | **Cow** | Slow but sturdy (Vegetable Garden) |
 | **Horse** | Super fast! (Chicken Coop) |

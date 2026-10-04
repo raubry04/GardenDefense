@@ -36,7 +36,7 @@ function _showToastNow(scene, message, durationMs, state) {
 
   const toast = scene.add
     .text(width / 2, y, message, {
-      ...readableHudStyle('18px', TEXT_ON_LIGHT),
+      ...readableHudStyle('20px', TEXT_ON_LIGHT),
       wordWrap: { width: Math.min(420, width - 48) },
       align: 'center',
     })

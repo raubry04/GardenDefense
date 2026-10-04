@@ -16,7 +16,7 @@ import {
 } from '../utils/collection.js';
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
-import { FONT_DISPLAY } from '../utils/textReadability.js';
+import { FONT_DISPLAY, FONT_HUD } from '../utils/textReadability.js';
 import {
   VICTORY_UI_DEPTH,
   burstVictoryConfetti,
@@ -29,6 +29,7 @@ import {
   dailyChestReward,
   hasClaimedDailyChest,
 } from '../utils/dailyChallenge.js';
+import { upgradeNudge } from '../utils/progressMoments.js';
 
 const COLORS = GameConfig.colors;
 const UI_DEPTH = VICTORY_UI_DEPTH;
@@ -53,6 +54,8 @@ export class VictoryScene extends Phaser.Scene {
     this.wallBroken = !!data.wallBroken;
     this.elapsedMs = data.elapsedMs ?? 0;
     this.waveCount = data.waveCount ?? 1;
+    this.battleNotes = data.battleNotes || {};
+    this.upgradeHint = upgradeNudge({ ...this.battleNotes, zone: this.zone });
     const progress = loadLocalProgress(this.playerName);
     this.prevStars = progress.battleStars?.[this.zone]?.[this.battle] ?? 0;
   }
@@ -110,7 +113,7 @@ export class VictoryScene extends Phaser.Scene {
       : `Battle ${this.battle + 1} Complete!`;
 
     this.add.text(width / 2, 132, `${zoneName} — ${battleLabel}`, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '22px',
       color: '#FFF9E6',
       wordWrap: { width: width * 0.85 },
@@ -123,6 +126,7 @@ export class VictoryScene extends Phaser.Scene {
     this._saveProgress(stars);
     this._animatePoints(width, 300, stars);
     this._showCollectionCallouts(width, 300);
+    this._showUpgradeNudge(width, 340);
     this._postScore(stars);
     this._createButtons(width, height);
   }
@@ -131,7 +135,7 @@ export class VictoryScene extends Phaser.Scene {
     const delta = stars - (this.prevStars ?? 0);
     if (delta > 0) {
       const bonus = this.add.text(width / 2, starY + 48, `+${delta} ★`, {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '28px',
         color: '#FFE135',
         stroke: '#3D5A1F',
@@ -156,7 +160,7 @@ export class VictoryScene extends Phaser.Scene {
       const replayHint = this.add.text(width / 2, starY + (delta > 0 ? 74 : 48),
         `Chase 3★: ${need}+ hearts & ${bonusHint.replace(/!$/, '').toLowerCase()}`,
         {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '18px',
           color: '#A8DADC',
           wordWrap: { width: width * 0.8 },
@@ -170,6 +174,17 @@ export class VictoryScene extends Phaser.Scene {
         delay: 2000,
       });
     }
+  }
+
+  _showUpgradeNudge(width, y) {
+    if (!this.upgradeHint) return;
+    this.add.text(width / 2, y, this.upgradeHint, {
+      fontFamily: FONT_HUD,
+      fontSize: '18px',
+      color: '#4A2C0A',
+      wordWrap: { width: width * 0.8 },
+      align: 'center',
+    }).setOrigin(0.5).setDepth(UI_DEPTH);
   }
 
   _drawBackground(width, height) {
@@ -268,7 +283,7 @@ export class VictoryScene extends Phaser.Scene {
 
     // Deposit beat: stars above = rating; sunshine icon + count = spendable bank.
     this.add.text(width / 2, y, depositLabel, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '20px',
       color: '#FFF9E6',
     }).setOrigin(0.5).setDepth(UI_DEPTH);
@@ -286,7 +301,7 @@ export class VictoryScene extends Phaser.Scene {
     }
 
     const pointsValue = this.add.text(valueX, y + 40, '0', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '34px',
       color: '#FFD700',
     }).setOrigin(0, 0.5).setDepth(UI_DEPTH);
@@ -294,7 +309,7 @@ export class VictoryScene extends Phaser.Scene {
     this.add.text(width / 2, y + 78, isDaily
       ? 'Come back tomorrow for a new map & chest!'
       : 'Stars = rating · Sunshine = spend on Upgrades', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '15px',
       color: '#A8DADC',
       wordWrap: { width: width * 0.85 },
@@ -416,7 +431,7 @@ export class VictoryScene extends Phaser.Scene {
     const y = pointsY + 108;
     lines.forEach((line, i) => {
       const t = this.add.text(width / 2, y + i * 22, line, {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '16px',
         color: '#FFE135',
         wordWrap: { width: width * 0.85 },
@@ -468,6 +483,7 @@ export class VictoryScene extends Phaser.Scene {
         battle: this.battle,
         prevHannahLevel: this.prevHannahLevel,
         hannahLevel: saved.hannahLevel,
+        nudge: this.upgradeHint,
       });
     }, btnW);
 
@@ -487,7 +503,7 @@ export class VictoryScene extends Phaser.Scene {
       .setDepth(UI_DEPTH);
 
     const text = this.add.text(x, y, label, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '22px',
       color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(UI_DEPTH + 1);

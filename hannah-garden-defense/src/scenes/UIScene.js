@@ -8,6 +8,7 @@ import { AbilityBar } from "../ui/AbilityBar.js";
 import { WavePreview } from "../ui/WavePreview.js";
 import { showToast, clearToastQueue } from "../ui/Toast.js";
 import { levelUpUnlockMessage, unlocksAtLevel } from "../utils/hannahProgress.js";
+import { markTeachSeen, TEACH_COPY } from "../utils/enemyTeach.js";
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -61,6 +62,8 @@ export class UIScene extends Phaser.Scene {
       this.scene.bringToTop();
     };
     this.game.events.on("viewport-relayout", this._bringUiAboveWorld);
+
+    this.time.delayedCall(1200, () => this._maybeTeachPigWall());
 
     this.tutorial = new TutorialManager(this, { zone: this.zone, battle: this.battle });
     this.time.delayedCall(400, () => this.tutorial.start());
@@ -120,6 +123,23 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on(event, handler);
   }
 
+  _maybeTeachPigWall() {
+    if (!this.sys?.isActive?.()) return;
+    const unlock = GameConfig.towers?.PIG_WALL?.unlock;
+    if (!unlock || unlock.type !== 'zone') return;
+    if (this.zone + 1 < unlock.value) return;
+    if (!markTeachSeen('PIG_WALL')) return;
+    showToast(this, TEACH_COPY.PIG_WALL, 2800);
+    this.tray?.spotlightTower?.('PIG_WALL');
+  }
+
+  _onTeachMoment(data) {
+    if (!data?.message || !this.sys?.isActive?.()) return;
+    showToast(this, data.message, 2800);
+    if (data.spotlight) this.tray?.spotlightTower?.(data.spotlight);
+    if (data.ability) this.abilityBar?.spotlightAbility?.(data.ability);
+  }
+
   _celebrateLevelUp(level) {
     const unlock = levelUpUnlockMessage(level);
     const message = unlock
@@ -150,6 +170,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   _setupEventListeners() {
+    this._on("teach-moment", (data) => this._onTeachMoment(data));
+
     this._on("lives-changed", (data) => {
       const prevLives = this.lives;
       this.lives = data.lives;

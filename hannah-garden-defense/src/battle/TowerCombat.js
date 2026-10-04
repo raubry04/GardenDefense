@@ -2,6 +2,7 @@ import { GameConfig } from '../config.js';
 import { sfxVol } from '../utils/audioMix.js';
 import { TOWER_SPRITES, ENEMY_SPRITES } from '../utils/AssetRegistry.js';
 import { hannahLevelFromXp } from '../utils/hannahProgress.js';
+import { firstSeenEnemyTeach, markTeachSeen, TEACH_COPY } from '../utils/enemyTeach.js';
 import { updateEnemyStatusFx } from './EnemyStatusFx.js';
 import { TILE, COLORS } from './battleConstants.js';
 import { isBattleTerminal } from './battleTerminal.js';
@@ -118,6 +119,7 @@ export class TowerCombat {
         }
       } else {
         let target = null;
+        let skippedFlyer = false;
         const inRange = this._getEnemiesInRange(tower, tower.range);
         if (tower.type === 'OWL') {
           const gate = s.waypoints?.[s.waypoints.length - 1];
@@ -125,7 +127,10 @@ export class TowerCombat {
         } else {
           let closestDist = tower.range;
           for (const enemy of inRange) {
-            if (tower.type === 'CHICKEN' && enemy.flies) continue;
+            if (tower.type === 'CHICKEN' && enemy.flies) {
+              skippedFlyer = true;
+              continue;
+            }
             if (tower.type === 'CHICKEN' && GameConfig.enemies[enemy.type]?.armored) continue;
             const dist = Phaser.Math.Distance.Between(tower.x, tower.y, enemy.x, enemy.y);
             if (dist <= closestDist) {
@@ -136,10 +141,27 @@ export class TowerCombat {
         }
         if (target) {
           tower.lastFired = time;
+          tower._lastTargetX = target.x;
           this.fireTower(tower, target);
+        } else if (skippedFlyer) {
+          this._hintNeedsOwl(tower);
         }
       }
     }
+  }
+
+  /** Kid feedback when Chicken is near a flyer it cannot hit. */
+  _hintNeedsOwl(tower) {
+    const s = this.scene;
+    const now = s.time?.now ?? 0;
+    if (now - (s._needsOwlAt ?? 0) < 4000) return;
+    s._needsOwlAt = now;
+    s.game.events.emit('teach-moment', {
+      id: 'NEEDS_OWL',
+      message: TEACH_COPY.NEEDS_OWL,
+      spotlight: 'OWL',
+      repeatable: true,
+    });
   }
 
   fireAoETower(tower, targets) {
@@ -257,13 +279,19 @@ export class TowerCombat {
     if (!spr?.width || !spr?.height) return;
     const baseX = (TILE - 8) / spr.width;
     const baseY = (TILE - 8) / spr.height;
+    const lean = tower._lastTargetX == null ? 0 : (tower._lastTargetX >= tower.x ? 5 : -5);
+    const homeX = tower.x;
     s.tweens.add({
       targets: spr,
       scaleX: baseX * 0.85,
-      scaleY: baseY * 0.85,
-      duration: 40,
+      scaleY: baseY * 0.92,
+      x: homeX + lean,
+      duration: 50,
       yoyo: true,
       ease: 'Power1',
+      onComplete: () => {
+        if (spr.active) spr.x = homeX;
+      },
     });
   }
 
@@ -347,7 +375,11 @@ export class TowerCombat {
 
     this.flashEnemyRed(enemy);
     s.battleVfx?.enemyHitFlash(enemy);
-    s.battleVfx?.burstHit(enemy.x, enemy.y);
+    if (GameConfig.enemies[enemy.type]?.armored) {
+      s.battleVfx?.burst('armorHit', enemy.x, enemy.y);
+    } else {
+      s.battleVfx?.burstHit(enemy.x, enemy.y);
+    }
     s.battleVfx?.squashSprite(enemy.sprite);
     if (s.battleVfx) {
       s.battleVfx.showFloatingDamage(enemy.x, enemy.y - TILE / 2, damage);
@@ -386,7 +418,7 @@ export class TowerCombat {
   showFloatingDamage(x, y, damage) {
     const s = this.scene;
     const txt = s.add.text(x, y, `-${damage}`, {
-      fontFamily: 'Kenney Pixel',
+      fontFamily: 'Kenney Future',
       fontSize: '16px',
       color: '#E63946',
       fontStyle: 'bold',
@@ -410,15 +442,18 @@ export class TowerCombat {
     const ex = enemy.x;
     const ey = enemy.y;
 
+    const keyDeath = enemy.type === 'PARROT' || enemy.type === 'SNAKE' || enemy.type === 'HORSE';
     s.tweens.add({
       targets: enemy.sprite,
       scaleX: 0, scaleY: 0,
-      duration: 200,
+      alpha: 0,
+      duration: keyDeath ? 320 : 200,
       ease: 'Power2',
       onComplete: () => {
         enemy.sprite.destroy();
       },
     });
+    if (keyDeath) s.battleVfx?.burst('deathStar', ex, ey);
 
     enemy.hpBar.destroy();
     enemy.hpBarBg.destroy();
@@ -604,11 +639,16 @@ export class TowerCombat {
 
     if (!s._seenEnemyTypes.has(type)) {
       s._seenEnemyTypes.add(type);
-      const intro = isBossType && bossDef?.telegraph
-        ? bossDef.telegraph
-        : GameConfig.enemyIntros?.[type];
-      if (intro) {
-        s.towerPlacement.showFloatingText(start.x, start.y - 36, intro, '#FFD700');
+      const teach = firstSeenEnemyTeach(type);
+      if (teach && markTeachSeen(teach.id)) {
+        s.game.events.emit('teach-moment', teach);
+      } else if (!teach) {
+        const intro = isBossType && bossDef?.telegraph
+          ? bossDef.telegraph
+          : GameConfig.enemyIntros?.[type];
+        if (intro && markTeachSeen(`intro:${type}`)) {
+          s.towerPlacement.showFloatingText(start.x, start.y - 36, intro, '#FFD700');
+        }
       }
     }
   }

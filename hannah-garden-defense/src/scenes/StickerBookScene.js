@@ -21,7 +21,7 @@ import {
 import { SceneMusicManager } from '../utils/SceneMusicManager.js';
 import { decorateGardenBackdrop } from '../utils/gardenBackdrop.js';
 import {
-  FONT_DISPLAY,
+  FONT_HUD,
   TEXT_ON_DARK,
   crispUiStyle,
   snapText,
@@ -110,7 +110,7 @@ export class StickerBookScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
         .setDepth(12);
       this.add.text(x, y, tab.label, {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '20px',
         color: on ? '#4A2C0A' : TEXT_ON_DARK,
       }).setOrigin(0.5).setDepth(13);
@@ -131,7 +131,7 @@ export class StickerBookScene extends Phaser.Scene {
     const originX = width / 2 - gridW / 2 + cellW / 2;
 
     this.add.text(width / 2, startY, 'Win a battle to get a sticker. Get 3★ to make it shiny!', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '18px',
       color: '#FFF9E6',
       wordWrap: { width: width * 0.85 },
@@ -155,21 +155,21 @@ export class StickerBookScene extends Phaser.Scene {
           .setDepth(11);
       } else {
         this.add.text(x, y - 10, entry.unlocked ? '✓' : '?', {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '28px',
           color: entry.unlocked ? '#4C9A2A' : '#888888',
         }).setOrigin(0.5).setDepth(11);
       }
 
       this.add.text(x, y + 28, entry.unlocked ? entry.label : '???', {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '16px',
         color: entry.unlocked ? '#3D5A1F' : '#CCCCCC',
       }).setOrigin(0.5).setDepth(11);
 
       if (entry.stars >= 3) {
         this.add.text(x + cellW / 2 - 18, y - cellH / 2 + 14, '★', {
-          fontFamily: FONT_DISPLAY,
+          fontFamily: FONT_HUD,
           fontSize: '16px',
           color: '#FFE135',
         }).setOrigin(0.5).setDepth(12);
@@ -189,7 +189,7 @@ export class StickerBookScene extends Phaser.Scene {
   _drawSkins(width, height, startY) {
     const col = normalizeCollection(this.progress.collection);
     this.add.text(width / 2, startY, 'Perfect a zone (3★ all battles) to unlock costumes!', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '18px',
       color: '#FFF9E6',
       wordWrap: { width: width * 0.85 },
@@ -216,13 +216,13 @@ export class StickerBookScene extends Phaser.Scene {
       }
 
       this.add.text(width / 2 - 100, y, `${info.emoji} ${info.label}`, {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '20px',
         color: unlocked ? (equipped ? '#FFF9E6' : '#3D5A1F') : '#AAAAAA',
       }).setOrigin(0, 0.5).setDepth(11);
 
       this.add.text(width / 2 + 150, y, unlocked ? (equipped ? 'ON' : 'TAP') : 'LOCK', {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '18px',
         color: unlocked ? '#FFD700' : '#888888',
       }).setOrigin(0.5).setDepth(11);
@@ -242,7 +242,7 @@ export class StickerBookScene extends Phaser.Scene {
     if (col.mapProps.length) {
       const propY = startY + 60 + skins.length * 72 + 20;
       this.add.text(width / 2, propY, `Map props unlocked: ${col.mapProps.length}`, {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '18px',
         color: '#A8DADC',
       }).setOrigin(0.5).setDepth(10);
@@ -255,7 +255,7 @@ export class StickerBookScene extends Phaser.Scene {
     const selected = resolveBonusAbility(this.progress.collection, level);
 
     this.add.text(width / 2, startY, 'Pick your bonus power for battles!', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '20px',
       color: '#FFF9E6',
       wordWrap: { width: width * 0.85 },
@@ -263,7 +263,7 @@ export class StickerBookScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     this.add.text(width / 2, startY + 30, 'Burst, Rain & Shield are always ready.', {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '18px',
       color: '#A8DADC',
     }).setOrigin(0.5).setDepth(10);
@@ -280,7 +280,7 @@ export class StickerBookScene extends Phaser.Scene {
         .setDepth(10);
 
       this.add.text(width / 2, y - 22, cfg?.label || key, {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '24px',
         color: isUnlocked ? (isOn ? '#FFF9E6' : '#3D5A1F') : '#AAAAAA',
       }).setOrigin(0.5).setDepth(11);
@@ -288,7 +288,7 @@ export class StickerBookScene extends Phaser.Scene {
       this.add.text(width / 2, y + 16, isUnlocked
         ? (cfg?.description || '')
         : `Unlocks at Hannah Level ${cfg?.unlockLevel ?? '?'}`, {
-        fontFamily: FONT_DISPLAY,
+        fontFamily: FONT_HUD,
         fontSize: '18px',
         color: isUnlocked ? (isOn ? '#A8DADC' : '#5A6A4A') : '#888888',
         wordWrap: { width: Math.min(420, width - 80) },
@@ -315,7 +315,7 @@ export class StickerBookScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .setDepth(20);
     this.add.text(x, y, label, {
-      fontFamily: FONT_DISPLAY,
+      fontFamily: FONT_HUD,
       fontSize: '22px',
       color: '#4A2C0A',
     }).setOrigin(0.5).setDepth(21);

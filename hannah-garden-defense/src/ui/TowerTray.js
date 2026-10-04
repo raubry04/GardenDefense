@@ -566,7 +566,15 @@ export class TowerTray {
     }
 
     this.scene.game.events.emit("tower-drag-end", pointer);
-    this.clearSelection();
+    const gameScene = this.scene.game.scene.getScene('GameScene');
+    if (gameScene?._lastPlacementOk) {
+      this.clearSelection();
+      return;
+    }
+    // Missed tile: keep the defender selected so the next tap can place it.
+    this._towerTapMode = true;
+    this.selectedTowerType = drag.type;
+    this._updateTowerSelection();
   }
 
   onBoardTap(pointer) {
@@ -575,7 +583,7 @@ export class TowerTray {
 
     const gameScene = this.scene.game.scene.getScene('GameScene');
     if (gameScene?.towerPlacement && gameScene.towerInspect) {
-      const { col, row } = gameScene.towerPlacement.placementTileFromPointer(pointer);
+      const { col, row } = gameScene.towerPlacement.rawTileFromPointer(pointer);
       const tower = gameScene.towerInspect.towerAt(col, row);
       if (tower) {
         if (gameScene.towerInspect.isOpen() && gameScene.towerInspect.tower === tower) {

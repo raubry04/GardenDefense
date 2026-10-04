@@ -16,7 +16,7 @@ export const TUTORIAL_BASICS = [
   },
   {
     title: 'Place It',
-    text: 'Drop or tap green grass to place your defender. Pig Walls go on the path!',
+    text: 'Drop or tap green grass to place your defender.',
     target: 'validTile',
     requireAction: 'place-tower',
     imageKey: 'rabbit',

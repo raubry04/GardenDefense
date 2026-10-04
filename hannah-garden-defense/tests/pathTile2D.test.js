@@ -25,6 +25,25 @@ describe('buildCanvasMapData', () => {
     expect(Object.keys(pathTileMap).length).toBe(pathCells);
   });
 
+  it('lets you place anywhere inside the garden, not only beside the path', () => {
+    const map = buildCanvasMapData(0, 20, 12, 64, { centerLayout: true });
+    let interiorBlocked = 0;
+    let interiorGrass = 0;
+    for (let r = 0; r < map.rows; r++) {
+      for (let c = 0; c < map.cols; c++) {
+        const localCol = c - map.colOffset;
+        const localRow = r - map.rowOffset;
+        const inside = localCol >= 0 && localCol < map.layout.gridW
+          && localRow >= 0 && localRow < map.layout.gridH;
+        if (!inside || map.grid[r][c] === 'path') continue;
+        if (map.grid[r][c] === 'blocked') interiorBlocked += 1;
+        if (map.grid[r][c] === 'grass') interiorGrass += 1;
+      }
+    }
+    expect(interiorBlocked).toBe(0);
+    expect(interiorGrass).toBeGreaterThan(10);
+  });
+
   it('bottomReserveRows lifts path waypoints above the tray band', () => {
     const cols = 20;
     const rows = 14;

@@ -288,7 +288,7 @@ export const GameConfig = {
     },
     windSpeedMult: 1.18,
     nightTint: 0x1a2848,
-    nightTintAlpha: 0.22,
+    nightTintAlpha: 0.32,
     flyersHeavyFromWaveFraction: 0.4,
     flyerTypes: ['PARROT'],
   },
@@ -374,24 +374,24 @@ export const GameConfig = {
     COW: 'Cows are slow but tough!',
     HORSE: 'Horses are blisteringly fast!',
     BUFFALO: 'Buffalo charge through Pig Walls!',
-    PARROT: 'Parrots fly over ground towers!',
+    PARROT: 'Parrots fly — only Owls can shoot them!',
     RHINO: 'Rhinos shrug off stuns and smash Pig Walls!',
     HIPPO: 'Hippos soak up tons of damage!',
     CROCODILE: 'Crocodiles lurk, then sprint at the gate!',
     ZEBRA: 'Zebras run in pairs — double trouble!',
-    BEAR: 'Bears leave the path to smash towers!',
+    BEAR: 'Bears smash towers — use Garden Rain!',
     MONKEY: 'Monkeys may steal Sunshine when hit!',
     ELEPHANT: 'Elephant boss — armored and stompy!',
   },
 
   /** Per-zone map decoration prop keys (craftpixTiles CRAFTPIX_PROPS). */
   zonePropPools: {
-    0: ['treeSmall', 'treeMedium', 'bushSmall', 'bushMedium', 'bushLarge', 'flag', 'fenceHorizontal', 'woodenBarrel'],
-    1: ['treeMedium', 'treeLarge', 'bushMedium', 'bushLarge', 'windmill', 'woodenBarrel', 'fenceHorizontal'],
-    2: ['treeLarge', 'bushLarge', 'well', 'campfire', 'tent', 'woodenCart', 'flag'],
-    3: ['bushLarge', 'treeMedium', 'treasureChest', 'flag', 'blueBanner', 'fenceHorizontal', 'woodenBarrel'],
-    4: ['castleRound', 'watchtowerTall', 'bridgeHorizontal', 'treeLarge', 'flag', 'redBanner', 'tent'],
-    5: ['woodenCart', 'treasureChest', 'flag', 'redBanner', 'blueBanner', 'bushLarge', 'windmill', 'campfire'],
+    0: ['treeSmall', 'bushSmall', 'bushMedium', 'flag', 'fenceHorizontal', 'fenceVertical', 'woodenBarrel'],
+    1: ['windmill', 'woodenBarrel', 'bushMedium', 'rock1', 'rock2', 'fenceHorizontal'],
+    2: ['well', 'campfire', 'tent', 'woodenCart', 'flag', 'fenceVertical'],
+    3: ['treasureChest', 'blueBanner', 'redBanner', 'bushLarge', 'rock3', 'rock4'],
+    4: ['castleRound', 'watchtowerTall', 'bridgeHorizontal', 'redBanner', 'treeLarge', 'magicStoneTower'],
+    5: ['woodenCart', 'treasureChest', 'windmill', 'redBanner', 'blueBanner', 'campfire', 'flag'],
   },
 
   /** Replay modifier when battle has fewer than 3 stars (Chase ★). */
@@ -516,6 +516,12 @@ export const GameConfig = {
     0xffe0c0, // harvest festival amber
     0xd8e8ff, // endless twilight
   ],
+
+  /** Overlay strength — distinct per zone without washing out path tiles. */
+  zoneMoodAlpha: [0.08, 0.11, 0.1, 0.13, 0.12, 0.15, 0.14],
+
+  /** Gate banner tint so each garden reads differently at a glance. */
+  zoneGateTints: [0xffe135, 0x7dce6a, 0xffb347, 0xc39bd3, 0xe07a5f, 0xf4a261, 0x9bb7d4],
 
   colors: {
     primary: 0xFFD700,

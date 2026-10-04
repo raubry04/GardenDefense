@@ -69,6 +69,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.fadeIn(300);
     SceneMusicManager.transition(this, 'battle');
     this.lives = GameConfig.startingLives;
+    this.battleNotes = { flyerLeaks: 0, bearHits: 0 };
     this._defeatHandled = false;
     this._battleEnded = false;
     this.wallBroken = false;
@@ -126,6 +127,7 @@ export class GameScene extends Phaser.Scene {
     this._drawTileMap();
     this._drawPathEdgeDecals();
     this._drawZoneMoodOverlay();
+    this._spawnModifierAmbience();
     this._drawGardenGate();
     this._drawEnemySpawnMarker();
     this._createLivesWarningOverlay();
@@ -240,8 +242,10 @@ export class GameScene extends Phaser.Scene {
         }
 
         const grassKey = GRASS_TILES[((r + c) % GRASS_TILES.length + GRASS_TILES.length) % GRASS_TILES.length];
-        this.add.image(cx, cy, grassKey)
+        const grass = this.add.image(cx, cy, grassKey)
           .setDisplaySize(TILE, TILE).setDepth(0);
+        // Outside the garden: same tiles, visibly dim so they don't look placeable.
+        if (type === 'blocked') grass.setTint(0x4e6738);
 
         if (type !== 'grass') continue;
 
@@ -382,6 +386,36 @@ export class GameScene extends Phaser.Scene {
     return img;
   }
 
+  /** Light sparkle/leaf drift for night and wind modifiers (fixed count, not per-frame bursts). */
+  _spawnModifierAmbience() {
+    const mods = this.battleModifiers;
+    if (!mods?.nightTint && !mods?.wind) return;
+    const key = mods.nightTint && this.textures.exists('particle_star')
+      ? 'particle_star'
+      : (this.textures.exists('particle_sparkle') ? 'particle_sparkle' : null);
+    if (!key) return;
+    const count = mods.nightTint ? 12 : 8;
+    for (let i = 0; i < count; i++) {
+      const x = Phaser.Math.Between(40, this.worldWidth - 40);
+      const y = Phaser.Math.Between(40, this.worldHeight - 40);
+      const p = this.add.image(x, y, key)
+        .setDisplaySize(mods.nightTint ? 10 : 8, mods.nightTint ? 10 : 8)
+        .setAlpha(mods.nightTint ? 0.55 : 0.4)
+        .setDepth(6)
+        .setTint(mods.nightTint ? 0xd8e8ff : 0xc8e6a0);
+      this.tweens.add({
+        targets: p,
+        x: x + (mods.wind ? 90 : 24),
+        y: y + (mods.nightTint ? -28 : 36),
+        alpha: { from: 0.15, to: mods.nightTint ? 0.7 : 0.45 },
+        duration: 3200 + i * 180,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+  }
+
   /* ─── Garden gate ─── */
 
   _drawZoneMoodOverlay() {
@@ -406,7 +440,7 @@ export class GameScene extends Phaser.Scene {
     this.add.rectangle(
       this.worldWidth / 2, this.worldHeight / 2,
       this.worldWidth, this.worldHeight,
-      color, 0.06,
+      color, GameConfig.zoneMoodAlpha?.[this.zone] ?? 0.1,
     ).setDepth(moodDepth).setScrollFactor(1);
   }
 
@@ -432,9 +466,11 @@ export class GameScene extends Phaser.Scene {
         .setDisplaySize(TILE * 0.85, TILE * 0.55)
         .setDepth(12);
     }
+    const gateTint = GameConfig.zoneGateTints?.[this.zone] ?? 0xffd700;
     if (this.textures.exists('cp_blueBanner')) {
       this.add.image(gx, gy - TILE * 0.35, 'cp_blueBanner')
         .setDisplaySize(TILE * 0.7, TILE * 0.9)
+        .setTint(gateTint)
         .setDepth(14);
     } else if (this.textures.exists('cp_house')) {
       this.add.image(gx, gy - 8, 'cp_house')
@@ -449,7 +485,7 @@ export class GameScene extends Phaser.Scene {
         .setDepth(15);
     }
 
-    const glow = this.add.circle(gx, gy, TILE * 0.6, 0xFFD700, 0.06)
+    const glow = this.add.circle(gx, gy, TILE * 0.6, gateTint, 0.08)
       .setDepth(11);
     this.tweens.add({
       targets: glow,
@@ -562,6 +598,7 @@ export class GameScene extends Phaser.Scene {
           wallBroken: !!this.wallBroken,
           elapsedMs: this.battleElapsedMs,
           waveCount: this.waveManager?.getTotalWaves?.() ?? 1,
+          battleNotes: this.battleNotes || {},
         });
       });
     });
@@ -602,9 +639,10 @@ export class GameScene extends Phaser.Scene {
   };
 
   _onTowerDragEnd = (pointer) => {
+    this._lastPlacementOk = false;
     if (!this.selectedTower || !pointer) return;
-    this.towerPlacement.handleTowerPlacement(pointer);
-    this.towerPlacement.clearTowerSelection();
+    this._lastPlacementOk = !!this.towerPlacement.handleTowerPlacement(pointer);
+    if (this._lastPlacementOk) this.towerPlacement.clearTowerSelection();
   };
 
   _onTowerDragCancel = () => {
